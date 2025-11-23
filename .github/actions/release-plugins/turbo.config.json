@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "pluxel:build": {
+      "cache": true,
+      "outputs": ["dist/**"]
+    },
+    "pluxel:publish": {
+      "dependsOn": ["pluxel:build"],
+      "cache": false,
+      "outputs": []
+    }
+  }
+}

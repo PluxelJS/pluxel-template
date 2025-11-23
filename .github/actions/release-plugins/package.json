@@ -1,0 +1,22 @@
+{
+	"name": "@pluxel/release-action",
+	"private": true,
+	"main": "./index.mjs",
+	"license": "UNLICENSED",
+	"scripts": {
+		"build": "tsdown"
+	},
+	"devDependencies": {
+		"@actions/core": "^1.11.1",
+		"@actions/exec": "^1.1.1",
+		"@types/node": "^24.10.1",
+		"tinyglobby": "^0.2.15",
+		"tsdown": "^0.16.6"
+	},
+	"module": "./index.mjs",
+	"types": "./index.d.mts",
+	"exports": {
+		".": "./index.mjs",
+		"./package.json": "./package.json"
+	}
+}

@@ -1,0 +1,16 @@
+{
+  "segments": [
+    ".git",
+    ".github",
+    ".turbo",
+    ".idea",
+    "node_modules",
+    ".wrangler",
+    ".next",
+    ".cache",
+    "dist",
+    ".pluxel",
+    "turbo.json",
+    "turbo.jsonc"
+  ]
+}

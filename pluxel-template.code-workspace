@@ -1,0 +1,31 @@
+{
+	"folders": [
+		{
+			"name": "🌱  pluxel-template",
+			"path": "."
+		},
+		{
+			"name": "chatbots",
+			"path": "chatbots"
+		}
+	],
+	"settings": {
+		"ColorfulMonorepo.workspaces.collection": [
+			{
+				"path": "/home/ahdg/code/pluxel-template",
+				"packageName": "pluxel-template",
+				"label": "🌱  pluxel-template",
+				"foreground": "#ffffff",
+				"background": "#3846bf"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/chatbots",
+				"packageName": "chatbots",
+				"label": "chatbots",
+				"foreground": "#ffffff",
+				"background": "#f4227d"
+			}
+		],
+		"files.exclude": {}
+	}
+}

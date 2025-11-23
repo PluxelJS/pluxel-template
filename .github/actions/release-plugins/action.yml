@@ -1,0 +1,41 @@
+name: Publish Pluxel Plugins
+description: Hydrate the Pluxel runtime in CI and delegate publishing to @pluxel/cli (OIDC-only; provenance on for public repos/packages, off for private).
+author: Pluxel
+inputs:
+  npm-registry:
+    description: Registry URL used for installs and publish
+    required: false
+    default: https://registry.npmjs.org/
+  npm-access:
+    description: Publish access (public or restricted)
+    required: false
+    default: public
+  runtime-directory:
+    description: Path (relative to workspace) to place the hydrated runtime workspace
+    required: false
+    default: .pluxel/runtime
+  base-path:
+    description: Custom path to the pluxel-runtime repository to hydrate from
+    required: false
+  package-roots:
+    description: Comma or newline separated folders to overlay from the caller workspace (auto-detects top-level folders containing package.json; falls back to packages or repository root)
+    required: false
+  pnpm-install-args:
+    description: Additional pnpm install arguments (appended after --no-frozen-lockfile)
+    required: false
+    default: --prefer-offline
+  dry-run:
+    description: Plan without running npm publish
+    required: false
+    default: 'false'
+outputs:
+  published-count:
+    description: Number of packages published during this run
+  published:
+    description: JSON array describing each published package
+runs:
+  using: node24
+  main: index.mjs
+branding:
+  color: purple
+  icon: package

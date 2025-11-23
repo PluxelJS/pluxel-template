@@ -1,0 +1,48 @@
+name: Setup Pluxel Toolchain
+description: Install Node.js, pnpm, and Bun toolchains with caching for Pluxel builds.
+author: Pluxel
+inputs:
+  node-version:
+    description: Node.js version to install
+    default: 'lts/*'
+  pnpm-version:
+    description: pnpm version to install
+    default: 'latest'
+  bun-version:
+    description: Bun version to install
+    default: '1.3.3'
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+        run_install: false
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        check-latest: true
+        # Don't use cache: pnpm here because:
+        # 1. The actual pnpm install runs in .pluxel/runtime, not the checkout directory
+        # 2. Caller workspace (chatbots) may not have a pnpm-lock.yaml
+        # 3. The runtime directory is hydrated dynamically from pluxel-template
+
+    - name: Enable Corepack and export pnpm path
+      shell: bash
+      run: |
+        corepack enable
+        # Ensure pnpm is in PATH for subsequent actions
+        PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+        echo "PNPM_HOME=$PNPM_HOME" >> $GITHUB_ENV
+        echo "$PNPM_HOME" >> $GITHUB_PATH
+        # Verify pnpm is accessible
+        which pnpm || echo "Warning: pnpm not found in PATH"
+        pnpm --version || echo "Warning: pnpm command failed"
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}

@@ -1,0 +1,4 @@
+{
+  "build": "pluxel build --debug",
+  "publish": "pluxel publish --access {access} --verbose --webhook"
+}
