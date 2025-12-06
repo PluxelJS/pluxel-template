@@ -1,7 +1,6 @@
 packages:
   - packages/**
   - chatbots/*
-nodeLinker: hoisted
 onlyBuiltDependencies:
   - esbuild
   - msgpackr-extract

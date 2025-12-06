@@ -12,18 +12,25 @@
 		"feat": "pluxel new plugin features"
 	},
 	"dependencies": {
-		"@pluxel/cli": "^0.2.6",
-		"@pluxel/core": "^0.2.0",
-		"@pluxel/hmr": "^0.2.2"
+		"@gqty/react": "^3.1.1",
+		"@pluxel/cli": "^0.2.12",
+		"@pluxel/core": "^0.2.10",
+		"@pluxel/hmr": "link:../plugin-style-ts/packages/hmr"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.7",
+		"@biomejs/biome": "^2.3.8",
+		"@mantine/core": "^8.3.9",
+		"@mantine/hooks": "^8.3.9",
+		"@mantine/modals": "^8.3.9",
 		"@repobuddy/biome": "^2.1.0",
-		"@types/react": "^19.2.6",
+		"@tabler/icons-react": "^3.35.0",
+		"@types/react": "^19.2.7",
 		"@types/react-dom": "^19.2.3",
-		"tsdown": "^0.16.6",
-		"turbo": "^2.6.1",
+		"react": "^19.2.1",
+		"react-dom": "^19.2.1",
+		"tsdown": "0.17.0",
+		"turbo": "^2.6.3",
 		"typescript": "^5.9.3"
 	},
-	"packageManager": "pnpm@10.23.0+sha512.21c4e5698002ade97e4efe8b8b4a89a8de3c85a37919f957e7a0f30f38fbc5bbdd05980ffe29179b2fb6e6e691242e098d945d1601772cad0fef5fb6411e2a4b"
+	"packageManager": "pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a"
 }

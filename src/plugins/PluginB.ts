@@ -1,11 +1,10 @@
 import { BasePlugin, Plugin } from '@pluxel/hmr'
-// PluginB.ts
-import { PluginC } from './PluginC'
 
-@Plugin({ name: 'PluginB' })
+@Plugin({ name: 'PluginB', type: 'hook' })
 export class PluginB extends BasePlugin {
 	init(): void {
-		this.ctx.logger.info('PluginB initialized')
+		this.ctx.logger.info('PluginBa initialized')
+		throw new Error('aaaabb')
 	}
 
 	doSomething(): void {

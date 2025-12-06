@@ -1,0 +1,29 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-websocket",
+	"version": "0.1.0",
+	"description": "WebSocket 管理插件，提供可回收的 WS 连接与封装。",
+	"type": "module",
+	"main": "./src/websocket.ts",
+	"files": [
+		"dist",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build"
+	},
+	"dependencies": {
+		"ws": "^8.18.3"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/websocket.mjs",
+			"./package.json": "./package.json"
+		},
+		"access": "public",
+		"provenance": true
+	},
+	"devDependencies": {
+		"@types/ws": "^8.18.1"
+	}
+}

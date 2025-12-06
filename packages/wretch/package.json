@@ -1,0 +1,35 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-wretch",
+	"version": "0.1.4",
+	"description": "Wretch 插件。",
+	"main": "./src/wretch.ts",
+	"files": [
+		"dist",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build"
+	},
+	"peerDependencies": {},
+	"dependencies": {
+		"wretch": "^3.0.2"
+	},
+	"module": "./src/wretch.ts",
+	"types": "./dist/wretch.d.mts",
+	"exports": {
+		".": {
+			"@pluxel/hmr": "./src/wretch.ts",
+			"default": "./dist/wretch.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/wretch.mjs",
+			"./package.json": "./package.json"
+		},
+		"access": "public",
+		"provenance": true
+	}
+}

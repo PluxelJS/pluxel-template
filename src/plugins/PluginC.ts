@@ -1,5 +1,6 @@
-import { v, BasePlugin, Plugin } from '@pluxel/hmr'
-// biome-ignore lint/correctness/noUnusedImports: <explanation>
+import { BasePlugin, Plugin } from '@pluxel/hmr'
+import {v} from '@pluxel/hmr/config'
+
 @Plugin({ name: 'PluginC', type: 'hook' })
 export class PluginC extends BasePlugin {
 	init(): void {
@@ -7,11 +8,10 @@ export class PluginC extends BasePlugin {
 
 		const graphService = this.ctx.graphql
 		const { resolver, query } = graphService.factory
-		const helloResolver = resolver({
+		const _helloResolver = resolver({
 			hello: query(v.string())
 				.input({ name: v.nullish(v.string(), 'World') })
 				.resolve(({ name }) => `Hello, ${name}!`),
 		})
-		graphService.useModule(helloResolver)
 	}
 }
