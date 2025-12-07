@@ -1,0 +1,21 @@
+{
+  "$schema": "https://market.pluxel.dev/schema/package.json",
+  "name": "pluxel-plugin-meme-bot",
+  "description": "这是一个示例插件",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "main": "./src/meme-bot.ts",
+  "scripts": {
+    "build": "pluxel build"
+  },
+  "peerDependencies": {
+    "pluxel-plugin-font-manager": "workspace:^",
+    "pluxel-plugin-napi-rs": "workspace:^",
+    "pluxel-plugin-telegram": "workspace:^"
+  },
+  "devDependencies": {}
+}

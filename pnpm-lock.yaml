@@ -117,7 +117,11 @@ importers:
         specifier: workspace:^
         version: link:../../packages/napi-rs
 
-  plugin/font-manager: {}
+  plugin/font-manager:
+    dependencies:
+      pluxel-plugin-napi-rs:
+        specifier: workspace:^
+        version: link:../../packages/napi-rs
 
   plugin/leafui:
     dependencies:
@@ -131,6 +135,18 @@ importers:
       pluxel-plugin-napi-rs:
         specifier: workspace:^
         version: link:../../packages/napi-rs
+
+  plugin/meme-bot:
+    dependencies:
+      pluxel-plugin-font-manager:
+        specifier: workspace:^
+        version: link:../font-manager
+      pluxel-plugin-napi-rs:
+        specifier: workspace:^
+        version: link:../../packages/napi-rs
+      pluxel-plugin-telegram:
+        specifier: workspace:^
+        version: link:../../chatbots/telegram
 
 packages:
 
