@@ -1,6 +1,7 @@
 packages:
-  - packages/**
-  - chatbots/*
+  - packages/*
+  - plugin/*
+  - chatbots/**
 onlyBuiltDependencies:
   - esbuild
   - msgpackr-extract

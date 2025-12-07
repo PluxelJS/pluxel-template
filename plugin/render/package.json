@@ -1,0 +1,24 @@
+{
+  "$schema": "https://market.pluxel.dev/schema/package.json",
+  "name": "pluxel-plugin-render",
+  "description": "这是一个示例插件",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "main": "./src/render.ts",
+  "scripts": {
+    "build": "pluxel build"
+  },
+  "peerDependencies": {
+    "pluxel-plugin-napi-rs": "workspace:^"
+  },
+  "dependencies": {
+    "@leafer-ui/node": "^1.11.2"
+  },
+  "devDependencies": {
+    "pluxel-plugin-napi-rs": "workspace:^"
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "name": "@napi-rs/pinyin",
+  "version": "1.7.7",
+  "description": "Fastest Chinese words to pinyin library",
+  "main": "index.js",
+  "repository": "git@github.com:Brooooooklyn/pinyin.git",
+  "license": "MIT",
+  "keywords": [
+    "napi-rs",
+    "NAPI",
+    "N-API",
+    "Rust",
+    "node-addon",
+    "node-addon-api",
+    "pinyin",
+    "jieba",
+    "拼音",
+    "汉语",
+    "汉字",
+    "中文"
+  ],
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "src/**",
+    "build.rs",
+    "Cargo.toml",
+    "postinstall.mjs"
+  ],
+  "napi": {
+    "binaryName": "pinyin",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "x86_64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "armv7-unknown-linux-gnueabihf",
+      "x86_64-unknown-linux-musl",
+      "i686-pc-windows-msvc",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-apple-darwin",
+      "aarch64-linux-android",
+      "x86_64-unknown-freebsd",
+      "aarch64-pc-windows-msvc",
+      "aarch64-unknown-linux-musl",
+      "armv7-linux-androideabi",
+      "powerpc64le-unknown-linux-gnu",
+      "s390x-unknown-linux-gnu",
+      "riscv64gc-unknown-linux-gnu",
+      "aarch64-unknown-linux-ohos",
+      "wasm32-wasip1-threads"
+    ]
+  },
+  "engines": {
+    "node": ">= 10.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "format": "run-p format:md format:json format:yaml format:source format:rs",
+    "format:md": "prettier --parser markdown --write \"./**/*.md\"",
+    "format:json": "prettier --parser json --write \"./**/*.json\"",
+    "format:rs": "cargo fmt",
+    "format:source": "prettier --config ./package.json --write \"./**/*.{js,ts}\"",
+    "format:yaml": "prettier --parser yaml --write \"./**/*.{yml,yaml}\"",
+    "lint": "oxlint",
+    "preversion": "napi build --platform && git add .",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "ava",
+    "version": "napi version && conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md",
+    "postpublish": "pinst --enable"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.2.0",
+    "@oxc-node/core": "^0.0.32",
+    "@types/node": "^24.3.1",
+    "@types/pinyin": "^2.10.2",
+    "ava": "^6.4.1",
+    "conventional-changelog-cli": "^5.0.0",
+    "eslint": "^9.35.0",
+    "husky": "9",
+    "lint-staged": "^16.1.6",
+    "nodejieba": "^3.5.2",
+    "npm-run-all2": "^8.0.4",
+    "oxlint": "^1.14.0",
+    "pinst": "^3.0.0",
+    "pinyin": "^4.0.0",
+    "pinyin-pro": "^3.27.0",
+    "prettier": "^3.6.2",
+    "tinybench": "^5.0.1",
+    "typescript": "^5.9.2"
+  },
+  "lint-staged": {
+    "*.@(js|ts|tsx)": [
+      "prettier --write",
+      "eslint -c .eslintrc.yml --fix"
+    ],
+    "*.@(yml|yaml)": [
+      "prettier --parser yaml --write"
+    ],
+    "*.md": [
+      "prettier --parser markdown --write"
+    ],
+    "*.json": [
+      "prettier --parser json --write"
+    ]
+  },
+  "ava": {
+    "nodeArguments": [
+      "--import",
+      "@oxc-node/core/register"
+    ],
+    "extensions": {
+      "ts": "module"
+    },
+    "timeout": "1m",
+    "environmentVariables": {
+      "TS_NODE_PROJECT": "./tsconfig.json"
+    }
+  },
+  "prettier": {
+    "printWidth": 120,
+    "semi": false,
+    "trailingComma": "all",
+    "singleQuote": true,
+    "arrowParens": "always",
+    "parser": "typescript"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/Brooooooklyn"
+  },
+  "packageManager": "yarn@4.9.4",
+  "optionalDependencies": {
+    "@napi-rs/pinyin-win32-x64-msvc": "1.7.7",
+    "@napi-rs/pinyin-darwin-x64": "1.7.7",
+    "@napi-rs/pinyin-linux-x64-gnu": "1.7.7",
+    "@napi-rs/pinyin-linux-arm-gnueabihf": "1.7.7",
+    "@napi-rs/pinyin-linux-x64-musl": "1.7.7",
+    "@napi-rs/pinyin-win32-ia32-msvc": "1.7.7",
+    "@napi-rs/pinyin-linux-arm64-gnu": "1.7.7",
+    "@napi-rs/pinyin-darwin-arm64": "1.7.7",
+    "@napi-rs/pinyin-android-arm64": "1.7.7",
+    "@napi-rs/pinyin-freebsd-x64": "1.7.7",
+    "@napi-rs/pinyin-win32-arm64-msvc": "1.7.7",
+    "@napi-rs/pinyin-linux-arm64-musl": "1.7.7",
+    "@napi-rs/pinyin-android-arm-eabi": "1.7.7",
+    "@napi-rs/pinyin-linux-ppc64-gnu": "1.7.7",
+    "@napi-rs/pinyin-linux-s390x-gnu": "1.7.7",
+    "@napi-rs/pinyin-linux-riscv64-gnu": "1.7.7",
+    "@napi-rs/pinyin-openharmony-arm64": "1.7.7",
+    "@napi-rs/pinyin-wasm32-wasi": "1.7.7"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "pluxel-plugin-napi-rs",
+  "version": "0.1.0",
+  "description": "napi-rs runtime downloader shim with generated bindings (canvas by default).",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "vendor.manifest.json",
+    "*__*",
+    "!**/*.map"
+  ],
+  "scripts": {
+    "build": "tsdown --config tsdown.config.ts",
+    "vendor": "node ./dist/cli.mjs"
+  },
+  "bin": {
+    "pluxel-napi-rs": "./dist/cli.mjs"
+  },
+  "dependencies": {
+    "modern-tar": "^0.7.2"
+  },
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./cli": "./dist/cli.mjs",
+    "./manifest": "./vendor.manifest.json",
+    "./canvas": "./napi-rs__canvas/index.js",
+    "./pinyin": "./napi-rs__pinyin/index.js",
+    "./jieba": "./node-rs__jieba/index.js",
+    "./meme-generator": "./memecrafters__meme-generator/index.js",
+    "./package.json": "./package.json",
+    "./napi_rs": "./dist/cli.mjs"
+  }
+}
