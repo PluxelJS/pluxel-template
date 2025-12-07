@@ -1,0 +1,31 @@
+{
+  "$schema": "https://market.pluxel.dev/schema/package.json",
+  "name": "pluxel-plugin-font-manager",
+	"description": "这是一个示例插件",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "ui",
+    "!**/*.map"
+  ],
+  "main": "./src/font-manager.ts",
+  "scripts": {
+    "build": "pluxel build"
+  },
+  "peerDependencies": {
+    "@pluxel/hmr": "workspace:^",
+    "pluxel-plugin-napi-rs": "workspace:^",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@mantine/core": "^7.12.1",
+    "@mantine/hooks": "^7.12.1",
+    "@pluxel/hmr": "workspace:^",
+    "@tabler/icons-react": "^3.12.0",
+    "pluxel-plugin-napi-rs": "workspace:^",
+    "react": "^18",
+    "react-dom": "^18"
+  }
+}

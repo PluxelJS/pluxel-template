@@ -1,10 +1,12 @@
 import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
-import { Leafer, Rect, useCanvas } from '@leafer-ui/node'
+import { Leafer, Rect, Text, useCanvas } from '@leafer-ui/node'
 import * as skia from 'pluxel-plugin-napi-rs/canvas'
+import FontManager from 'pluxel-plugin-font-manager'
 
 const CfgSchema = v.object({
   test: v.optional(v.boolean(), true),
+  fontKey: v.optional(v.string(), 'sans'),
 })
 
 let canvasRegistered = false
@@ -22,10 +24,14 @@ function patchCanvasBackend(canvasLib: any) {
   }
 }
 
-@Plugin({ name: 'pluxel-plugin-render' })
-export class Render extends BasePlugin {
+@Plugin({ name: 'LeafUI' })
+export class LeafUI extends BasePlugin {
   @Config(CfgSchema)
   private config!: Config<typeof CfgSchema>
+
+  constructor(private readonly fontManager: FontManager) {
+    super()
+  }
 
   async init(_abort: AbortSignal): Promise<void> {
     if (!canvasRegistered) {
@@ -40,6 +46,19 @@ export class Render extends BasePlugin {
 
         const leafer = new Leafer({ width: 800, height: 600 })
         leafer.add(Rect.one({ fill: '#32cd79' }, 100, 100))
+        const fontKey = this.config.fontKey ?? 'sans'
+        const fontStack = this.fontManager.getFontFamilyString(fontKey)
+        const primaryFont = this.fontManager.getPrimaryFont(fontKey)
+        leafer.add(
+          new Text({
+            text: `Font: ${primaryFont}`,
+            x: 140,
+            y: 160,
+            fill: '#111',
+            fontSize: 24,
+            fontFamily: fontStack,
+          }),
+        )
 
         const { data } = await leafer.export('png')
         leafer.destroy?.()
@@ -55,5 +74,3 @@ export class Render extends BasePlugin {
     this.ctx.logger.info('Render stopped')
   }
 }
-
-export default Render

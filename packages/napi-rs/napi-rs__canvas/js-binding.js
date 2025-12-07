@@ -75,9 +75,9 @@ function pickBinaryPackageName() {
   return candidates.sort()[0];
 }
 
-function listLocalNodes() {
+function listLocalNodes(dir) {
   try {
-    return fs.readdirSync(BIN_DIR).filter(function (f) {
+    return fs.readdirSync(dir).filter(function (f) {
       return f.endsWith(".node");
     }).sort();
   } catch (_) {
@@ -86,9 +86,16 @@ function listLocalNodes() {
 }
 
 function pickLocalNodeFile() {
-  const nodes = listLocalNodes();
+  const nodes = listLocalNodes(BIN_DIR);
   if (nodes.length === 0) return null;
   return nodes[0];
+}
+
+function findBundledNodeFile() {
+  const bundledDir = path.join(pkgRoot);
+  const files = listLocalNodes(bundledDir);
+  if (files.length === 0) return null;
+  return path.join(bundledDir, files[0]);
 }
 
 /**
@@ -213,6 +220,19 @@ function ensureBinaryDownloaded(depName, depVersion) {
 }
 
 function loadNative() {
+  // 0) bundled .node next to this package (useful during development)
+  const bundled = findBundledNodeFile();
+  if (bundled) {
+    return require(bundled);
+  }
+
+  // 1) prefer cached runtime download
+  let local = pickLocalNodeFile();
+  if (local) {
+    return require(path.join(BIN_DIR, local));
+  }
+
+  // 2) fallback to optional dependency download
   const depName = pickBinaryPackageName();
   const depVersion = optional[depName];
 
@@ -220,13 +240,6 @@ function loadNative() {
     throw new Error("Missing version for optional dependency: " + depName);
   }
 
-  // 1) prefer local
-  let local = pickLocalNodeFile();
-  if (local) {
-    return require(path.join(BIN_DIR, local));
-  }
-
-  // 2) fallback: download
   if (process.env.NAPI_RS_DISABLE_RUNTIME_DOWNLOAD === "1") {
     throw new Error(
       "Runtime download disabled and no local .node found at: " + BIN_DIR,

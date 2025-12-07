@@ -13,7 +13,7 @@
 	},
 	"dependencies": {
 		"@gqty/react": "^3.1.1",
-		"@pluxel/cli": "link:../plugin-style-ts/packages/clire",
+		"@pluxel/cli": "link:../plugin-style-ts/packages/cli",
 		"@pluxel/core": "^0.2.10",
 		"@pluxel/hmr": "link:../plugin-style-ts/packages/hmr"
 	},

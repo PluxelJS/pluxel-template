@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"jsx": "react",
+		"jsx": "react-jsx",
 		// 基础选项
 		"target": "ES2022", // 编译后代码目标版本
 		"module": "ES2022", // 模块系统：支持原生 ESM

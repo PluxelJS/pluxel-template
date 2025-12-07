@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: './src/render.ts',
+	entry: './src/font-manager.ts',
 	dts: {
 		build: true,
 		sourcemap: true,
