@@ -1,27 +1,29 @@
 {
   "$schema": "https://market.pluxel.dev/schema/package.json",
-  "name": "pluxel-plugin-echarts",
-  "description": "这是一个示例插件",
+  "name": "pluxel-plugin-canvas-worker",
+  "description": "共享 skia canvas 的渲染池服务 (LeafUI/ECharts)",
   "version": "0.1.0",
   "type": "module",
   "files": [
     "dist",
     "!**/*.map"
   ],
-  "main": "./src/echarts.ts",
+  "main": "./src/canvas-worker.ts",
   "scripts": {
     "build": "pluxel build"
   },
   "peerDependencies": {
-    "pluxel-plugin-canvas-worker": "workspace:^",
+    "echarts": "^6",
     "pluxel-plugin-font-manager": "workspace:^",
     "pluxel-plugin-napi-rs": "workspace:^"
   },
   "dependencies": {
-    "echarts": "^6"
+    "@leafer-ui/node": "^1.11.2",
+    "tinypool": "^1.0.1"
   },
   "devDependencies": {
-    "pluxel-plugin-canvas-worker": "workspace:^",
-    "pluxel-plugin-font-manager": "workspace:^"
+    "echarts": "^6",
+    "pluxel-plugin-font-manager": "workspace:^",
+    "pluxel-plugin-napi-rs": "workspace:^"
   }
 }

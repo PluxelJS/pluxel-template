@@ -1,24 +1,14 @@
 import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
-import {
-	getMeme,
-	getMemeKeys,
-	searchMemes,
-	Resources,
-	type Meme,
-	type MemeResult,
-	type Image as MemeImage,
-	type Error as MemeGeneratorError,
-} from 'pluxel-plugin-napi-rs/meme-generator'
-import { TelegramPlugin, type Message, type MessageSession } from 'pluxel-plugin-telegram'
 import { Buffer } from 'node:buffer'
+import { MemeWorker, type MemeMetadata, type MemeResolveResult, type Image as MemeImage } from 'pluxel-plugin-meme-worker'
+import { TelegramPlugin, type Message, type MessageSession } from 'pluxel-plugin-telegram'
 
+const TEXT_SEPARATOR = '|'
 const CfgSchema = v.object({
 	/** 未来可扩展配置 */
 	enabled: v.optional(v.boolean(), true),
 })
-
-const TEXT_SEPARATOR = '|'
 
 interface ParsedArgs {
 	identifier: string
@@ -36,12 +26,13 @@ export class MemeBot extends BasePlugin {
 	private config!: Config<typeof CfgSchema>
 
 	private readonly telegram: TelegramPlugin
+	private readonly memeWorker: MemeWorker
 	private readonly disposers: Array<() => void> = []
 
-	constructor(telegram: TelegramPlugin) {
+	constructor(telegram: TelegramPlugin, memeWorker: MemeWorker) {
 		super()
 		this.telegram = telegram
-		Resources.checkResourcesInBackground()
+		this.memeWorker = memeWorker
 	}
 
 	async init(_abort: AbortSignal): Promise<void> {
@@ -91,12 +82,12 @@ export class MemeBot extends BasePlugin {
 			return this.buildSuggestionMessage(parsed.identifier, resolved.matches)
 		}
 
-		const textResult = this.prepareTexts(resolved.meme, parsed.texts)
+		const textResult = this.prepareTexts(resolved.info, parsed.texts)
 		if (!textResult.ok) {
 			return textResult.message
 		}
 
-		const imageResult = await this.prepareImages(session, resolved.meme.info.params.minImages, resolved.meme.info.params.maxImages)
+		const imageResult = await this.prepareImages(session, resolved.info.params.minImages, resolved.info.params.maxImages)
 		if (!imageResult.ok) {
 			return imageResult.message
 		}
@@ -104,14 +95,14 @@ export class MemeBot extends BasePlugin {
 		const chat = session.bot.createChatSession(session.chatId)
 		void chat.typing('upload_photo').catch(() => {})
 
-		const generation = this.renderMeme(resolved.meme, imageResult.images, textResult.texts)
+		const generation = await this.renderMeme(resolved.info.key, imageResult.images, textResult.texts)
 		if (!generation.ok) {
 			return generation.message
 		}
 
-		const caption = `🎭 ${resolved.meme.info.key}`
+		const caption = `🎭 ${resolved.info.key}`
 		const sendResult = await chat.sendPhoto(
-			{ data: generation.buffer, filename: `${resolved.meme.info.key}.png`, contentType: 'image/png' },
+			{ data: generation.buffer, filename: `${resolved.info.key}.png`, contentType: 'image/png' },
 			{ caption },
 		)
 
@@ -119,6 +110,16 @@ export class MemeBot extends BasePlugin {
 			this.ctx.logger.error({ err: sendResult }, 'meme-bot: 发送图片失败')
 			return `图片发送失败：${sendResult.message}`
 		}
+
+		this.ctx.logger.info(
+			{
+				meme: resolved.info.key,
+				durationMs: generation.durationMs,
+				images: imageResult.images.length,
+				texts: textResult.texts.length,
+			},
+			'meme-bot: 生成并发送完成',
+		)
 
 		return undefined
 	}
@@ -141,36 +142,12 @@ export class MemeBot extends BasePlugin {
 		}
 	}
 
-	private resolveMeme(identifier: string):
-		| { kind: 'exact'; meme: Meme }
-		| { kind: 'choices'; matches: string[] }
-		| null {
-		if (identifier.toLowerCase() === 'random') {
-			const keys = getMemeKeys()
-			if (keys.length === 0) return null
-			const randomKey = keys[Math.floor(Math.random() * keys.length)]
-			const randomMeme = getMeme(randomKey)
-			if (randomMeme) {
-				return { kind: 'exact', meme: randomMeme }
-			}
-		}
-
-		const exact = getMeme(identifier)
-		if (exact) return { kind: 'exact', meme: exact }
-
-		const matches = searchMemes(identifier, true)
-		if (matches.length === 0) return null
-
-		if (matches.length === 1) {
-			const meme = getMeme(matches[0])
-			return meme ? { kind: 'exact', meme } : null
-		}
-
-		return { kind: 'choices', matches: matches.slice(0, 5) }
+	private resolveMeme(identifier: string): MemeResolveResult {
+		return this.memeWorker.resolveMeme(identifier)
 	}
 
-	private prepareTexts(meme: Meme, provided: string[]): { ok: true; texts: string[] } | { ok: false; message: string } {
-		const { minTexts, maxTexts, defaultTexts } = meme.info.params
+	private prepareTexts(meme: MemeMetadata, provided: string[]): { ok: true; texts: string[] } | { ok: false; message: string } {
+		const { minTexts, maxTexts, defaultTexts } = meme.params
 		const texts = [...provided]
 
 		if (texts.length === 0 && defaultTexts.length > 0) {
@@ -187,7 +164,7 @@ export class MemeBot extends BasePlugin {
 		if (texts.length < minTexts) {
 			return {
 				ok: false,
-				message: `模板 ${meme.info.key} 至少需要 ${minTexts} 段文字，请使用 “${TEXT_SEPARATOR}” 分隔不同语句。`,
+				message: `模板 ${meme.key} 至少需要 ${minTexts} 段文字，请使用 “${TEXT_SEPARATOR}” 分隔不同语句。`,
 			}
 		}
 
@@ -288,37 +265,23 @@ export class MemeBot extends BasePlugin {
 		return `${base}/file/bot${token}/${filePath.replace(/^\/+/, '')}`
 	}
 
-	private renderMeme(meme: Meme, images: MemeImage[], texts: string[]) {
-		let result: MemeResult
+	private async renderMeme(
+		memeKey: string,
+		images: MemeImage[],
+		texts: string[],
+	): Promise<
+		| { ok: true; buffer: Buffer; durationMs?: number; meta?: { key: string } }
+		| { ok: false; message: string }
+	> {
 		try {
-			result = meme.generate(images, texts, {})
-		} catch (e) {
-			this.ctx.logger.error(e, 'meme-bot: 调用 meme.generate 异常')
-			return { ok: false as const, message: '生成表情失败，请稍后重试。' }
-		}
-
-		if (result.type === 'Err') {
-			return {
-				ok: false as const,
-				message: this.describeGeneratorError(result.field0),
+			const result = await this.memeWorker.generateImage({ key: memeKey, images, texts })
+			if (!result.ok) {
+				return { ok: false as const, message: result.message }
 			}
-		}
-
-		return { ok: true as const, buffer: result.field0 }
-	}
-
-	private describeGeneratorError(error: MemeGeneratorError) {
-		switch (error.type) {
-			case 'ImageNumberMismatch':
-				return `该模板需要 ${error.field0.min}~${error.field0.max} 张图片，实际提供了 ${error.field0.actual} 张。`
-			case 'TextNumberMismatch':
-				return `该模板允许 ${error.field0.min}~${error.field0.max} 段文字，实际提供了 ${error.field0.actual} 段。`
-			case 'TextOverLength':
-				return `存在超长文本：${error.field0.text}`
-			case 'MemeFeedback':
-				return error.field0.feedback
-			default:
-				return '生成表情失败（未知错误）。'
+			return { ok: true as const, buffer: result.buffer, durationMs: result.durationMs, meta: result.meta }
+		} catch (e) {
+			this.ctx.logger.error(e, 'meme-bot: 渲染表情失败')
+			return { ok: false as const, message: '生成表情失败，请稍后再试。' }
 		}
 	}
 

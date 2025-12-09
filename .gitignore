@@ -3,6 +3,8 @@ gqty
 
 # workspace
 .pluxel
+napi-rs
+napi-rs-cache
 chatbots
 
 # Created by https://www.toptal.com/developers/gitignore/api/node,visualstudiocode,intellij

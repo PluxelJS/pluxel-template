@@ -7,7 +7,7 @@
       "outDir": "./memecrafters__meme-generator",
       "resolvedVersion": "0.2.2-beta",
       "tarballUrl": "https://registry.npmjs.org/@memecrafters/meme-generator/-/meme-generator-0.2.2-beta.tgz",
-      "updatedAt": "2025-12-07T15:06:19.629Z"
+      "updatedAt": "2025-12-09T11:11:47.391Z"
     },
     {
       "name": "@napi-rs/canvas",
@@ -15,7 +15,7 @@
       "outDir": "./napi-rs__canvas",
       "resolvedVersion": "0.1.84",
       "tarballUrl": "https://registry.npmjs.org/@napi-rs/canvas/-/canvas-0.1.84.tgz",
-      "updatedAt": "2025-12-07T15:06:19.629Z"
+      "updatedAt": "2025-12-09T11:11:47.392Z"
     },
     {
       "name": "@napi-rs/pinyin",
@@ -23,7 +23,7 @@
       "outDir": "./napi-rs__pinyin",
       "resolvedVersion": "1.7.7",
       "tarballUrl": "https://registry.npmjs.org/@napi-rs/pinyin/-/pinyin-1.7.7.tgz",
-      "updatedAt": "2025-12-07T15:06:19.629Z"
+      "updatedAt": "2025-12-09T11:11:47.392Z"
     },
     {
       "name": "@node-rs/jieba",
@@ -31,8 +31,8 @@
       "outDir": "./node-rs__jieba",
       "resolvedVersion": "2.0.1",
       "tarballUrl": "https://registry.npmjs.org/@node-rs/jieba/-/jieba-2.0.1.tgz",
-      "updatedAt": "2025-12-07T15:06:19.630Z"
+      "updatedAt": "2025-12-09T11:11:47.392Z"
     }
   ],
-  "generatedAt": "2025-12-07T15:06:19.636Z"
+  "generatedAt": "2025-12-09T11:11:47.398Z"
 }

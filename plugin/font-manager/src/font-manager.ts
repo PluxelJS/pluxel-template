@@ -55,7 +55,7 @@ type FontPreference = {
 export type FontSnapshot = {
   stack: string[]
   primary: string
-  families: typeof GlobalFonts.families
+  families: string[]
   sources: FontLoadResult[]
   lastLoadedAt: number
   resolved: Record<string, string[]>
@@ -73,6 +73,7 @@ export class FontManager extends BasePlugin {
   private preferencesMap = new Map<string, string[]>()
   private lastLoads: FontLoadResult[] = []
   private lastLoadedAt = 0
+  private fonts = GlobalFonts
 
   override async init(): Promise<void> {
     await this.initData()
@@ -98,7 +99,7 @@ export class FontManager extends BasePlugin {
       id: 'system',
       type: 'system',
       origin: 'system',
-      count: GlobalFonts.families.length,
+      count: this.fonts.families.length,
       status: 'ok',
       loadedAt: now,
       message: 'System fonts preloaded by canvas backend',
@@ -162,7 +163,12 @@ export class FontManager extends BasePlugin {
       if (this.preferencesMap.get(normalizedKey)?.includes(first)) {
         return preferred
       }
-      if (!first || GlobalFonts.has(first) || first.toLowerCase().includes('sans') || first.toLowerCase().includes('serif')) {
+      if (
+        !first ||
+        this.fonts.has(first) ||
+        first.toLowerCase().includes('sans') ||
+        first.toLowerCase().includes('serif')
+      ) {
         return preferred
       }
     }
@@ -183,7 +189,7 @@ export class FontManager extends BasePlugin {
   }
 
   buildSnapshot(): FontSnapshot {
-    const families = GlobalFonts.families
+    const families = this.fonts.families
     const aliasMap = this.getAliasMap()
     return {
       stack: this.getFontStack(),
@@ -274,6 +280,7 @@ export class FontManager extends BasePlugin {
   }
 
   private loadDir(dirPath: string, origin: FontOrigin, loadedPaths: Set<string>, now: number, alias?: string): FontLoadResult {
+    const fonts = this.fonts
     const absPath = this.normalizePath(dirPath)
     if (loadedPaths.has(absPath)) {
       return {
@@ -304,7 +311,7 @@ export class FontManager extends BasePlugin {
         }
       }
 
-      const count = GlobalFonts.loadFontsFromDir(absPath)
+      const count = fonts.loadFontsFromDir(absPath)
       this.ctx.logger.debug(`[FontManager] Loaded ${count} fonts from dir: ${absPath}`)
       return {
         id: `${origin}:dir:${absPath}`,
@@ -338,6 +345,7 @@ export class FontManager extends BasePlugin {
     loadedPaths: Set<string>,
     now: number,
   ): FontLoadResult {
+    const fonts = this.fonts
     const absPath = this.normalizePath(filePath)
     if (loadedPaths.has(absPath)) {
       return {
@@ -368,7 +376,7 @@ export class FontManager extends BasePlugin {
         }
       }
 
-      const ok = GlobalFonts.registerFromPath(absPath, alias)
+      const ok = fonts.registerFromPath(absPath, alias)
       this.ctx.logger.debug(
         ok ? `[FontManager] Font registered: ${absPath}${alias ? ` as ${alias}` : ''}` : '[FontManager] Font skipped',
       )

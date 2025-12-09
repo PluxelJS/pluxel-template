@@ -21,7 +21,8 @@
   "files": [
     "index.d.ts",
     "index.js",
-    "js-binding.js"
+    "js-binding.js",
+    "js-binding.cjs"
   ],
   "scripts": {
     "artifacts": "napi artifacts",

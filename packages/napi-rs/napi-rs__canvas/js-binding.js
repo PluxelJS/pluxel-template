@@ -92,10 +92,15 @@ function pickLocalNodeFile() {
 }
 
 function findBundledNodeFile() {
-  const bundledDir = path.join(pkgRoot);
-  const files = listLocalNodes(bundledDir);
-  if (files.length === 0) return null;
-  return path.join(bundledDir, files[0]);
+  try {
+    const files = fs.readdirSync(pkgRoot).filter(function (f) {
+      return f.endsWith(".node");
+    }).sort();
+    if (files.length === 0) return null;
+    return path.join(pkgRoot, files[0]);
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
@@ -110,7 +115,8 @@ function ensureBinaryDownloaded(depName, depVersion) {
   const esmLines = [
     'import fs from "node:fs";',
     'import path from "node:path";',
-    'import { createGzipDecoder, createTarDecoder } from "modern-tar";',
+    'import crypto from "node:crypto";',
+    'import { createGzipDecoder, unpackTar } from "modern-tar";',
     '',
     'const depName = process.env.NAPI_RS_DEP_NAME;',
     'const depVersion = process.env.NAPI_RS_DEP_VERSION;',
@@ -122,6 +128,38 @@ function ensureBinaryDownloaded(depName, depVersion) {
     '  throw new Error("Missing env for runtime downloader");',
     '}',
     '',
+    'function toHashPlan(integrity, shasum) {',
+    '  if (integrity) {',
+    '    const parts = integrity.split("-");',
+    '    const algo = parts[0] || "sha512";',
+    '    const expected = parts[1] || "";',
+    '    return { algo, expected, format: "base64" };',
+    '  }',
+    '  if (shasum) {',
+    '    return { algo: "sha1", expected: String(shasum).toLowerCase(), format: "hex" };',
+    '  }',
+    '  return null;',
+    '}',
+    '',
+    'async function verifyIntegrity(body, integrity, shasum) {',
+    '  const plan = toHashPlan(integrity, shasum);',
+    '  if (!plan) return;',
+    '  const hash = crypto.createHash(plan.algo);',
+    '  const reader = body.getReader();',
+    '  while (true) {',
+    '    const { done, value } = await reader.read();',
+    '    if (done) break;',
+    '    if (value) hash.update(value);',
+    '  }',
+    '  const digest = hash.digest(plan.format);',
+    '  const ok = plan.format === "hex"',
+    '    ? digest.toLowerCase() === plan.expected',
+    '    : digest === plan.expected;',
+    '  if (!ok) {',
+    '    throw new Error("Integrity check failed for " + depName + "@" + depVersion);',
+    '  }',
+    '}',
+    '',
     'const metaUrl = registry + "/" + encodeURIComponent(depName);',
     'const metaRes = await fetch(metaUrl);',
     'if (!metaRes.ok) {',
@@ -130,67 +168,77 @@ function ensureBinaryDownloaded(depName, depVersion) {
     'const meta = await metaRes.json();',
     'const verMeta = meta.versions && meta.versions[depVersion];',
     'const tarballUrl = verMeta && verMeta.dist && verMeta.dist.tarball;',
+    'const integrity = verMeta && verMeta.dist && verMeta.dist.integrity;',
+    'const shasum = verMeta && verMeta.dist && verMeta.dist.shasum;',
     'if (!tarballUrl) {',
     '  throw new Error("No dist.tarball for " + depName + "@" + depVersion);',
     '}',
-    '',
-    'const outDir = path.join(outRoot, binaryName);',
-    'fs.mkdirSync(outDir, { recursive: true });',
     '',
     'const res = await fetch(tarballUrl);',
     'if (!res.ok || !res.body) {',
     '  throw new Error("Failed to fetch binary tarball: " + tarballUrl + " " + res.status);',
     '}',
     '',
-    'const entries = res.body',
-    '  .pipeThrough(createGzipDecoder())',
-    '  .pipeThrough(createTarDecoder());',
-    '',
-    'async function writeWebStream(destPath, body) {',
-    '  const reader = body.getReader();',
-    '  const writer = fs.createWriteStream(destPath);',
+    'const outDir = path.join(outRoot, binaryName);',
+    'fs.mkdirSync(outDir, { recursive: true });',
+    'const cleanupNodes = () => {',
     '  try {',
-    '    while (true) {',
-    '      const result = await reader.read();',
-    '      if (result.done) break;',
-    '      const value = result.value;',
-    '      if (!value) continue;',
-    '      if (!writer.write(Buffer.from(value))) {',
-    '        await new Promise((r) => writer.once("drain", r));',
+    '    for (const f of fs.readdirSync(outDir)) {',
+    '      if (f.endsWith(".node")) {',
+    '        fs.rmSync(path.join(outDir, f), { force: true });',
     '      }',
     '    }',
-    '  } finally {',
-    '    await new Promise((resolve, reject) => {',
-    '      writer.on("finish", resolve);',
-    '      writer.on("error", reject);',
-    '      writer.end();',
-    '    });',
+    '  } catch (_) {}',
+    '};',
+    'cleanupNodes();',
+    '',
+    'let extractBody = res.body;',
+    'const needsIntegrity = integrity || shasum;',
+    'if (needsIntegrity && res.body) {',
+    '  if (res.body.tee) {',
+    '    const [hashStream, extractStream] = res.body.tee();',
+    '    await verifyIntegrity(hashStream, integrity, shasum);',
+    '    extractBody = extractStream;',
+    '  } else {',
+    '    const chunks = [];',
+    '    const reader = res.body.getReader();',
+    '    while (true) {',
+    '      const { done, value } = await reader.read();',
+    '      if (done) break;',
+    '      if (value) chunks.push(Buffer.from(value));',
+    '    }',
+    '    const full = Buffer.concat(chunks);',
+    '    await verifyIntegrity(new Blob([full]).stream(), integrity, shasum);',
+    '    extractBody = new Blob([full]).stream();',
     '  }',
     '}',
     '',
+    'const entries = await unpackTar(',
+    '  extractBody.pipeThrough(createGzipDecoder()),',
+    ');',
+    '',
     'let wroteAny = false;',
-    'for await (const entry of entries) {',
+    'for (const entry of entries) {',
     '  let name = entry.header.name || "";',
     '  if (name.startsWith("package/")) name = name.slice("package/".length);',
     '  if (!name || name.endsWith("/")) {',
-    '    if (entry.body && entry.body.cancel) {',
-    '      try { await entry.body.cancel(); } catch (_) {}',
-    '    }',
     '    continue;',
     '  }',
     '  const base = path.basename(name);',
     '  if (!base.endsWith(".node")) {',
-    '    if (entry.body && entry.body.cancel) {',
-    '      try { await entry.body.cancel(); } catch (_) {}',
-    '    }',
+    '    continue;',
+    '  }',
+    '  const data = entry && entry.data;',
+    '  if (!data || data.length === 0) {',
     '    continue;',
     '  }',
     '  const dest = path.join(outDir, base);',
-    '  await writeWebStream(dest, entry.body);',
+    '  fs.writeFileSync(dest, data);',
     '  wroteAny = true;',
     '}',
     '',
     'if (!wroteAny) {',
+    '  cleanupNodes();',
     '  throw new Error("No .node extracted from " + depName + "@" + depVersion);',
     '}',
   ];
@@ -220,19 +268,16 @@ function ensureBinaryDownloaded(depName, depVersion) {
 }
 
 function loadNative() {
-  // 0) bundled .node next to this package (useful during development)
   const bundled = findBundledNodeFile();
   if (bundled) {
     return require(bundled);
   }
 
-  // 1) prefer cached runtime download
   let local = pickLocalNodeFile();
   if (local) {
     return require(path.join(BIN_DIR, local));
   }
 
-  // 2) fallback to optional dependency download
   const depName = pickBinaryPackageName();
   const depVersion = optional[depName];
 

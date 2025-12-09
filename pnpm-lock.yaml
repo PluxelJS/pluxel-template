@@ -15,8 +15,8 @@ importers:
         specifier: link:../plugin-style-ts/packages/cli
         version: link:../plugin-style-ts/packages/cli
       '@pluxel/core':
-        specifier: ^0.2.10
-        version: 0.2.10
+        specifier: link:../plugin-style-ts/packages/core
+        version: link:../plugin-style-ts/packages/core
       '@pluxel/hmr':
         specifier: link:../plugin-style-ts/packages/hmr
         version: link:../plugin-style-ts/packages/hmr
@@ -104,18 +104,40 @@ importers:
         specifier: ^3.0.2
         version: 3.0.5
 
-  plugin/echarts:
+  plugin/canvas-worker:
     dependencies:
+      '@leafer-ui/node':
+        specifier: ^1.11.2
+        version: 1.11.2
+      tinypool:
+        specifier: ^1.0.1
+        version: 1.1.1
+    devDependencies:
       echarts:
         specifier: ^6
         version: 6.0.0
-    devDependencies:
       pluxel-plugin-font-manager:
         specifier: workspace:^
         version: link:../font-manager
       pluxel-plugin-napi-rs:
         specifier: workspace:^
         version: link:../../packages/napi-rs
+
+  plugin/echarts:
+    dependencies:
+      echarts:
+        specifier: ^6
+        version: 6.0.0
+      pluxel-plugin-napi-rs:
+        specifier: workspace:^
+        version: link:../../packages/napi-rs
+    devDependencies:
+      pluxel-plugin-canvas-worker:
+        specifier: workspace:^
+        version: link:../canvas-worker
+      pluxel-plugin-font-manager:
+        specifier: workspace:^
+        version: link:../font-manager
 
   plugin/font-manager:
     dependencies:
@@ -123,30 +145,24 @@ importers:
         specifier: workspace:^
         version: link:../../packages/napi-rs
 
-  plugin/leafui:
-    dependencies:
-      '@leafer-ui/node':
-        specifier: ^1.11.2
-        version: 1.11.2
-    devDependencies:
-      pluxel-plugin-font-manager:
-        specifier: workspace:^
-        version: link:../font-manager
-      pluxel-plugin-napi-rs:
-        specifier: workspace:^
-        version: link:../../packages/napi-rs
-
   plugin/meme-bot:
     dependencies:
-      pluxel-plugin-font-manager:
+      pluxel-plugin-meme-worker:
         specifier: workspace:^
-        version: link:../font-manager
-      pluxel-plugin-napi-rs:
-        specifier: workspace:^
-        version: link:../../packages/napi-rs
+        version: link:../meme-worker
       pluxel-plugin-telegram:
         specifier: workspace:^
         version: link:../../chatbots/telegram
+
+  plugin/meme-worker:
+    dependencies:
+      tinypool:
+        specifier: ^1.0.1
+        version: 1.1.1
+    devDependencies:
+      pluxel-plugin-napi-rs:
+        specifier: workspace:^
+        version: link:../../packages/napi-rs
 
 packages:
 
@@ -468,9 +484,6 @@ packages:
   '@oxc-project/types@0.101.0':
     resolution: {integrity: sha512-nuFhqlUzJX+gVIPPfuE6xurd4lST3mdcWOhyK/rZO0B9XWMKm79SuszIQEnSMmmDhq1DC8WWVYGVd+6F93o1gQ==}
 
-  '@pluxel/core@0.2.10':
-    resolution: {integrity: sha512-3DUeKZnbttFGVWOXSgRiAICYZtoJWcfshYd2oTi6ttwsDQWqhpq+XI6EkRr7SuQZYjauoeFt4z6fd9ntk18Syw==}
-
   '@quansync/fs@1.0.0':
     resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
 
@@ -642,9 +655,6 @@ packages:
     resolution: {integrity: sha512-i6UzDscO/XfAcNYD75CfICkmfLedpyPDdozrLMmQc5ORaQcdMoc21OnlEylMIqI7U8eniKrPMxxtj8k0vhmJhA==}
     engines: {node: '>=14'}
 
-  eventure@0.4.2:
-    resolution: {integrity: sha512-ZLCbIHg0cGvs7ZDRNb3+B5znuXENj2WJ6VFA7oJ3Kak5pYoISwQ8GTxTqqEYsUPQbO1g4/ls+g4fqUeQTEYCWQ==}
-
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
     engines: {node: '>=12.0.0'}
@@ -803,9 +813,6 @@ packages:
     resolution: {integrity: sha512-DGrYcCWK7tvYMnWh79yrPHt+vdx9tY+1gPZa7nJQtO/p8bLTDaHp4dzwEhQB7pZ4Xe3ok4XKuEPrVuc+wlpkmw==}
     engines: {node: '>=0.10.0'}
 
-  reflect-metadata@0.2.2:
-    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
-
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
 
@@ -851,6 +858,10 @@ packages:
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
     engines: {node: '>=12.0.0'}
+
+  tinypool@1.1.1:
+    resolution: {integrity: sha512-Zba82s87IFq9A9XmjiX5uZA/ARWDrB03OHlq+Vw1fSdt0I+4/Kutwy8BP4Y/y/aORMo61FQ0vIb5j44vSo5Pkg==}
+    engines: {node: ^18.0.0 || >=20.0.0}
 
   tree-kill@1.2.2:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
@@ -1016,9 +1027,6 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
-
-  xstate@5.24.0:
-    resolution: {integrity: sha512-h/213ThFfZbOefUWrLc9ZvYggEVBr0jrD2dNxErxNMLQfZRN19v+80TaXFho17hs8Q2E1mULtm/6nv12um0C4A==}
 
   zrender@6.0.0:
     resolution: {integrity: sha512-41dFXEEXuJpNecuUQq6JlbybmnHaqqpGlbH1yxnA5V9MMP4SbohSVZsJIwz+zdjQXSSlR1Vc34EgH1zxyTDvhg==}
@@ -1473,12 +1481,6 @@ snapshots:
 
   '@oxc-project/types@0.101.0': {}
 
-  '@pluxel/core@0.2.10':
-    dependencies:
-      eventure: 0.4.2
-      reflect-metadata: 0.2.2
-      xstate: 5.24.0
-
   '@quansync/fs@1.0.0':
     dependencies:
       quansync: 1.0.0
@@ -1593,8 +1595,6 @@ snapshots:
       zrender: 6.0.0
 
   empathic@2.0.0: {}
-
-  eventure@0.4.2: {}
 
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
@@ -1718,8 +1718,6 @@ snapshots:
 
   react@19.2.1: {}
 
-  reflect-metadata@0.2.2: {}
-
   resolve-pkg-maps@1.0.0: {}
 
   rolldown-plugin-dts@0.18.3(rolldown@1.0.0-beta.53)(typescript@5.9.3):
@@ -1770,6 +1768,8 @@ snapshots:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
+
+  tinypool@1.1.1: {}
 
   tree-kill@1.2.2: {}
 
@@ -1888,8 +1888,6 @@ snapshots:
   wretch@3.0.5: {}
 
   ws@8.18.3: {}
-
-  xstate@5.24.0: {}
 
   zrender@6.0.0:
     dependencies:

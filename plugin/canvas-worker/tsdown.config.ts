@@ -1,16 +1,14 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: './src/leafui.ts',
+	entry: ['./src/canvas-worker.ts', './src/worker.js'],
 	dts: {
 		build: true,
 		sourcemap: true,
 	},
 	format: ['esm'],
 	env: {},
-	copy: [
-		// 'assets/**'
-	],
+	copy: [],
 	clean: true,
 	minify: true,
 	treeshake: true,

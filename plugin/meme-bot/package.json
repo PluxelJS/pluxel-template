@@ -13,9 +13,9 @@
     "build": "pluxel build"
   },
   "peerDependencies": {
-    "pluxel-plugin-font-manager": "workspace:^",
-    "pluxel-plugin-napi-rs": "workspace:^",
+    "pluxel-plugin-meme-worker": "workspace:^",
     "pluxel-plugin-telegram": "workspace:^"
   },
+  "dependencies": {},
   "devDependencies": {}
 }

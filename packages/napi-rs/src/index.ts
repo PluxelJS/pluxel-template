@@ -9,6 +9,7 @@ export {
 } from './manifest'
 export {
 	formatOutDirForManifest,
+	renderGeneratedBindingEsmWrapper,
 	renderGeneratedBindingJs,
 	sanitizeForPath,
 	vendorFromManifest,
