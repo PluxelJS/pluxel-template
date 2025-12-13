@@ -16,14 +16,27 @@ import {
 } from '@mantine/core'
 import { IconAlertCircle, IconFolder, IconReload, IconSearch, IconTypography } from '@tabler/icons-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { definePluginUIModule, rpcErrorMessage, type ExtensionContext, webClient } from '@pluxel/hmr/web'
+import {
+	definePluginUIModule,
+	type PluginExtensionContext,
+	hmrWebClient,
+	rpcErrorMessage,
+} from '@pluxel/hmr/web'
+import type { FontSnapshot } from '../font-manager'
 
-type Rpc = typeof webClient.rpc.FontManager
-type Snapshot = Awaited<ReturnType<Rpc['snapshot']>>
+type Snapshot = FontSnapshot
 type Source = Snapshot['sources'][number]
 type ResolvedMap = Snapshot['resolved']
 type FontFamilyInfo = Snapshot['families'][number]
 const DEFAULT_GROUP_KEYS = ['sans', 'serif', 'mono', 'fallback'] as const
+
+type RpcClient = {
+	snapshot: () => Promise<Snapshot>
+	reload: (reason?: string) => Promise<Snapshot>
+	setPreferred: (key: string, families: string[]) => Promise<void>
+}
+
+const rpc = (): RpcClient => (hmrWebClient.rpc as any).FontManager as RpcClient
 
 function useFontManagerData() {
 	const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -33,7 +46,7 @@ function useFontManagerData() {
 	const fetchSnapshot = useCallback(async () => {
 		setLoading(true)
 		try {
-			const snap = await webClient.rpc.FontManager.snapshot()
+			const snap = await rpc().snapshot()
 			setSnapshot(snap)
 			setError(null)
 		} catch (err) {
@@ -48,9 +61,9 @@ function useFontManagerData() {
 	}, [fetchSnapshot])
 
 	useEffect(() => {
-		const sse = webClient.createSse({ namespaces: ['FontManager'] })
-		const off = sse.FontManager.on((msg) => {
-			const payload = msg.payload as any
+		const sse = hmrWebClient.createSse({ namespaces: ['FontManager'] })
+		const off = sse.ns('FontManager').on((msg) => {
+			const payload = msg.payload as { type?: string; snapshot?: Snapshot } | undefined
 			if (payload?.type === 'sync' && payload.snapshot) {
 				setSnapshot(payload.snapshot)
 			}
@@ -424,7 +437,7 @@ function FontsLibrary({ families, loading }: { families: Snapshot['families']; l
 	)
 }
 
-function FontManagerMappingsTab({ ctx }: { ctx: ExtensionContext }) {
+function FontManagerMappingsTab({ ctx }: { ctx: PluginExtensionContext }) {
 	const { snapshot, loading, error, fetchSnapshot } = useFontManagerData()
 	const [reloading, setReloading] = useState(false)
 	const [savingKey, setSavingKey] = useState<string | null>(null)
@@ -432,7 +445,7 @@ function FontManagerMappingsTab({ ctx }: { ctx: ExtensionContext }) {
 	const handleReload = async () => {
 		setReloading(true)
 		try {
-			await webClient.rpc.FontManager.reload('ui')
+			await rpc().reload('ui')
 			await fetchSnapshot()
 		} finally {
 			setReloading(false)
@@ -442,7 +455,7 @@ function FontManagerMappingsTab({ ctx }: { ctx: ExtensionContext }) {
 	const handleSavePreferred = async (key: string, families: string[]) => {
 		setSavingKey(key)
 		try {
-			await webClient.rpc.FontManager.setPreferred(key, families)
+			await rpc().setPreferred(key, families)
 			await fetchSnapshot()
 		} finally {
 			setSavingKey(null)
@@ -470,14 +483,14 @@ function FontManagerMappingsTab({ ctx }: { ctx: ExtensionContext }) {
 	)
 }
 
-function FontManagerLibraryTab({ ctx }: { ctx: ExtensionContext }) {
+function FontManagerLibraryTab({ ctx }: { ctx: PluginExtensionContext }) {
 	const { snapshot, loading, error, fetchSnapshot } = useFontManagerData()
 	const [reloading, setReloading] = useState(false)
 
 	const handleReload = async () => {
 		setReloading(true)
 		try {
-			await webClient.rpc.FontManager.reload('ui-library')
+			await rpc().reload('ui-library')
 			await fetchSnapshot()
 		} finally {
 			setReloading(false)
@@ -532,13 +545,17 @@ const module = definePluginUIModule({
 	extensions: [
 		{
 			point: 'plugin:tabs',
-			meta: { id: 'FontManager:library', label: '字体库', priority: 16 },
+			id: 'font-library',
+			priority: 16,
+			meta: { label: '字体库' },
 			when: (ctx) => ctx.pluginName === 'FontManager',
 			Component: FontManagerLibraryTab,
 		},
 		{
 			point: 'plugin:tabs',
-			meta: { id: 'FontManager:mappings', label: '字体映射', priority: 15 },
+			id: 'font-mappings',
+			priority: 15,
+			meta: { label: '字体映射' },
 			when: (ctx) => ctx.pluginName === 'FontManager',
 			Component: FontManagerMappingsTab,
 		},

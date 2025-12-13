@@ -46,6 +46,8 @@ export class PluginWithUI extends BasePlugin {
 		this.startedAt = Date.now()
 		this.ctx.logger.info('[PluginWithUI] Initializing...')
 
+		await this.initData()
+
 		// UI 扩展示例：自带完整页面 + 自定义 Tab + Header 按钮
 		this.ctx.extensionService.register({
 			entryPath: './PluginWithUI/ui/index.tsx',
@@ -56,8 +58,6 @@ export class PluginWithUI extends BasePlugin {
 
 		// SSE：复用宿主统一 /api/sse 连接（命名空间 = 插件名）
 		this.ctx.sse.registerExtension(() => this.pushData())
-
-		await this.initData()
 
 		this.ctx.logger.info('[PluginWithUI] UI extensions registered')
 	}
@@ -73,7 +73,7 @@ export class PluginWithUI extends BasePlugin {
 			uptimeMs: Date.now() - this.startedAt,
 			noteCount: this.noteSeq - 1,
 			taskCount: this.taskSeq - 1,
-			name: this.ctx.pluginInfo.name,
+			name: this.ctx.pluginInfo.id,
 		}
 	}
 
@@ -289,6 +289,15 @@ export class PluginWithUI extends BasePlugin {
 		} else {
 			const maxTaskId = existingTasks.reduce((acc, n) => Math.max(acc, Number(n.id) || 0), 0)
 			this.taskSeq = maxTaskId + 1
+		}
+
+		const existingActivity = this.activity
+			.find({}, { limit: 128 })
+			.fetch()
+			.map((item) => ({ ...item }))
+		if (existingActivity.length > 0) {
+			const maxActivityId = existingActivity.reduce((acc, item) => Math.max(acc, Number(item.id) || 0), 0)
+			this.activitySeq = maxActivityId + 1
 		}
 	}
 

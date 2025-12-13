@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
+import { BasePlugin, Plugin } from '@pluxel/core'
+import { Config as UseConfig, type Config as InferConfig } from '@pluxel/hmr'
 import { RpcTarget } from '@pluxel/hmr/capnweb'
 import { v } from '@pluxel/hmr/config'
 import { Collection } from '@pluxel/hmr/signaldb'
@@ -22,7 +23,7 @@ const CfgSchema = v.object({
   fontDirs: v.optional(v.array(v.string()), []),
 })
 
-type PluginConfig = Config<typeof CfgSchema>
+type PluginConfig = InferConfig<typeof CfgSchema>
 type FontSourceType = 'dir' | 'file'
 type FontOrigin = 'config' | 'user' | 'system'
 type FontStatus = 'ok' | 'skipped' | 'error'
@@ -55,16 +56,25 @@ type FontPreference = {
 export type FontSnapshot = {
   stack: string[]
   primary: string
-  families: string[]
+  families: FontFamilyInfo[]
   sources: FontLoadResult[]
   lastLoadedAt: number
   resolved: Record<string, string[]>
   aliases: Record<string, string>
 }
 
+export type FontFamilyInfo = {
+  family: string
+  styles: Array<{
+    weight: number
+    width: string
+    style: string
+  }>
+}
+
 @Plugin({ name: 'FontManager', type: 'service' })
 export class FontManager extends BasePlugin {
-  @Config(CfgSchema)
+  @UseConfig(CfgSchema)
   private config!: PluginConfig
 
   private activity!: Collection<FontActivity, string, FontActivity>

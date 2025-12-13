@@ -61,6 +61,18 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  chatbots/bot-layer:
+    dependencies:
+      pluxel-plugin-kook:
+        specifier: workspace:^
+        version: link:../kook
+      pluxel-plugin-telegram:
+        specifier: workspace:^
+        version: link:../telegram
+      type-flag:
+        specifier: ^4.0.2
+        version: 4.0.2
+
   chatbots/kook:
     dependencies:
       pluxel-plugin-websocket:
@@ -81,6 +93,8 @@ importers:
       pluxel-plugin-wretch:
         specifier: workspace:*
         version: link:../../packages/wretch
+
+  packages/mikro-orm: {}
 
   packages/napi-rs:
     dependencies:
@@ -144,15 +158,6 @@ importers:
       pluxel-plugin-napi-rs:
         specifier: workspace:^
         version: link:../../packages/napi-rs
-
-  plugin/meme-bot:
-    dependencies:
-      pluxel-plugin-meme-worker:
-        specifier: workspace:^
-        version: link:../meme-worker
-      pluxel-plugin-telegram:
-        specifier: workspace:^
-        version: link:../../chatbots/telegram
 
   plugin/meme-worker:
     dependencies:

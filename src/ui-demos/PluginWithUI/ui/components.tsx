@@ -24,21 +24,52 @@ import {
 	IconRocket,
 	IconTrash,
 } from '@tabler/icons-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-	type ExtensionContext,
-	type HmrWebClient,
+	createContext,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react'
+import {
+	type PluginExtensionContext,
+	type GlobalExtensionContext,
 	rpcErrorMessage,
-	webClient,
-} from '@pluxel/hmr/web'
-import React from 'react'
+} from '@pluxel/hmr/web/react'
 
-type PluginWithUIRpc = HmrWebClient['rpc']['PluginWithUI']
+type PluginWithUIRpc = PluginExtensionContext['services']['hmr']['rpc']['PluginWithUI']
 type PluginOverview = Awaited<ReturnType<PluginWithUIRpc['overview']>>
 type PluginNote = Awaited<ReturnType<PluginWithUIRpc['notes']>>[number]
 type PluginTask = Awaited<ReturnType<PluginWithUIRpc['tasks']>>[number]
 type PluginActivity = Awaited<ReturnType<PluginWithUIRpc['activity']>>[number]
-type PluginSse = ReturnType<typeof webClient.createSse>
+type PluginSse = PluginExtensionContext['services']['hmr']['sse']
+
+const PluginApiContext = createContext<{ rpc: PluginWithUIRpc; sse: PluginSse } | null>(null)
+
+export function PluginApiProvider({
+	ctx,
+	children,
+}: {
+	ctx: PluginExtensionContext
+	children: ReactNode
+}) {
+	const hmr = ctx.services.hmr
+	const rpc = hmr.rpc.PluginWithUI
+	// Use host-managed shared SSE connection; no per-component EventSource to close.
+	// Consumers can listen to plugin namespace via `sse.ns(ctx.pluginName)` if needed.
+	const sse = hmr.sse
+	const value = useMemo(() => ({ rpc, sse }), [rpc, sse])
+	return <PluginApiContext.Provider value={value}>{children}</PluginApiContext.Provider>
+}
+
+export function usePluginApi() {
+	const ctx = useContext(PluginApiContext)
+	if (!ctx) throw new Error('usePluginApi must be used within PluginApiProvider')
+	return ctx
+}
 
 export const taskPriorityLabel: Record<PluginTask['priority'], string> = {
 	low: '低',
@@ -64,20 +95,6 @@ export const nextStatus = (status: PluginTask['status']): PluginTask['status'] =
 	return 'todo'
 }
 
-export function usePluginSse(pluginName: string, namespaces: string[] = []) {
-	const joined = namespaces.join('|')
-	const sse = useMemo(
-		() => webClient.createSse({ namespaces: ['extensions', 'logs', pluginName, ...namespaces] }),
-		[pluginName, joined],
-	)
-
-	useEffect(() => {
-		return () => sse.close()
-	}, [sse])
-
-	return sse
-}
-
 export const formatDuration = (ms: number): string => {
 	const totalSeconds = Math.max(0, Math.floor(ms / 1000))
 	const minutes = Math.floor(totalSeconds / 60)
@@ -98,11 +115,45 @@ export const formatTimestamp = (value: number): string => {
 }
 
 // Header 按钮组件
-export function HeaderButton({ ctx }: { ctx: ExtensionContext }) {
+export function HeaderButton({ ctx: _ctx }: { ctx: GlobalExtensionContext }) {
 	return (
 		<Button variant="light" size="xs" leftSection={<IconRocket size={14} />} color="grape">
 			PluginWithUI
 		</Button>
+	)
+}
+
+export function GlobalStatusBar({ ctx }: { ctx: GlobalExtensionContext }) {
+	const hmr = ctx.services.hmr
+	const ready = ctx.runningPluginsReady
+	const count = ctx.runningPlugins.size
+	const [extVersion, setExtVersion] = useState<number>(0)
+
+	useEffect(() => {
+		const stream = hmr.streamExtensions()
+		const off = stream.extensions.on((msg) => {
+			const payload = msg.payload
+			if (payload?.type === 'sync') setExtVersion(payload.version)
+			if (payload?.type === 'update' || payload?.type === 'remove') setExtVersion(payload.version)
+		})
+		return () => {
+			off()
+			stream.close()
+		}
+	}, [hmr])
+
+	return (
+		<Group gap="xs">
+			<Badge variant="light" color={ready ? 'teal' : 'gray'}>
+				{ready ? 'Plugins Ready' : 'Plugins Loading'}
+			</Badge>
+			<Text size="xs" c="dimmed">
+				Running: {count}
+			</Text>
+			<Text size="xs" c="dimmed">
+				Ext v{extVersion}
+			</Text>
+		</Group>
 	)
 }
 
@@ -160,6 +211,8 @@ export function TaskBoard({ sse }: { sse: PluginSse }) {
 	const [error, setError] = useState<string | null>(null)
 	const mountedRef = useRef(true)
 
+	const { rpc } = usePluginApi()
+
 	useEffect(() => {
 		return () => {
 			mountedRef.current = false
@@ -167,8 +220,8 @@ export function TaskBoard({ sse }: { sse: PluginSse }) {
 	}, [])
 
 	const fetchTasks = useCallback(async () => {
-		return webClient.rpc.PluginWithUI.tasks()
-	}, [])
+		return rpc.tasks()
+	}, [rpc])
 
 	const refreshTasks = useCallback(
 		async (options?: { silent?: boolean }) => {
@@ -220,7 +273,7 @@ export function TaskBoard({ sse }: { sse: PluginSse }) {
 		}
 		setSubmitting(true)
 		try {
-			await webClient.rpc.PluginWithUI.addTask({ title: trimmed, priority })
+			await rpc.addTask({ title: trimmed, priority })
 			if (!mountedRef.current) return
 			setTitle('')
 			await refreshTasks({ silent: true })
@@ -237,7 +290,7 @@ export function TaskBoard({ sse }: { sse: PluginSse }) {
 	const handleToggleStatus = async (task: PluginTask) => {
 		setUpdatingId(task.id)
 		try {
-			await webClient.rpc.PluginWithUI.updateTaskStatus(task.id, nextStatus(task.status))
+			await rpc.updateTaskStatus(task.id, nextStatus(task.status))
 			await refreshTasks({ silent: true })
 		} catch (error) {
 			if (!mountedRef.current) return
@@ -252,7 +305,7 @@ export function TaskBoard({ sse }: { sse: PluginSse }) {
 	const handleClearDone = async () => {
 		setUpdatingId('clear')
 		try {
-			await webClient.rpc.PluginWithUI.clearFinishedTasks()
+			await rpc.clearFinishedTasks()
 			await refreshTasks({ silent: true })
 		} catch (error) {
 			if (!mountedRef.current) return
@@ -388,6 +441,8 @@ export function ActivityTimeline({ sse }: { sse: PluginSse }) {
 	const [error, setError] = useState<string | null>(null)
 	const mountedRef = useRef(true)
 
+	const { rpc } = usePluginApi()
+
 	useEffect(() => {
 		return () => {
 			mountedRef.current = false
@@ -395,8 +450,8 @@ export function ActivityTimeline({ sse }: { sse: PluginSse }) {
 	}, [])
 
 	const fetchActivity = useCallback(async () => {
-		return webClient.rpc.PluginWithUI.activity()
-	}, [])
+		return rpc.activity()
+	}, [rpc])
 
 	const refreshActivity = useCallback(async () => {
 		setLoading(true)
@@ -449,7 +504,7 @@ export function ActivityTimeline({ sse }: { sse: PluginSse }) {
 				)}
 				<Stack gap="xs">
 					{activity.map((item) => (
-						<Paper key={item.id} withBorder radius="md" p="sm">
+						<Paper key={`${item.id}:${item.at}`} withBorder radius="md" p="sm">
 							<Group justify="space-between">
 								<Group gap="xs">
 									<Badge size="xs" color={item.scope === 'note' ? 'grape' : 'cyan'}>
@@ -491,10 +546,12 @@ export function NotesPanel({ sse }: { sse: PluginSse }) {
 	const [message, setMessage] = useState('')
 	const [loading, setLoading] = useState(true)
 	const [submitting, setSubmitting] = useState(false)
-	const [removingId, setRemovingId] = useState<number | null>(null)
+	const [removingId, setRemovingId] = useState<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [formError, setFormError] = useState<string | null>(null)
 	const mountedRef = useRef(true)
+
+	const { rpc } = usePluginApi()
 
 	useEffect(() => {
 		return () => {
@@ -503,8 +560,8 @@ export function NotesPanel({ sse }: { sse: PluginSse }) {
 	}, [])
 
 	const fetchNotes = useCallback(async () => {
-		return webClient.rpc.PluginWithUI.notes()
-	}, [])
+		return rpc.notes()
+	}, [rpc])
 
 	const refreshNotes = useCallback(
 		async (options?: { silent?: boolean }) => {
@@ -580,7 +637,7 @@ export function NotesPanel({ sse }: { sse: PluginSse }) {
 		setFormError(null)
 		setSubmitting(true)
 		try {
-			await webClient.rpc.PluginWithUI.addNote(text)
+			await rpc.addNote(text)
 			if (!mountedRef.current) {
 				return
 			}
@@ -599,10 +656,10 @@ export function NotesPanel({ sse }: { sse: PluginSse }) {
 		}
 	}
 
-	const handleRemove = async (id: number) => {
+	const handleRemove = async (id: string) => {
 		setRemovingId(id)
 		try {
-			await webClient.rpc.PluginWithUI.removeNote(id)
+			await rpc.removeNote(id)
 			await refreshNotes({ silent: true })
 		} catch (error) {
 			if (!mountedRef.current) {
@@ -831,14 +888,17 @@ export function LiveSseActivity({ sse }: { sse: PluginSse }) {
 }
 
 // 插件信息卡片
-export function InfoCard({ ctx }: { ctx: ExtensionContext }) {
+export function InfoCard({ ctx }: { ctx: PluginExtensionContext }) {
+	const pluginName = ctx.pluginName
 	const [overview, setOverview] = useState<PluginOverview | null>(null)
-	const [statusMessage, setStatusMessage] = useState(`正在同步 ${ctx.pluginName} 状态...`)
+	const [statusMessage, setStatusMessage] = useState(`正在同步 ${pluginName} 状态...`)
 	const [loading, setLoading] = useState(true)
 	const mountedRef = useRef(true)
 	const theme = useMantineTheme()
 	const { colorScheme } = useMantineColorScheme()
 	const cardBg = colorScheme === 'dark' ? theme.colors.dark[6] : theme.colors.grape[0]
+
+	const { rpc } = usePluginApi()
 
 	useEffect(() => {
 		return () => {
@@ -848,7 +908,7 @@ export function InfoCard({ ctx }: { ctx: ExtensionContext }) {
 
 	const refreshOverview = useCallback(async () => {
 		try {
-			const current = await webClient.rpc.PluginWithUI.overview()
+			const current = await rpc.overview()
 			if (!mountedRef.current) {
 				return
 			}
@@ -886,13 +946,14 @@ export function InfoCard({ ctx }: { ctx: ExtensionContext }) {
 		<Paper withBorder p="sm" radius="md" bg={cardBg}>
 			<Stack gap="xs">
 				<Group key="header" gap="xs" justify="space-between" align="center">
-					<Group gap="xs">
-						<IconRocket size={16} />
-						<Text size="sm" fw={500}>
-							{ctx.pluginName} 状态
+					<Group key="title" gap="xs">
+						<IconRocket key="icon" size={16} />
+						<Text key="label" size="sm" fw={500}>
+							{pluginName} 状态
 						</Text>
 					</Group>
 					<Button
+						key="refresh"
 						size="compact-xs"
 						variant="light"
 						color="grape"
