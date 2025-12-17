@@ -1,17 +1,58 @@
 {
   "$schema": "https://market.pluxel.dev/schema/package.json",
   "name": "pluxel-plugin-mikro-orm",
-	"description": "这是一个示例插件",
+  "description": "这是一个示例插件",
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    ".": {
+      "@pluxel/hmr": "./src/mikro-orm.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./libsql/client": {
+      "@pluxel/hmr": "./src/reexport/libsql-client.ts",
+      "default": "./dist/libsql/client.mjs"
+    },
+    "./mikro-orm/core": {
+      "@pluxel/hmr": "./src/reexport/core.ts",
+      "default": "./dist/mikro-orm/core.mjs"
+    },
+    "./mikro-orm/knex": {
+      "@pluxel/hmr": "./src/reexport/knex.ts",
+      "default": "./dist/mikro-orm/knex.mjs"
+    },
+    "./mikro-orm/libsql": {
+      "@pluxel/hmr": "./src/reexport/libsql.ts",
+      "default": "./dist/mikro-orm/libsql.mjs"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "!**/*.map"
   ],
-  "main": "./src/mikro-orm.ts",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "scripts": {
-    "build": "pluxel build"
+    "build": "pluxel build",
+    "test": "bun test --conditions=@pluxel/source",
+    "selftest": "node ./scripts/selftest.mjs"
   },
-  "peerDependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@libsql/client": "^0.15.15",
+    "@mikro-orm/core": "^6.6.2",
+    "@mikro-orm/knex": "^6.6.2",
+    "@mikro-orm/libsql": "^6.6.2"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./libsql/client": "./dist/libsql/client.mjs",
+      "./mikro-orm/core": "./dist/mikro-orm/core.mjs",
+      "./mikro-orm/knex": "./dist/mikro-orm/knex.mjs",
+      "./mikro-orm/libsql": "./dist/mikro-orm/libsql.mjs",
+      "./package.json": "./package.json"
+    }
+  }
 }

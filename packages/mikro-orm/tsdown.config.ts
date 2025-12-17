@@ -1,7 +1,13 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: './src/mikro-orm.ts',
+	entry: {
+		index: './src/mikro-orm.ts',
+		'mikro-orm/core': './src/reexport/core.ts',
+		'mikro-orm/knex': './src/reexport/knex.ts',
+		'mikro-orm/libsql': './src/reexport/libsql.ts',
+		'libsql/client': './src/reexport/libsql-client.ts',
+	},
 	dts: {
 		build: true,
 		sourcemap: true,
