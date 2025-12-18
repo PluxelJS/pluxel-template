@@ -3,7 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { BasePlugin, Plugin, withTestHost } from '@pluxel/hmr/test'
 import { EntitySchema } from '@mikro-orm/core'
 
-import { MikroOrm, MikroOrmLibsql, type UseEntityOptions } from '../src/mikro-orm.ts'
+import { MikroOrm, MikroOrmLibsql, type RegisterEntityOptions } from '../src/mikro-orm.ts'
 
 const UserSchema = new EntitySchema({
 	name: 'User',
@@ -55,12 +55,12 @@ class CallerA extends BasePlugin {
 		super()
 	}
 
-	registerUser(options?: UseEntityOptions) {
-		return this.mikro.useEntity(UserSchema, options)
+	registerUser(options?: RegisterEntityOptions) {
+		return this.mikro.registerEntity(UserSchema, options)
 	}
 
-	registerConflictUser(options?: UseEntityOptions) {
-		return this.mikro.useEntity(ConflictUserSchema, options)
+	registerConflictUser(options?: RegisterEntityOptions) {
+		return this.mikro.registerEntity(ConflictUserSchema, options)
 	}
 }
 
@@ -70,8 +70,8 @@ class CallerB extends BasePlugin {
 		super()
 	}
 
-	registerUser(options?: UseEntityOptions) {
-		return this.mikro.useEntity(UserSchema, options)
+	registerUser(options?: RegisterEntityOptions) {
+		return this.mikro.registerEntity(UserSchema, options)
 	}
 }
 
@@ -82,7 +82,7 @@ class Wrapper extends BasePlugin {
 	}
 
 	registerUser() {
-		return this.mikro.useEntity(UserSchema)
+		return this.mikro.registerEntity(UserSchema)
 	}
 }
 
@@ -103,8 +103,8 @@ class CallerDash extends BasePlugin {
 		super()
 	}
 
-	registerUser(options?: UseEntityOptions) {
-		return this.mikro.useEntity(UserSchema, options)
+	registerUser(options?: RegisterEntityOptions) {
+		return this.mikro.registerEntity(UserSchema, options)
 	}
 }
 
@@ -114,8 +114,8 @@ class CallerUnderscore extends BasePlugin {
 		super()
 	}
 
-	registerUser(options?: UseEntityOptions) {
-		return this.mikro.useEntity(UserSchema, options)
+	registerUser(options?: RegisterEntityOptions) {
+		return this.mikro.registerEntity(UserSchema, options)
 	}
 }
 
@@ -127,7 +127,23 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 			await host.commitStrict()
 
 			const mikro = host.getOrThrow(MikroOrm)
-			await expect(mikro.useEntity(UserSchema)).rejects.toThrow(/caller context/i)
+			await expect(
+				mikro.registerEntity(UserSchema),
+			).rejects.toThrow(/caller context/i)
+		})
+	})
+
+	it('supports explicit scope without caller context', async () => {
+		await withTestHost(async (host) => {
+			host.register(MikroOrmLibsql)
+			host.setConfig('MikroOrm', { config: { dbName: ':memory:', ensureSchemaOnInit: false } })
+			await host.commitStrict()
+
+			const mikro = host.getOrThrow(MikroOrm)
+			const handle = await mikro.scope('Script').registerEntity(UserSchema)
+			expect(handle.tableName).toBe('Script_users')
+			expect(handle.entityName).toBe('Script_User')
+			expect(await hasTable(mikro, 'Script_users')).toBe(true)
 		})
 	})
 
@@ -146,6 +162,9 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 
 			const mikro = host.getOrThrow(MikroOrm)
 			expect(await hasTable(mikro, 'CallerA_users')).toBe(true)
+			expect(mikro.scope('CallerA').listEntities()).toEqual([
+				{ entityName: 'CallerA_User', tableName: 'CallerA_users' },
+			])
 		})
 	})
 

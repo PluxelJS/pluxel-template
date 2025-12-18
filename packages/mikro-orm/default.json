@@ -1,1 +1,1 @@
-{"json":{"enabled":[],"plugins":{"MikroOrm":{"meta":{},"configRecord":{"config":{"dbName":":memory:"}}}},"extra":{}},"meta":{"values":{"enabled":["set"]},"v":1}}
+{"json":{"enabled":[],"plugins":{"MikroOrm":{"config":{"dbName":":memory:"}}},"extra":{}},"meta":{"values":{"enabled":["set"]},"v":1}}

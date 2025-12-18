@@ -7,7 +7,7 @@ import { v } from '@pluxel/hmr/config'
 import { MikroOrm, MikroOrmProvider } from './core.js'
 
 type LibsqlMikroORM = typeof import('@mikro-orm/libsql').MikroORM
-type LibsqlInitOptions = Parameters<LibsqlMikroORM['init']>[0]
+type LibsqlInitOptions = NonNullable<Parameters<LibsqlMikroORM['init']>[0]>
 
 export const MikroOrmConfigSchema = v.object({
 	/** sqlite 文件路径；libsql 也支持 file/https/libsql:// 形式 */
@@ -46,16 +46,19 @@ export class MikroOrmLibsql extends MikroOrmProvider<MikroOrmLibsqlConfig> {
 		const dbName = resolveDbName(config.dbName)
 		await ensureDbDir(dbName)
 
-		const extra = { ...(config.mikroOptions ?? {}) } as Partial<LibsqlInitOptions> & Record<string, unknown>
-		const { discovery: discoveryExtra, ...restExtra } = extra
+		const extra = { ...(config.mikroOptions ?? {}) } as Record<string, unknown>
+		const { discovery: discoveryExtra, ...restExtra } = extra as { discovery?: unknown } & Record<
+			string,
+			unknown
+		>
 		const discovery = {
 			warnWhenNoEntities: false,
 			...(isRecord(discoveryExtra) ? discoveryExtra : {}),
-		} as LibsqlInitOptions['discovery']
+		} as NonNullable<LibsqlInitOptions['discovery']>
 
 		this.ctx.logger.info(`[MikroOrm] init (db=${dbName})`)
 		const initOptions: LibsqlInitOptions = {
-			...restExtra,
+			...(restExtra as Partial<LibsqlInitOptions>),
 			dbName,
 			password: config.authToken,
 			entities,

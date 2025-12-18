@@ -1,6 +1,5 @@
-import { EntitySchema } from '@mikro-orm/core'
+import { createHash } from 'node:crypto'
 import type {
-	Constructor,
 	DeepPartial,
 	EntityManager,
 	EntityMetadata,
@@ -9,41 +8,52 @@ import type {
 	Options,
 	UpdateSchemaOptions,
 } from '@mikro-orm/core'
+import { EntitySchema } from '@mikro-orm/core'
 import type { SqlEntityManager } from '@mikro-orm/knex'
 import { BasePlugin } from '@pluxel/hmr'
-import { createHash } from 'node:crypto'
 
-export type UseEntityOptions = {
+export type MikroOrmScopeKey = string
+
+export type RegisterEntityOptions = {
 	/** 默认 true：首次注册后自动建表/补列（safe） */
 	ensureSchema?: boolean
 	/** 默认 false：注销时 DROP TABLE（谨慎开启） */
 	dropTableOnDispose?: boolean
 
 	/**
-	 * 覆盖“基础表名”（不含 caller 前缀）。
-	 *
-	 * 规则（不可配置）：
-	 * - caller 必须存在（必须在插件内调用；不要在宿主/脚本里直接调用 service 方法）。
-	 * - 实际表名恒为：`${callerId}_${tableName}`（分隔符固定 `_`）。
+	 * 覆盖“基础实体名”（不含 scope 前缀）。
 	 *
 	 * 备注：
-	 * - 这里传入的是“基础表名”，不是完整表名；即使你传了 `${callerId}_xxx` 也会被归一化处理。
+	 * - 这里传入的是“基础实体名”，不是完整实体名；即使你传了 `${scopePrefix}_xxx` 也会被归一化处理。
+	 */
+	entityName?: string
+
+	/**
+	 * 覆盖“基础表名”（不含 scope 前缀）。
+	 *
+	 * 规则（不可配置）：
+	 * - scope = caller 插件 id（当你在插件内通过 DI 注入 MikroOrm 并调用时自动提供）
+	 * - 实际表名恒为：`${scopePrefix}_${tableName}`（分隔符固定 `_`）。
+	 *
+	 * 备注：
+	 * - 这里传入的是“基础表名”，不是完整表名；即使你传了 `${scopePrefix}_xxx` 也会被归一化处理。
 	 */
 	tableName?: string
 }
 
-export interface MikroOrmEntityHandle {
-	/** MikroORM 内部使用的实体名（会被 caller 前缀化）。 */
+export interface MikroOrmEntity<T extends object = any> {
+	scopeKey: MikroOrmScopeKey
+	scopePrefix: string
+	baseEntityName: string
+	baseTableName: string
 	entityName: string
-	/** 实际表名（恒带 caller 前缀）。 */
 	tableName: string
-	/** 实际注册进 ORM 的 schema（可能是内部 clone；建议用它做后续查询）。 */
-	schema: EntitySchema<any>
+	schema: EntitySchema<T>
 	dispose: () => Promise<void>
 }
 
-export interface MikroOrmEntitiesHandle {
-	entities: MikroOrmEntityHandle[]
+export interface MikroOrmEntityBatch {
+	entities: MikroOrmEntity[]
 	dispose: () => Promise<void>
 }
 
@@ -57,16 +67,42 @@ export type MikroOrmMigrateOptions = {
 
 	/**
 	 * 传给 MikroORM 的 `migrations` 配置（会与当前配置 merge）。
-	 * 注意：`tableName` 会自动按 caller 前缀隔离（避免跨插件冲突）。
+	 * 注意：`tableName` 会自动按 scope 前缀隔离（避免跨插件冲突）。
 	 */
 	migrations?: Partial<Options['migrations']>
+}
+
+export interface MikroOrmScope {
+	key: MikroOrmScopeKey
+	prefix: string
+
+	orm: () => Promise<MikroORM>
+	em: (options?: ForkOptions) => Promise<EntityManager>
+	sqlEm: (options?: ForkOptions) => Promise<SqlEntityManager>
+
+	listEntities: () => Array<{ entityName: string; tableName: string }>
+
+	registerEntity: <T extends object>(
+		schema: EntitySchema<T>,
+		options?: RegisterEntityOptions,
+	) => Promise<MikroOrmEntity<T>>
+
+	registerEntities: (
+		schemas: EntitySchema<any>[],
+		options?: RegisterEntityOptions,
+	) => Promise<MikroOrmEntityBatch>
+
+	migrate: (options?: MikroOrmMigrateOptions) => Promise<void>
+	ensureSchema: (options?: UpdateSchemaOptions) => Promise<void>
 }
 
 /**
  * 抽象 token：用于依赖注入（多实现插件模式）。
  * 默认 provider 为 `MikroOrmLibsql`（id 为 `MikroOrm`）。
  *
- * 设计目标：尽量暴露原生 MikroORM/EntityManager，而不是再造一套查询 API。
+ * 设计目标：
+ * - 暴露原生 MikroORM/EntityManager（不再造查询 API）
+ * - 通过 `scope()` 明确 caller 隔离与可显式 scope（脚本/共享表/测试）
  */
 export abstract class MikroOrm extends BasePlugin {
 	/** 底层 MikroORM 实例（migrations/cache/schema 等高级能力直接用它）。 */
@@ -78,23 +114,109 @@ export abstract class MikroOrm extends BasePlugin {
 	 */
 	abstract exclusive<T>(fn: (orm: MikroORM) => T | Promise<T>): Promise<T>
 
-	abstract listEntities(): Array<{ entityName: string; tableName: string }>
+	/** 列出当前服务内所有 scope 的实体（用于调试/观测）。 */
+	abstract listEntities(): Array<{ scopeKey: MikroOrmScopeKey; entityName: string; tableName: string }>
+
+	protected abstract listEntitiesFor(
+		scopeKey: MikroOrmScopeKey,
+	): Array<{ entityName: string; tableName: string }>
+	protected abstract scopePrefixFor(scopeKey: MikroOrmScopeKey): string
+	protected abstract registerEntityFor<T extends object>(
+		scopeKey: MikroOrmScopeKey,
+		schema: EntitySchema<T>,
+		options?: RegisterEntityOptions,
+	): Promise<MikroOrmEntity<T>>
+	protected abstract migrateFor(scopeKey: MikroOrmScopeKey, options?: MikroOrmMigrateOptions): Promise<void>
 
 	/**
-	 * 注册一个 EntitySchema（按 caller 隔离，避免跨插件表名冲突）。
-	 *
-	 * 重要语义：
-	 * - caller = 直接注入并调用本 service 的那个插件。
-	 * - 如果你写了一个“包装插件”去转发 MikroOrm 给别的插件，那么 caller 会是包装插件；
-	 *   想要“谁用谁的表”，就让目标插件直接依赖 MikroOrm。
-	 *
-	 * 返回值里的 `handle.schema` 是实际 discover 进 MikroORM 的 schema；推荐后续查询使用它，
-	 * 这样即便不同插件复用同一个输入 schema，也不会互相污染/冲突。
+	 * Caller-scope 的快捷方法（最常用的插件→插件用法）。
+	 * 等价于 `mikro.scope().registerEntity(...)`。
 	 */
-	abstract useEntity(
-		schema: EntitySchema<any>,
-		options?: UseEntityOptions,
-	): Promise<MikroOrmEntityHandle>
+	async registerEntity<T extends object>(
+		schema: EntitySchema<T>,
+		options?: RegisterEntityOptions,
+	): Promise<MikroOrmEntity<T>> {
+		return await this.registerEntityFor(this.requireCallerScopeKey('registerEntity'), schema, options)
+	}
+
+	/**
+	 * Caller-scope 的批量注册快捷方法。
+	 * 等价于 `mikro.scope().registerEntities(...)`。
+	 */
+	async registerEntities(
+		schemas: EntitySchema<any>[],
+		options: RegisterEntityOptions = {},
+	): Promise<MikroOrmEntityBatch> {
+		const scopeKey = this.requireCallerScopeKey('registerEntities')
+		const ensure = options.ensureSchema ?? true
+		const perEntity = ensure ? { ...options, ensureSchema: false } : options
+
+		const entities: MikroOrmEntity[] = []
+		for (const schema of schemas) {
+			entities.push(await this.registerEntityFor(scopeKey, schema, perEntity))
+		}
+		if (ensure) {
+			await this.ensureSchema()
+		}
+		return {
+			entities,
+			dispose: async () => {
+				await Promise.all(entities.map((e) => e.dispose()))
+			},
+		}
+	}
+
+	/** Caller-scope 下列出“本插件注册的实体”。 */
+	listCallerEntities(): Array<{ entityName: string; tableName: string }> {
+		return this.listEntitiesFor(this.requireCallerScopeKey('listCallerEntities'))
+	}
+
+	/** Caller-scope 下执行 migrations。 */
+	async migrate(options?: MikroOrmMigrateOptions): Promise<void> {
+		return await this.migrateFor(this.requireCallerScopeKey('migrate'), options)
+	}
+
+	/**
+	 * 获取一个作用域视图。
+	 * - `scope()`：使用“caller 插件”作为 scope（必须在插件内通过 DI 调用）
+	 * - `scope('X')`：显式指定 scope（脚本/共享表/测试）
+	 */
+	scope(scopeKey?: MikroOrmScopeKey): MikroOrmScope {
+		const key = scopeKey ?? this.requireCallerScopeKey('scope')
+		const prefix = this.scopePrefixFor(key)
+		const mikro = this
+
+		return {
+			key,
+			prefix,
+			orm: () => mikro.orm(),
+			em: (options?: ForkOptions) => mikro.em(options),
+			sqlEm: (options?: ForkOptions) => mikro.sqlEm(options),
+			listEntities: () => mikro.listEntitiesFor(key),
+			registerEntity: <T extends object>(schema: EntitySchema<T>, options?: RegisterEntityOptions) =>
+				mikro.registerEntityFor<T>(key, schema, options),
+			registerEntities: async (schemas: EntitySchema<any>[], options: RegisterEntityOptions = {}) => {
+				const ensure = options.ensureSchema ?? true
+				const perEntity = ensure ? { ...options, ensureSchema: false } : options
+
+				const entities: MikroOrmEntity[] = []
+				for (const schema of schemas) {
+					entities.push(await mikro.registerEntityFor(key, schema, perEntity))
+				}
+				if (ensure) {
+					await mikro.ensureSchema()
+				}
+				return {
+					entities,
+					dispose: async () => {
+						await Promise.all(entities.map((e) => e.dispose()))
+					},
+				}
+			},
+			migrate: (options?: MikroOrmMigrateOptions) => mikro.migrateFor(key, options),
+			ensureSchema: (options?: UpdateSchemaOptions) => mikro.ensureSchema(options),
+		}
+	}
 
 	/** 等价于 `await orm()`，便于表达“确保已初始化”。 */
 	async ready(): Promise<void> {
@@ -112,37 +234,10 @@ export abstract class MikroOrm extends BasePlugin {
 	}
 
 	/**
-	 * 批量注册：默认只在最后做一次 `updateSchema({ safe: true })`，避免多次 diff。
-	 * 返回一个可 dispose 的 handle，默认也会绑定到 caller scope。
-	 */
-	async useEntities(
-		schemas: EntitySchema<any>[],
-		options: UseEntityOptions = {},
-	): Promise<MikroOrmEntitiesHandle> {
-		const ensure = options.ensureSchema ?? true
-		const perEntity = ensure ? { ...options, ensureSchema: false } : options
-		const handles: MikroOrmEntityHandle[] = []
-		for (const schema of schemas) {
-			handles.push(await this.useEntity(schema, perEntity))
-		}
-		if (ensure) {
-			await this.ensureSchema()
-		}
-		return {
-			entities: handles,
-			dispose: async () => {
-				await Promise.all(handles.map((h) => h.dispose()))
-			},
-		}
-	}
-
-	/**
 	 * 动态 discover entity（支持 class 或 EntitySchema）。
 	 * reset 用于移除已存在的 metadata（参见 MikroORM.discoverEntity 的 reset 参数）。
 	 */
-	async discoverEntity(
-		...args: Parameters<MikroORM['discoverEntity']>
-	): Promise<void> {
+	async discoverEntity(...args: Parameters<MikroORM['discoverEntity']>): Promise<void> {
 		await this.exclusive((orm) => {
 			orm.discoverEntity(...args)
 		})
@@ -155,47 +250,18 @@ export abstract class MikroOrm extends BasePlugin {
 		})
 	}
 
-	/**
-	 * 以 caller 为作用域执行 migrations（用 caller 前缀隔离 migrations table，避免跨插件冲突）。
-	 *
-	 * 说明：
-	 * - 不引入硬依赖；如未安装 `@mikro-orm/migrations` 会抛出清晰错误。
-	 * - migrations 的具体行为/参数由 MikroORM 版本决定；此处只做“作用域隔离 + 安全封装”。
-	 */
-	async migrate(options: MikroOrmMigrateOptions = {}): Promise<void> {
+	protected requireCallerScopeKey(method: string): MikroOrmScopeKey {
 		const callerId = this.ctx.caller?.pluginInfo?.id
 		if (!callerId) {
-			throw new Error('[MikroOrm] migrate() requires caller context (call it inside a plugin)')
+			throw new Error(`[MikroOrm] ${method}() requires caller context (call it inside a plugin)`)
 		}
-
-		const direction = options.direction ?? 'up'
-		const prefix = callerPrefix(callerId)
-
-		await this.exclusive(async (orm) => {
-			const prev = orm.config.get('migrations')
-			try {
-				const next = { ...prev, ...(options.migrations ?? {}) }
-				const baseTable = String(next.tableName ?? 'mikro_orm_migrations')
-				next.tableName = `${prefix}_${stripPrefix(baseTable, prefix)}`
-				orm.config.set('migrations', next)
-
-				// Accessing `orm.migrator` triggers optional dependency loading.
-				// If not installed, MikroORM throws with an install hint.
-				if (direction === 'down') {
-					await orm.migrator.down()
-				} else {
-					await orm.migrator.up()
-				}
-			} finally {
-				// Restore config even if migrator throws.
-				orm.config.set('migrations', prev)
-			}
-		})
+		return callerId
 	}
 }
 
 type RegisteredEntity = {
-	callerId: string
+	scopeKey: MikroOrmScopeKey
+	scopePrefix: string
 	entityName: string
 	baseEntityName: string
 	baseTableName: string
@@ -213,6 +279,8 @@ type SharedState<C> = {
 	opQueue: SerialQueue
 	entities: Map<string, RegisteredEntity>
 	tableToEntityName: Map<string, string>
+	pendingDropTables: Set<string>
+	scopePrefixCache: Map<string, string>
 }
 
 const SHARED_BY_ROOT = new WeakMap<object, Map<string, SharedState<any>>>()
@@ -230,6 +298,8 @@ function getShared<C>(root: object, id: string): SharedState<C> {
 			opQueue: new SerialQueue(),
 			entities: new Map(),
 			tableToEntityName: new Map(),
+			pendingDropTables: new Set(),
+			scopePrefixCache: new Map(),
 		}
 		byId.set(id, shared)
 	}
@@ -244,21 +314,35 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 	}
 
 	protected shared(): SharedState<C> {
-		const root = (this.ctx as unknown as { root: object }).root
-		return getShared<C>(root, this.ctx.pluginInfo.id)
+		return getShared<C>(this.ctx.root, this.ctx.pluginInfo.id)
 	}
 
 	override async init(_abort?: AbortSignal): Promise<void> {
 		const shared = this.shared()
 		shared.initPromise ??= shared.opQueue.run(async () => {
 			shared.config = this.readConfig()
-			shared.ormInstance = await this.createOrm(shared.config, [...shared.entities.values()].map((e) => e.schema))
+			shared.ormInstance = await this.createOrm(
+				shared.config,
+				[...shared.entities.values()].map((e) => e.schema),
+			)
 
 			const instance = shared.ormInstance
 			const cancel = this.ctx.scope.collectEffect(() => void instance?.close(true))
 			if (typeof cancel === 'function') shared.ormCloseCancels.add(cancel)
 
-			this.ctx.logger.info(`[MikroOrm] ready`)
+			if (shared.pendingDropTables.size > 0) {
+				const pending = [...shared.pendingDropTables]
+				shared.pendingDropTables.clear()
+				for (const tableName of pending) {
+					try {
+						await this.dropTableIfExists(instance, tableName)
+					} catch (err) {
+						this.ctx.logger.debug(err, `[MikroOrm] pending drop failed: ${tableName}`)
+					}
+				}
+			}
+
+			this.ctx.logger.info('[MikroOrm] ready')
 		})
 		try {
 			await shared.initPromise
@@ -280,8 +364,6 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 			if (shared.ormInstance) await this.closeOrm(shared.ormInstance)
 			shared.config = undefined
 			shared.ormInstance = undefined
-			shared.entities.clear()
-			shared.tableToEntityName.clear()
 			shared.initPromise = undefined
 		})
 		this.ctx.logger.info('[MikroOrm] stopped')
@@ -298,34 +380,49 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 		return shared.opQueue.run(async () => fn(shared.ormInstance!))
 	}
 
-	override listEntities(): Array<{ entityName: string; tableName: string }> {
+	override listEntities(): Array<{ scopeKey: MikroOrmScopeKey; entityName: string; tableName: string }> {
 		return [...this.shared().entities.values()].map((e) => ({
+			scopeKey: e.scopeKey,
 			entityName: e.entityName,
 			tableName: e.tableName,
 		}))
 	}
 
-	override async useEntity(schema: EntitySchema<any>, options: UseEntityOptions = {}): Promise<MikroOrmEntityHandle> {
-		const shared = this.shared()
-		const callerId = this.ctx.caller?.pluginInfo?.id
-		if (!callerId) {
-			throw new Error(
-				'[MikroOrm] useEntity() requires caller context (inject MikroOrm into a plugin and call it there)',
-			)
-		}
+	protected override listEntitiesFor(
+		scopeKey: MikroOrmScopeKey,
+	): Array<{ entityName: string; tableName: string }> {
+		return [...this.shared().entities.values()]
+			.filter((e) => e.scopeKey === scopeKey)
+			.map((e) => ({ entityName: e.entityName, tableName: e.tableName }))
+	}
 
-		const prefix = callerPrefix(callerId)
-		const baseEntityName = stripPrefix(resolveEntityName(schema), prefix)
-		const baseTableName = stripPrefix(resolveTableName(schema, options), prefix)
+	protected override scopePrefixFor(scopeKey: MikroOrmScopeKey): string {
+		return getScopePrefix(this.shared(), scopeKey)
+	}
+
+	protected override async registerEntityFor<T extends object>(
+		scopeKey: MikroOrmScopeKey,
+		schema: EntitySchema<T>,
+		options: RegisterEntityOptions = {},
+	): Promise<MikroOrmEntity<T>> {
+		const shared = this.shared()
+		const prefix = getScopePrefix(shared, scopeKey)
+
+		const rawBaseEntityName = options.entityName ?? resolveEntityName(schema)
+		const rawBaseTableName = options.tableName ?? resolveTableName(schema)
+
+		const baseEntityName = stripPrefix(String(rawBaseEntityName), prefix)
+		const baseTableName = stripPrefix(String(rawBaseTableName), prefix)
+
 		const entityName = `${prefix}_${baseEntityName}`
 		const tableName = `${prefix}_${baseTableName}`
 		const ensureSchema = options.ensureSchema ?? true
 
 		return await this.exclusive(async (orm) => {
 			const existing = shared.entities.get(entityName)
-			if (existing && existing.callerId !== callerId) {
+			if (existing && existing.scopeKey !== scopeKey) {
 				throw new Error(
-					`[MikroOrm] entity conflict: "${entityName}" is already registered by "${existing.callerId}"`,
+					`[MikroOrm] entity conflict: "${entityName}" is already registered by "${existing.scopeKey}"`,
 				)
 			}
 
@@ -341,7 +438,8 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 
 			if (!existing) {
 				const rec: RegisteredEntity = {
-					callerId,
+					scopeKey,
+					scopePrefix: prefix,
 					entityName,
 					baseEntityName,
 					baseTableName,
@@ -350,7 +448,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 					dropTableOnDispose,
 				}
 				const handle = new EntityHandleImpl(
-					() => this.releaseEntity(rec.entityName, rec.callerId),
+					() => this.releaseEntity(rec.entityName, rec.scopeKey),
 					rec,
 					(err, name) => {
 						this.ctx.logger.debug(err, `[MikroOrm] dispose failed: ${name}`)
@@ -366,7 +464,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 
 				orm.discoverEntity(effective)
 				if (ensureSchema) await orm.schema.updateSchema({ safe: true })
-				return handle
+				return handle as unknown as MikroOrmEntity<T>
 			}
 
 			if (existing.tableName !== tableName) {
@@ -374,6 +472,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 				shared.tableToEntityName.set(tableName, entityName)
 			}
 
+			existing.scopePrefix = prefix
 			existing.baseEntityName = baseEntityName
 			existing.baseTableName = baseTableName
 			existing.schema = effective
@@ -382,27 +481,54 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 
 			orm.discoverEntity(effective, entityName)
 			if (ensureSchema) await orm.schema.updateSchema({ safe: true })
-			return existing.handle!
+			return existing.handle! as unknown as MikroOrmEntity<T>
 		})
 	}
 
-	protected async releaseEntity(entityName: string, callerId: string): Promise<void> {
+	protected override async migrateFor(
+		scopeKey: MikroOrmScopeKey,
+		options: MikroOrmMigrateOptions = {},
+	): Promise<void> {
+		const direction = options.direction ?? 'up'
+		const prefix = this.scopePrefixFor(scopeKey)
+
+		await this.exclusive(async (orm) => {
+			const prev = orm.config.get('migrations')
+			try {
+				const next = { ...prev, ...(options.migrations ?? {}) }
+				const baseTable = String(next.tableName ?? 'mikro_orm_migrations')
+				next.tableName = `${prefix}_${stripPrefix(baseTable, prefix)}`
+				orm.config.set('migrations', next)
+
+				if (direction === 'down') {
+					await orm.migrator.down()
+				} else {
+					await orm.migrator.up()
+				}
+			} finally {
+				orm.config.set('migrations', prev)
+			}
+		})
+	}
+
+	protected async releaseEntity(entityName: string, scopeKey: MikroOrmScopeKey): Promise<void> {
 		const shared = this.shared()
 		await shared.opQueue.run(async () => {
 			const rec = shared.entities.get(entityName)
 			if (!rec) return
-			if (rec.callerId !== callerId) return
+			if (rec.scopeKey !== scopeKey) return
 
 			shared.entities.delete(entityName)
 			shared.tableToEntityName.delete(rec.tableName)
 
 			const orm = shared.ormInstance
-			if (!orm) return
-
-			orm.discoverEntity([], entityName)
-
-			if (rec.dropTableOnDispose) {
-				await this.dropTableIfExists(orm, rec.tableName)
+			if (orm) {
+				orm.discoverEntity([], entityName)
+				if (rec.dropTableOnDispose) {
+					await this.dropTableIfExists(orm, rec.tableName)
+				}
+			} else if (rec.dropTableOnDispose) {
+				shared.pendingDropTables.add(rec.tableName)
 			}
 		})
 	}
@@ -419,20 +545,31 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 }
 
 function resolveEntityName(schema: EntitySchema<any>): string {
-	return schema.meta.className
+	const name = schema.meta.className ?? schema.meta.name
+	if (!name) throw new Error('[MikroOrm] invalid EntitySchema: missing name/className')
+	return String(name)
 }
 
-function resolveTableName(schema: EntitySchema<any>, options: UseEntityOptions): string {
-	return String(options.tableName ?? schema.meta.tableName)
+function resolveTableName(schema: EntitySchema<any>): string {
+	const name = schema.meta.tableName ?? schema.meta.collection
+	if (!name) throw new Error('[MikroOrm] invalid EntitySchema: missing tableName/collection')
+	return String(name)
 }
 
-function callerPrefix(input: string): string {
+function scopePrefix(input: string): string {
 	const raw = input.trim()
 	const sanitized = raw.replace(/[^a-zA-Z0-9_]+/g, '_') || 'caller'
-	// Avoid collisions when sanitization changes the id (e.g. `a-b` vs `a_b`).
 	if (sanitized === raw && /^[a-zA-Z0-9_]+$/.test(raw)) return raw
 	const hash = createHash('sha1').update(raw).digest('hex').slice(0, 6)
 	return `${sanitized}_${hash}`
+}
+
+function getScopePrefix(shared: SharedState<any>, scopeKey: MikroOrmScopeKey): string {
+	const cached = shared.scopePrefixCache.get(scopeKey)
+	if (cached) return cached
+	const next = scopePrefix(scopeKey)
+	shared.scopePrefixCache.set(scopeKey, next)
+	return next
 }
 
 function stripPrefix(value: string, prefix: string): string {
@@ -440,29 +577,30 @@ function stripPrefix(value: string, prefix: string): string {
 	return value.startsWith(p) ? value.slice(p.length) : value
 }
 
-function rewriteSchema(input: EntitySchema<any>, entityName: string, tableName: string): EntitySchema<any> {
-	// Always clone: callers may share the same EntitySchema instance across plugins.
-	// We must not mutate the input schema (tableName/entityName are per-caller).
-	//
-	// Important: `EntitySchema` constructor prefers `meta.class.name` over `meta.name`, so we must
-	// drop `class/prototype` at the metadata level to prevent `discoverEntity()` from "snapping back".
-	const meta: DeepPartial<EntityMetadata<any>> = {
+function rewriteSchema<T extends object>(
+	input: EntitySchema<T>,
+	entityName: string,
+	tableName: string,
+): EntitySchema<T> {
+	const meta = {
 		...input.meta,
 		name: entityName,
 		className: entityName,
 		tableName,
 		collection: tableName,
-		class: undefined,
-		prototype: undefined,
-	}
-	const effective = EntitySchema.fromMetadata(meta)
+	} as any
+	delete meta.class
+	delete meta.prototype
+
+	const effective = EntitySchema.fromMetadata<T>(meta as EntityMetadata<T> | DeepPartial<EntityMetadata<T>>)
 	effective.init()
-	return effective
+	return effective as EntitySchema<T>
 }
 
-class EntityHandleImpl implements MikroOrmEntityHandle {
+class EntityHandleImpl implements MikroOrmEntity {
 	private static readonly ASYNC_DISPOSE: unique symbol =
 		(Symbol as any).asyncDispose ?? Symbol.for('Symbol.asyncDispose')
+	private static readonly DISPOSE: unique symbol = (Symbol as any).dispose ?? Symbol.for('Symbol.dispose')
 
 	private disposed = false
 
@@ -472,6 +610,25 @@ class EntityHandleImpl implements MikroOrmEntityHandle {
 		private readonly onDisposeError: (err: unknown, entityName: string) => void,
 	) {
 		;(this as any)[EntityHandleImpl.ASYNC_DISPOSE] = () => this.dispose()
+		;(this as any)[EntityHandleImpl.DISPOSE] = () => {
+			void this.dispose()
+		}
+	}
+
+	get scopeKey() {
+		return this.rec.scopeKey
+	}
+
+	get scopePrefix() {
+		return this.rec.scopePrefix
+	}
+
+	get baseEntityName() {
+		return this.rec.baseEntityName
+	}
+
+	get baseTableName() {
+		return this.rec.baseTableName
 	}
 
 	get entityName() {

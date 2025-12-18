@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@gqty/react':
         specifier: ^3.1.1
-        version: 3.1.1(gqty@3.6.0(graphql@16.12.0))(graphql@16.12.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 3.1.1(gqty@3.6.0(graphql@16.12.0))(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@pluxel/cli':
         specifier: link:../plugin-style-ts/packages/cli
         version: link:../plugin-style-ts/packages/cli
@@ -23,22 +23,22 @@ importers:
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.3.8
-        version: 2.3.8
+        version: 2.3.9
       '@mantine/core':
         specifier: ^8.3.9
-        version: 8.3.9(@mantine/hooks@8.3.9(react@19.2.1))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 8.3.10(@mantine/hooks@8.3.10(react@19.2.3))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@mantine/hooks':
         specifier: ^8.3.9
-        version: 8.3.9(react@19.2.1)
+        version: 8.3.10(react@19.2.3)
       '@mantine/modals':
         specifier: ^8.3.9
-        version: 8.3.9(@mantine/core@8.3.9(@mantine/hooks@8.3.9(react@19.2.1))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@mantine/hooks@8.3.9(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 8.3.10(@mantine/core@8.3.10(@mantine/hooks@8.3.10(react@19.2.3))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@mantine/hooks@8.3.10(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@repobuddy/biome':
         specifier: ^2.1.0
-        version: 2.1.0(@biomejs/biome@2.3.8)
+        version: 2.2.0(@biomejs/biome@2.3.9)
       '@tabler/icons-react':
         specifier: ^3.35.0
-        version: 3.35.0(react@19.2.1)
+        version: 3.36.0(react@19.2.3)
       '@types/bun':
         specifier: ^1.3.4
         version: 1.3.4
@@ -50,10 +50,10 @@ importers:
         version: 19.2.3(@types/react@19.2.7)
       react:
         specifier: ^19.2.1
-        version: 19.2.1
+        version: 19.2.3
       react-dom:
         specifier: ^19.2.1
-        version: 19.2.1(react@19.2.1)
+        version: 19.2.3(react@19.2.3)
       tsdown:
         specifier: 0.17.0
         version: 0.17.0(typescript@5.9.3)
@@ -74,7 +74,7 @@ importers:
         version: link:../telegram
       type-flag:
         specifier: ^4.0.2
-        version: 4.0.2
+        version: 4.0.3
 
   chatbots/kook:
     dependencies:
@@ -86,7 +86,7 @@ importers:
         version: link:../../packages/wretch
       type-flag:
         specifier: ^4.0.2
-        version: 4.0.2
+        version: 4.0.3
 
   chatbots/telegram:
     dependencies:
@@ -116,7 +116,7 @@ importers:
     dependencies:
       modern-tar:
         specifier: ^0.7.2
-        version: 0.7.2
+        version: 0.7.3
 
   packages/websocket:
     dependencies:
@@ -132,13 +132,13 @@ importers:
     dependencies:
       wretch:
         specifier: ^3.0.2
-        version: 3.0.5
+        version: 3.0.6
 
   plugin/canvas-worker:
     dependencies:
       '@leafer-ui/node':
         specifier: ^1.11.2
-        version: 1.11.2
+        version: 1.12.0
       tinypool:
         specifier: ^1.0.1
         version: 1.1.1
@@ -212,55 +212,55 @@ packages:
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
 
-  '@biomejs/biome@2.3.8':
-    resolution: {integrity: sha512-Qjsgoe6FEBxWAUzwFGFrB+1+M8y/y5kwmg5CHac+GSVOdmOIqsAiXM5QMVGZJ1eCUCLlPZtq4aFAQ0eawEUuUA==}
+  '@biomejs/biome@2.3.9':
+    resolution: {integrity: sha512-js+34KpnY65I00k8P71RH0Uh2rJk4BrpxMGM5m2nBfM9XTlKE5N1URn5ydILPRyXXq4ebhKCjsvR+txS+D4z2A==}
     engines: {node: '>=14.21.3'}
     hasBin: true
 
-  '@biomejs/cli-darwin-arm64@2.3.8':
-    resolution: {integrity: sha512-HM4Zg9CGQ3txTPflxD19n8MFPrmUAjaC7PQdLkugeeC0cQ+PiVrd7i09gaBS/11QKsTDBJhVg85CEIK9f50Qww==}
+  '@biomejs/cli-darwin-arm64@2.3.9':
+    resolution: {integrity: sha512-hHbYYnna/WBwem5iCpssQQLtm5ey8ADuDT8N2zqosk6LVWimlEuUnPy6Mbzgu4GWVriyL5ijWd+1zphX6ll4/A==}
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [darwin]
 
-  '@biomejs/cli-darwin-x64@2.3.8':
-    resolution: {integrity: sha512-lUDQ03D7y/qEao7RgdjWVGCu+BLYadhKTm40HkpJIi6kn8LSv5PAwRlew/DmwP4YZ9ke9XXoTIQDO1vAnbRZlA==}
+  '@biomejs/cli-darwin-x64@2.3.9':
+    resolution: {integrity: sha512-sKMW5fpvGDmPdqCchtVH5MVlbVeSU3ad4CuKS45x8VHt3tNSC8CZ2QbxffAOKYK9v/mAeUiPC6Cx6+wtyU1q7g==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [darwin]
 
-  '@biomejs/cli-linux-arm64-musl@2.3.8':
-    resolution: {integrity: sha512-PShR4mM0sjksUMyxbyPNMxoKFPVF48fU8Qe8Sfx6w6F42verbwRLbz+QiKNiDPRJwUoMG1nPM50OBL3aOnTevA==}
+  '@biomejs/cli-linux-arm64-musl@2.3.9':
+    resolution: {integrity: sha512-JOHyG2nl8XDpncbMazm1uBSi1dPX9VbQDOjKcfSVXTqajD0PsgodMOKyuZ/PkBu5Lw877sWMTGKfEfpM7jE7Cw==}
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [linux]
 
-  '@biomejs/cli-linux-arm64@2.3.8':
-    resolution: {integrity: sha512-Uo1OJnIkJgSgF+USx970fsM/drtPcQ39I+JO+Fjsaa9ZdCN1oysQmy6oAGbyESlouz+rzEckLTF6DS7cWse95g==}
+  '@biomejs/cli-linux-arm64@2.3.9':
+    resolution: {integrity: sha512-BXBB6HbAgZI6T6QB8q6NSwIapVngqArP6K78BqkMerht7YjL6yWctqfeTnJm0qGF2bKBYFexslrbV+VTlM2E6g==}
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [linux]
 
-  '@biomejs/cli-linux-x64-musl@2.3.8':
-    resolution: {integrity: sha512-YGLkqU91r1276uwSjiUD/xaVikdxgV1QpsicT0bIA1TaieM6E5ibMZeSyjQ/izBn4tKQthUSsVZacmoJfa3pDA==}
+  '@biomejs/cli-linux-x64-musl@2.3.9':
+    resolution: {integrity: sha512-FUkb/5beCIC2trpqAbW9e095X4vamdlju80c1ExSmhfdrojLZnWkah/XfTSixKb/dQzbAjpD7vvs6rWkJ+P07Q==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [linux]
 
-  '@biomejs/cli-linux-x64@2.3.8':
-    resolution: {integrity: sha512-QDPMD5bQz6qOVb3kiBui0zKZXASLo0NIQ9JVJio5RveBEFgDgsvJFUvZIbMbUZT3T00M/1wdzwWXk4GIh0KaAw==}
+  '@biomejs/cli-linux-x64@2.3.9':
+    resolution: {integrity: sha512-PjYuv2WLmvf0WtidxAkFjlElsn0P6qcvfPijrqu1j+3GoW3XSQh3ywGu7gZ25J25zrYj3KEovUjvUZB55ATrGw==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [linux]
 
-  '@biomejs/cli-win32-arm64@2.3.8':
-    resolution: {integrity: sha512-H4IoCHvL1fXKDrTALeTKMiE7GGWFAraDwBYFquE/L/5r1927Te0mYIGseXi4F+lrrwhSWbSGt5qPFswNoBaCxg==}
+  '@biomejs/cli-win32-arm64@2.3.9':
+    resolution: {integrity: sha512-w48Yh/XbYHO2cBw8B5laK3vCAEKuocX5ItGXVDAqFE7Ze2wnR00/1vkY6GXglfRDOjWHu2XtxI0WKQ52x1qxEA==}
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [win32]
 
-  '@biomejs/cli-win32-x64@2.3.8':
-    resolution: {integrity: sha512-RguzimPoZWtBapfKhKjcWXBVI91tiSprqdBYu7tWhgN8pKRZhw24rFeNZTNf6UiBfjCYCi9eFQs/JzJZIhuK4w==}
+  '@biomejs/cli-win32-x64@2.3.9':
+    resolution: {integrity: sha512-90+J63VT7qImy9s3pkWL0ZX27VzVwMNCRzpLpe5yMzMYPbO1vcjL/w/Q5f/juAGMvP7a2Fd0H7IhAR6F7/i78A==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [win32]
@@ -327,153 +327,153 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@leafer-in/export@1.11.2':
-    resolution: {integrity: sha512-wXEWKIZ34EId6g6UMaskwi3VIZdLcAm/RHGFzJj6JmRdxVqiIp0TENEZ0mDSgGFKi5XeQaC0uVyQJs5vJlNQ5w==}
+  '@leafer-in/export@1.12.0':
+    resolution: {integrity: sha512-hZE1W0yrTDuGMTtK3DBwh4qQ1KjH6FZwBHLXt26hZX6djrhA4jtnOfjrbsMgCKIkHx0mjqeOXUSSUne4HcQpHQ==}
     peerDependencies:
-      '@leafer-in/interface': ^1.11.2
-      '@leafer-ui/draw': ^1.11.2
-      '@leafer-ui/interface': ^1.11.2
+      '@leafer-in/interface': ^1.12.0
+      '@leafer-ui/draw': ^1.12.0
+      '@leafer-ui/interface': ^1.12.0
 
-  '@leafer-in/interface@1.11.2':
-    resolution: {integrity: sha512-d+GqxcXbeqroOH0OPHf6aOcrmnPrjcN5sWqa7Uu8evwURm6DaMhAq75B56ZeQExBW7jhe+oDayk/VyMUKczmFw==}
+  '@leafer-in/interface@1.12.0':
+    resolution: {integrity: sha512-zHV873HcVs0LMWyMS76ZTGxD7iScvUENTPR1d2hSUAcadNeuUUEe9ULZqn5Xt1TS2NUqyLIOGChwq9MwIKrlTw==}
     peerDependencies:
-      '@leafer-ui/interface': ^1.11.2
-      '@leafer/interface': ^1.11.2
+      '@leafer-ui/interface': ^1.12.0
+      '@leafer/interface': ^1.12.0
 
-  '@leafer-ui/app@1.11.2':
-    resolution: {integrity: sha512-9sL699PppimUeaiCbTUlrBOucDAgtKFzeJs9BpDQjnUqxMMto1WNGIZ1wGPY1H+5QFTMgeTrr187GHV0Q5hTfg==}
+  '@leafer-ui/app@1.12.0':
+    resolution: {integrity: sha512-2MY0dk2qhti+E0gLZ709RZu8B/gGIO3DRMIzumBvk+OV4jt1BIab7Lzd/Zxx7MP4/C5SVG5LLNHOa03LOCY3ag==}
 
-  '@leafer-ui/bounds@1.11.2':
-    resolution: {integrity: sha512-q0M/LE69AphrGmwnotsSIhMpZuuY9I6NKgLPUPBuJXr3a/ytBOu4jUS3f4sMGPmiCf/0fgTiPwBaf1S2d832Cw==}
+  '@leafer-ui/bounds@1.12.0':
+    resolution: {integrity: sha512-XXVm8Sm/e1NQ7HEbUgUScBSC8yNsfsK3glf4paRj2CHsurvVxuGPey5FbGsDhjNJYxUkA8s6iZVvkos2OLOSpA==}
 
-  '@leafer-ui/color@1.11.2':
-    resolution: {integrity: sha512-yzw8HdBOoauIlJDwPKsyub6aOQpeD4+kg7opHHPTRwL8vlf/l90IdBDx+tWQxGELvMheJvrlYlSE+iEpv+HQbA==}
+  '@leafer-ui/color@1.12.0':
+    resolution: {integrity: sha512-RVvvrTuHEUAeLHvvPSjqn9JwC/t9q68FNeZtuWkS0agNnt22prS6IU6Bh05Fd0GT/4c3Yj+YGv6gL5gc73CuBw==}
 
-  '@leafer-ui/core@1.11.2':
-    resolution: {integrity: sha512-eNrqcVZxm2OKzOFMQ7gqg5VLFwZEnQF6zVohlYR+RdA9Ux8ITeLCVtJrZC1zyT8Zy7pLnIeQvdwwtquRF0/cHw==}
+  '@leafer-ui/core@1.12.0':
+    resolution: {integrity: sha512-X9GHKYmxhE2LGOnWBYoBY51PsaaoCSbV8QDaYLO8QQU/d2aYXLIJtZKCgkqNMLnYl5g4FXp5iQVse12QWneVHQ==}
 
-  '@leafer-ui/data@1.11.2':
-    resolution: {integrity: sha512-9H+b1yJOiB94pFrQh71IKQ4o9erlhA9hous4oyiNOi7r/d6yUSVmfybhxbM05SuzwvaNMy5CQAN2TBuDCRbyGg==}
+  '@leafer-ui/data@1.12.0':
+    resolution: {integrity: sha512-wO9sHGCkDOcjKL5RssHJKRG2HfFmxA3/blRgqyPhTIZFMgb9x80SG9QxXrOVmWSWwy/XU9y2lKV4jDY1bD+frQ==}
 
-  '@leafer-ui/decorator@1.11.2':
-    resolution: {integrity: sha512-M+sC1dnA8ovG6Y2CuyIgLV0gbQZsY2HgOtrFf6H7qJgh0fhj3b6WvALp3HbPT7ftp5rjHCbsZDjCuhJZRXyvZQ==}
+  '@leafer-ui/decorator@1.12.0':
+    resolution: {integrity: sha512-v199o1NIjuNkp7Bog3iq/yF0a5nTHo36RoWJsMRKrhTRsZKER1BysGxQy/3sHgQ+fB3fKuBJHglCft3Z+KivbA==}
 
-  '@leafer-ui/display-module@1.11.2':
-    resolution: {integrity: sha512-qY6TEcgxFOi0nt0wnQ//BLR+XvQwMdpI26P4lagq6yAOl26Thk6RBongJvGx495cRwumTW6Gw6omn4FtKfeLEQ==}
+  '@leafer-ui/display-module@1.12.0':
+    resolution: {integrity: sha512-WRYvgrFRaLwvCh9tufaghpIFU0fxOCDpc+bF4y1te6N18ZbvhFG2pd9XVE0wgNuKMsKPStCyG1mNLhvn6j9Umw==}
 
-  '@leafer-ui/display@1.11.2':
-    resolution: {integrity: sha512-JP2Z4KEnhhIjlUbunwg6ztjpY6HST9STi41qnE0E9pdjpqblXGt7xojPrJha3eBPkYZFLhfcHPPFDWnbcBvaLg==}
+  '@leafer-ui/display@1.12.0':
+    resolution: {integrity: sha512-TGWzmpzQRd7NAlOHjuXUvV2Qu6e2z/NQb9R/14j0C6aeHlYTzGyMx0nnR8Ixy13iwuQPZwXQovFK34+kLx7c0A==}
 
-  '@leafer-ui/draw@1.11.2':
-    resolution: {integrity: sha512-r4c6LyYCFsVqtud7tK077L8UORQU7771ghGKg+cu26fZu0PheyLNxN4f5k9ZO88ABuPYD3x3uUlp7UKyxOpb4w==}
+  '@leafer-ui/draw@1.12.0':
+    resolution: {integrity: sha512-cTs/Xkb+eNqjill9JJozJr377A4HgAAKZzm6U/9V81Zy8q3gXs6Y9YuxXWA96/pSlnBageExBLwTEc6t8HxjeQ==}
 
-  '@leafer-ui/effect@1.11.2':
-    resolution: {integrity: sha512-eGIOv/OdcHH1kYgt9JYx1u4PjlmXhwhccG2LhRQQH8TWuj1lWLSd3aC/5UZ5Wt0kw7JbBnKHSjhG2WtD+aOTtg==}
+  '@leafer-ui/effect@1.12.0':
+    resolution: {integrity: sha512-NNuTcwZ+0+5RYR/r2vtXSe67T3ubYcNF/CIi/2g77hCJc00h7pxxw3D3mwZfU5+ZI4ZBxtd2iPdWZ1qtKFJsnA==}
 
-  '@leafer-ui/event@1.11.2':
-    resolution: {integrity: sha512-SOWzLc1qrUY6KkIos5geuaqikCTKdmpGikWUzOrBoocLm+JZLbX82tg6RPDYTumfFjIQteJqqVCNZGYsKgx0gA==}
+  '@leafer-ui/event@1.12.0':
+    resolution: {integrity: sha512-typK1UCL+sorbaG1Q95MUjLRqgcxTtK6HutFjQ4k3lDJ1+LS7IapQPnwaEB4gCQlvwxiHPzeIsqgc1t0ekQBVw==}
 
-  '@leafer-ui/external@1.11.2':
-    resolution: {integrity: sha512-hEUZ9boVANDq3sbadwpyNyVNRLnYCY5HU5CJXHYfsnW3OU+7IuDpPGNBoeCOf3B5M3W91ouZUpV137pHoKEA4w==}
+  '@leafer-ui/external@1.12.0':
+    resolution: {integrity: sha512-tKtCLFAqQPq1ZXJY1LeebMNv/wggHLa9aNa6BdSOwXW70eGYqX92nz/e0axs8zsuVGQhlJm7/dJR5jTj04GE8g==}
 
-  '@leafer-ui/hit@1.11.2':
-    resolution: {integrity: sha512-FzOilEZNJrCRbRI8Gpd/cYJQ03XYM7dqXuDQkY3sfUoour7RG4qPHQ043n4es9CDefd8VI056tXMJ2ylcIOQ4w==}
+  '@leafer-ui/hit@1.12.0':
+    resolution: {integrity: sha512-s5GKq+MA2fu6N/Le1YGAVEKPotjnRN0VqI1flbjK+r1iOIM81i3b996IHseKkc6/c+dP7EN4ZYZwT+JfwrBN2A==}
 
-  '@leafer-ui/interaction@1.11.2':
-    resolution: {integrity: sha512-TDCONBgfpccbMZMSXGUrF0j9QWFIK+GGlT0Vy4B/GXRtxp8w4ntbLWFJz0zoB9nErwK2Q/dSNqXuUNTVZIHRrg==}
+  '@leafer-ui/interaction@1.12.0':
+    resolution: {integrity: sha512-YQ94F4pe2dBjnQeGFk5KZ5Cy0SfK8lAXbiX8MBiR/SbKPY/OhY91IF1+he+IKVi8ucZ5w5ksfvAAxCid/ZKEeQ==}
 
-  '@leafer-ui/interface@1.11.2':
-    resolution: {integrity: sha512-lRT6+WNJbD8pv8AyvLdDffKNGmH9zeMT2FoxYh/+8JDwLsVj2tmM3zhCyjOL5/HT7bXi6RBO12U0eR3mM4nGdw==}
+  '@leafer-ui/interface@1.12.0':
+    resolution: {integrity: sha512-0s8gkLMXDBkX738E+Fm+ZjC8gs/La5p7UEg9pr0zlk0UkoL0ltMKSSIL4SGXD8zScsad1Jxf6FTf8WwrGCn6Ng==}
 
-  '@leafer-ui/node@1.11.2':
-    resolution: {integrity: sha512-IdiMCMx5DHOk5LMcatHUzY47Y8tIJJv5FDxQ9z4FYoHUoIOKUmqDF2oGS1cDQiOY26ocxKRzdZiBC2Jw8Dqa3w==}
+  '@leafer-ui/node@1.12.0':
+    resolution: {integrity: sha512-620DR3vEHPnTcAf2HSPuGQ2CPcznX8nrcuy8SD406ZU/kvIjP9Kd2LdFYDg3n+AYMm/e5jq1yg114+npvyrW4g==}
 
-  '@leafer-ui/paint@1.11.2':
-    resolution: {integrity: sha512-Gyv34/vzxs947Hh/6ZVEfFHUuVhHELRvTGnaiXUSbJT6vvdsYiSxWbRnxN9C3u6cUi626ljLPYjJ/0tjm/hR0Q==}
+  '@leafer-ui/paint@1.12.0':
+    resolution: {integrity: sha512-fUaARHpv6LHf2UPsn1NEX763Fp08xh8SFID2xxgKelN1w/bjLZzDmLZD8/V9G+zTGV4m6LmPvgNCdcQPdzb0MA==}
 
-  '@leafer-ui/partner@1.11.2':
-    resolution: {integrity: sha512-kkxVoTm1wOENu1IMexvnwRFj6obJ2LQ8ux/3AaZEqeABPWMiZpvaMmLPU6gvUdUqeSanZ1Xd/MA01ZjnA2CuAw==}
+  '@leafer-ui/partner@1.12.0':
+    resolution: {integrity: sha512-fTtKDgl+HN8OFLeBYhARTxz6u7gDIHHGu2BBbBqT7G9Aiz+1zyCimZNZy0aog6yFAnT1YYSuhP5rDNHbmU6Olg==}
 
-  '@leafer-ui/render@1.11.2':
-    resolution: {integrity: sha512-CZ939dKNDt8Hmv+qHcmAusSwcAu7Gt8VXPpUjpGbCoFzFnkitmUKp/C7Ln803bQFhm+hCc2zkT1PonLshnmvng==}
+  '@leafer-ui/render@1.12.0':
+    resolution: {integrity: sha512-ztWwMzHfIlrytPCGzWilPx8GRzN01XE6jmEhd6g5YwBuimJ01fHOasCyBNR1gDZXUT5zTn0TEVO2uApbUcNJAg==}
 
-  '@leafer-ui/text@1.11.2':
-    resolution: {integrity: sha512-wSIlhU5LO09nVJx0GQh4s+48iB2w9Bx8Qf7c1362pkkrMZMFtTKU0YlAjwDl7+8Z3+hHMO0fY0s7J9JJUZFlxg==}
+  '@leafer-ui/text@1.12.0':
+    resolution: {integrity: sha512-J2h/Y2tX6tpi6sPhD8zSySM91TL6gjD+3wmaNEmlTXOST/ukiWDlV7Qq6R7CI52DuZEviE7sjw9ULgi4CxFT3A==}
 
-  '@leafer/canvas-node@1.11.2':
-    resolution: {integrity: sha512-Dc368ZW8pKg1NYGRhKHQGNeBBfIgf33YiSCSFcGaDox4LpdKXfHryMuXnWUveZ0eFzXlUGWFHbFAzGd+BFdjGQ==}
+  '@leafer/canvas-node@1.12.0':
+    resolution: {integrity: sha512-SAgmnD4erR+KomviWpGMETEOFCojGWJwHDTpTybjbDYlo88RvzO0OkaRp6WGzquYOwvNoekRFabGTK37NGMGgQ==}
 
-  '@leafer/canvas@1.11.2':
-    resolution: {integrity: sha512-6bEJJXRw55fwQI0WgD+yCCCxzv25IBwb7sa+y2WxYsv5qNwpXTeb4QQXgflPuB7lo2ufNUkbrsUSlNGapDd41A==}
+  '@leafer/canvas@1.12.0':
+    resolution: {integrity: sha512-bgFdMk6LLVYCQE6D+rPJtPK5+lP7yhTnkk882Gk6Si8M2FXhvbJbimUoX7LZFwXtM6E45g1pUr3iJPEg8ald8Q==}
 
-  '@leafer/core@1.11.2':
-    resolution: {integrity: sha512-Mo+4qvR3e2v62j4rDoFX+Bpaw+Av1kIAdZ6rPeDbfi6Rmm9+oo/94rpxmSN40vyI+elfdIGDp7m0d5pgoVAEEg==}
+  '@leafer/core@1.12.0':
+    resolution: {integrity: sha512-v188+deVsQfWp1r0i1ldeHEtM/Gl/R8yXyy1RnLQ2rwxh2fZ4Cz1FA3Uzp5kKgpqcG8t1PpdPznYRTTjww0AIA==}
 
-  '@leafer/data@1.11.2':
-    resolution: {integrity: sha512-/MpztMUyt6jbDv6q1g4eDcji9PKDKw8dWMZgRHjeCoi/9HKHpE+pYjVpF2ATK+KXUIwYsdhaHZE2mVWK14kbnA==}
+  '@leafer/data@1.12.0':
+    resolution: {integrity: sha512-WtjdSevWl385ZMeKS2y9T/PVriUL26P4ZNCGfLcPz64RnYiJpFuhbTdgPDVdVjYR+zMZ3+4GhfKOT5ngv5ZsTw==}
 
-  '@leafer/debug@1.11.2':
-    resolution: {integrity: sha512-zTCkVQEkL/qKd3Eh7tWfg9MtnCxe52rLqVSs3fmo8GakindnzO2DZ7NJQHuOfnABLRhnjqeeuP/+m6/D64FMEg==}
+  '@leafer/debug@1.12.0':
+    resolution: {integrity: sha512-sRhjeV7g9c8wn82D586s5GU7HETwdwXJwZ/ZI7i+DnMNMXWSeiotunk2uTUSzUQNGJYPtP2JvpUpEDVfpx9V0w==}
 
-  '@leafer/decorator@1.11.2':
-    resolution: {integrity: sha512-E7zWPVtw82w5dtUbSFBMXfvMMm4ZHMsVquY/Ovpc9lUk1XNSRM7zxrN2zTTZojWJF7ODr0vk2BpPAOwuuRP34Q==}
+  '@leafer/decorator@1.12.0':
+    resolution: {integrity: sha512-MLP6alNOt1tDrqjXMD/Lky5N3z8PzNemElV2J64mWcDq4Krqi4XI6Lieojn8bTXPaerF/peTe/f88EBAIXuU4g==}
 
-  '@leafer/display-module@1.11.2':
-    resolution: {integrity: sha512-Avgjx4wubfwoNgYD/eIz2DN4M9JivoU7P+FGQHKp0NX0HHueJA2xRe3PKwynli/dZjKffNE579NU/2+GGvvZcg==}
+  '@leafer/display-module@1.12.0':
+    resolution: {integrity: sha512-EsApneTFNWk1vYGNCARWmWwPZfob9iLq/SOwfY+9afcLk/xPsu88IDF0YN/mgPWN/4XEYX9e3jBMW4B7iIcqgA==}
 
-  '@leafer/display@1.11.2':
-    resolution: {integrity: sha512-vzlvGwXjWUtOwNAbuAmEMhTerh+qKV262ueivzEUWs/3CJ/Uxh4l+YVsTzuYsI5h7hPPLmv0MLZ/8N0vRw3MOw==}
+  '@leafer/display@1.12.0':
+    resolution: {integrity: sha512-JtbCLJ+VTr5t78vgbGrVWi8fPqeFDFhtGw1wlruvdtwYwZjqTOTd3f0bmHHWgM4098pZX4+Zm/IamcHxo2ZRTQ==}
 
-  '@leafer/event@1.11.2':
-    resolution: {integrity: sha512-T6eMLzX5IJsZjk1Ra43ht+TngLQq5N6wMKGLuXrUkhZYHFjj2IIkU38E66htBifc9IUeruvJ9AMFULYfca9YcA==}
+  '@leafer/event@1.12.0':
+    resolution: {integrity: sha512-HcwtvfS4xJYpAj5O7Tn9UFklRAiKvH22bqLh2BgndG4NoIJqnXGpbuHUTEsmxW06yMotF3Wu89yinkPCdYa4dg==}
 
-  '@leafer/file@1.11.2':
-    resolution: {integrity: sha512-l+B0wZp3ifWLl5gAeeqjoG0vxAmTYegfc8OWJj+hpk34G6gDsjP6X5bi7+2SL5cVC70C59UQExyOu70Di3UOWw==}
+  '@leafer/file@1.12.0':
+    resolution: {integrity: sha512-FdTE4Epwyh8K+8S46SNE4XiPHWho71sCEqrCRvmgoNTRRnaBpkRryubpuBO2FJ/xLsKEZBcvTF8nK3kAkufTKQ==}
 
-  '@leafer/helper@1.11.2':
-    resolution: {integrity: sha512-jGApaWFZEBhntpid/bSVBGP4j37RxpYGftQxnic5u2oS+312bjaGrQ7KT5IO8hzqT4BkXMFnEv9cNfaBumA+hQ==}
+  '@leafer/helper@1.12.0':
+    resolution: {integrity: sha512-2qedo9xTy4KNF0z8TqTKKPLTjm5W7FM22vCnpyE6hkgW8DLQBdEMJsj7ylNmsFl0Ia5+a9DnPvudT9pC0nmIAQ==}
 
-  '@leafer/image-node@1.11.2':
-    resolution: {integrity: sha512-HbAejW4QzFqqbtiMSLfVtO5FPvAHb5TxV+zKnbnnYrKG6faERYMkYLQr4UVU3m3MSuR1ndzmmvAefyjClYOzcg==}
+  '@leafer/image-node@1.12.0':
+    resolution: {integrity: sha512-xJ5aQgBUg1koEoLVSi9hZZ499ikopez0aPuCLYxbe6Pf2TLAxW7uyptwNyldA96/TpqI7C1UxS+zKubhOU4tGA==}
 
-  '@leafer/image@1.11.2':
-    resolution: {integrity: sha512-vy9kIrqscnLVaVtRu+7yPFTVCsc5uKwzvBKDf3Eq6PAX+hefFusLYfKPbCkMAJrD1Wmw0X2q4BtwxIiEdpCcTw==}
+  '@leafer/image@1.12.0':
+    resolution: {integrity: sha512-URZKd9jbge8GVaT37IW7qNYAdDrVL57gBBtnvlrCtaFhlmu+jOJX7gD/ONzc2a2eAoFpx4ypg6Zi2HLDokIVjw==}
 
-  '@leafer/interface@1.11.2':
-    resolution: {integrity: sha512-heGzIrp45sKjNFihJdpDK+QdXc4lflSmlJaWiMEXqWVP93vStjOzEwAJBHnw/yun0i9EIH6LyaijHXHQ8IzEsg==}
+  '@leafer/interface@1.12.0':
+    resolution: {integrity: sha512-6pR6t6eMQda6LYHoeWeEGfiSPSKpwZDOZwd0/R/Dqd2aH/c5LhTuOYD7QBpXWwpRbyhm4Yw9MG/QVVaBfW5t1g==}
 
-  '@leafer/layout@1.11.2':
-    resolution: {integrity: sha512-XqU6vgk+5H0UowHxcRX+TxU3dlEXlfGaSPqfwSLrtSYeZCPdM15kvWt2DwFPxuLzrhOsvJejm+eKmDDRUUQ+bw==}
+  '@leafer/layout@1.12.0':
+    resolution: {integrity: sha512-9X4E56MKULxtbo5vT/hhPWXxn4kMhIRAdm+Ci/aEqkdL+2W9rVYNXWoHuNw1Osave6v/4QR7Qs/2H8ffScp7gw==}
 
-  '@leafer/layouter@1.11.2':
-    resolution: {integrity: sha512-Ff7tIR3SZ6n5vz9zIhnN8ggr/NXDel8TIpVGc72feJpLN6zwDpKFHBNgr2b1ZygaGL8mJy5+5u3s7ngPYH3ERw==}
+  '@leafer/layouter@1.12.0':
+    resolution: {integrity: sha512-FpcllppDgV+UUsiU8mWe1t6+ASk5MIn6vo//TzD0xTPyEsTpT3kyrf6uSIE4txarXfOIWKiofKzgEoeggRso9g==}
 
-  '@leafer/list@1.11.2':
-    resolution: {integrity: sha512-jyw3kTeL4Lhwh9diB25+1UszLpjCGerbVEQ5Cn9CaEfQx1KtdUFrMNvXMeXPMbGBazamKXRmTWAA+jJI0ldFgA==}
+  '@leafer/list@1.12.0':
+    resolution: {integrity: sha512-i4j7C8PUqFDIKTW/f3fpg/SUwEhRKXxCRRZ+262gYaP6fz/vDxnIt6M5YlaToSbfAFDWfbvLww49Ldpjm7BrTQ==}
 
-  '@leafer/math@1.11.2':
-    resolution: {integrity: sha512-ycCZUpul0fxs3H3BjHsZZezO+LpP4rNtaSlo1Js2VJJDyOwj2T+x0C2VN+6G78G4M3MoEmJzk1Kp330kOuo5Ew==}
+  '@leafer/math@1.12.0':
+    resolution: {integrity: sha512-LqQEWPyW7jUXBS/tQZiTx9KgTmlvbJGUxJSqF1pIcnLqAiDnFrVj4MVF8sNypdjmg3n1/xyYv8R3u8Yisl0iFw==}
 
-  '@leafer/partner@1.11.2':
-    resolution: {integrity: sha512-X7vmG5iuJYhLShcwYWQgcOFpo/qnCGEmstBcCkVdOeoLt/dAfLQfS+KrOFcJe9axFhUIZya4KtscM2G+3eYQ7g==}
+  '@leafer/partner@1.12.0':
+    resolution: {integrity: sha512-V5ksKfNE1O4ekqqpIdT5So9URvFy3Jiymr9T4j8ZKP/Z9IdU2+amlfGx1iK+8oRB/Pqeo82BnqGtVjqZ8FqCKQ==}
 
-  '@leafer/path@1.11.2':
-    resolution: {integrity: sha512-4yp/9N2OWyWi7t3PXI5x7dv+xScFz9iJKgv4P9WmkeCZJTTseGnCYa86Tq6PbVojgi1DpMQi6cZWrDshj4WIUQ==}
+  '@leafer/path@1.12.0':
+    resolution: {integrity: sha512-DE+M+JMT6RHRuP9kIlkmiqZXFmpt6ThdvBJFmPkusQwDt6ucPcqUX01LHcCZlOBIZ4uq8TX788NnnIP3IQbR2A==}
 
-  '@leafer/platform@1.11.2':
-    resolution: {integrity: sha512-L1hEOyfyM4CTCG3wNmc8911Q8ZJPeVFxUoFA3CGB577NMn966G861oqzd2z5tY6fZRZ/9uvFoi4TM4eg64ekhQ==}
+  '@leafer/platform@1.12.0':
+    resolution: {integrity: sha512-EjV+CmLYyC28ZkPLrlIiWS3RZr+uOwmjDB9z0AKSEhL+kr4ySMRqfd7TvwW5IZOuU31ov5w3SO8fvWZihgQVcA==}
 
-  '@leafer/renderer@1.11.2':
-    resolution: {integrity: sha512-06xGZ/Pb3TjWa8voU2WCk3VQdWDFxkYqk0CdfcYtgGMPtcFS9Ewb+wzWr733yM0u5alsN3Ct+dWtvIvlEWjaew==}
+  '@leafer/renderer@1.12.0':
+    resolution: {integrity: sha512-0hS76xvlkAbfnuPrqxRSkjE8kDUmI93fHsK1eswUX89A8oFhYDdyZuTd5hau3gtTUusmz/6BAav8932sa2uYDw==}
 
-  '@leafer/selector@1.11.2':
-    resolution: {integrity: sha512-XQYPxpthqLQ97JhshjPlT3pbIORxttzInj9qLBlmKe3Xf7g5nuLNBCRwX/9GT3E4Z419IEvVLNCUWhNwYkPn4g==}
+  '@leafer/selector@1.12.0':
+    resolution: {integrity: sha512-9a28YptuiohFyThJForhXwF+X7EUcZVh1sERjV/fUN/p4F9Ih1K+rLIeXnDvFrriIbanCQgBqJSKyHJz5iLYMw==}
 
-  '@leafer/task@1.11.2':
-    resolution: {integrity: sha512-Isqrzuo+2lg114hy0kMRmW62csab+io/7BmaIaOqWQzp6MOpt4Lkq1uK+jK33efw3wQV3xnidAfFr0zDfBDYsQ==}
+  '@leafer/task@1.12.0':
+    resolution: {integrity: sha512-y9BZ31cpq2EmjQ0Dt76DDTkduQgwF61+IeD+kZF+SZxxXfm6995GSjCqFuZsRQoET1Fdts1bfGuAly9sdQ6Ntg==}
 
-  '@leafer/watcher@1.11.2':
-    resolution: {integrity: sha512-CVwBmuFqjfrli+GWMf0ARRQGODAKr6e4/pdxrNg5GhdEzG7wC1doEw7xcogaTfNF+OVPt3NUuhW9Fu0tLLpQPw==}
+  '@leafer/watcher@1.12.0':
+    resolution: {integrity: sha512-o1wPiB9JLBs2KHOXXVOscXO9s8BkCyhD0MRvYgVvWK1qxidb1fbIeNPHVzAWXrQ/KM0mEfXaYGsel/ATlQ+/7w==}
 
   '@libsql/client@0.15.15':
     resolution: {integrity: sha512-twC0hQxPNHPKfeOv3sNT6u2pturQjLcI+CnpTM0SjRpocEGgfiZ7DWKXLNnsothjyJmDqEsBQJ5ztq9Wlu470w==}
@@ -536,23 +536,23 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@mantine/core@8.3.9':
-    resolution: {integrity: sha512-ivj0Crn5N521cI2eWZBsBGckg0ZYRqfOJz5vbbvYmfj65bp0EdsyqZuOxXzIcn2aUScQhskfvzyhV5XIUv81PQ==}
+  '@mantine/core@8.3.10':
+    resolution: {integrity: sha512-aKQFETN14v6GtM07b/G5yJneMM1yrgf9mNrTah6GVy5DvQM0AeutITT7toHqh5gxxwzdg/DoY+HQsv5zhqnc5g==}
     peerDependencies:
-      '@mantine/hooks': 8.3.9
+      '@mantine/hooks': 8.3.10
       react: ^18.x || ^19.x
       react-dom: ^18.x || ^19.x
 
-  '@mantine/hooks@8.3.9':
-    resolution: {integrity: sha512-Dfz7W0+K1cq4Gb1WFQCZn8tsMXkLH6MV409wZR/ToqsxdNDUMJ/xxbfnwEXWEZjXNJd1wDETHgc+cZG2lTe3Xw==}
+  '@mantine/hooks@8.3.10':
+    resolution: {integrity: sha512-bv+yYHl+keTIvakiDzVJMIjW+o8/Px0G3EdpCMFG+U2ux6SwQqluqoq+/kqrTtT6RaLvQ0fMxjpIULF2cu/xAg==}
     peerDependencies:
       react: ^18.x || ^19.x
 
-  '@mantine/modals@8.3.9':
-    resolution: {integrity: sha512-0WOikHgECJeWA/1TNf+sxOnpNwQjmpyph3XEhzFkgneimW6Ry7R6qd/i345CDLSu6kP6FGGRI73SUROiTcu2Ng==}
+  '@mantine/modals@8.3.10':
+    resolution: {integrity: sha512-XopCrP8dindhzSDazU47BgU8TVsiOyEG0u1UMJJ4u8TdvBctP7QVeJmGKj+B4MRHk2cHrjIF38dEGJhDgTITEg==}
     peerDependencies:
-      '@mantine/core': 8.3.9
-      '@mantine/hooks': 8.3.9
+      '@mantine/core': 8.3.10
+      '@mantine/hooks': 8.3.10
       react: ^18.x || ^19.x
       react-dom: ^18.x || ^19.x
 
@@ -600,10 +600,6 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@oxc-project/runtime@0.101.0':
-    resolution: {integrity: sha512-t3qpfVZIqSiLQ5Kqt/MC4Ge/WCOGrrcagAdzTcDaggupjiGxUx4nJF2v6wUCXWSzWHn5Ns7XLv13fCJEwCOERQ==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-
   '@oxc-project/types@0.101.0':
     resolution: {integrity: sha512-nuFhqlUzJX+gVIPPfuE6xurd4lST3mdcWOhyK/rZO0B9XWMKm79SuszIQEnSMmmDhq1DC8WWVYGVd+6F93o1gQ==}
 
@@ -624,8 +620,8 @@ packages:
       js-cookie:
         optional: true
 
-  '@repobuddy/biome@2.1.0':
-    resolution: {integrity: sha512-fQw3U0JgZEJTKJ9RmJ9/4qTsNLtrpYp9UkHfNuvMqwyDgGFenyFXxT7QGRNhF8gtOeMbgAvLJwFeAZMjwBS4uQ==}
+  '@repobuddy/biome@2.2.0':
+    resolution: {integrity: sha512-018qb4TY8Zu7kj50udCG9qRybmDUNXWT86UEwTH6aAf1cXOiiokFvTEBb54RlQeqVM/GZYKOUWSjuSvsU/N8uQ==}
     peerDependencies:
       '@biomejs/biome': '>= 2'
 
@@ -709,13 +705,13 @@ packages:
   '@rolldown/pluginutils@1.0.0-beta.53':
     resolution: {integrity: sha512-vENRlFU4YbrwVqNDZ7fLvy+JR1CRkyr01jhSiDpE1u6py3OMzQfztQU2jxykW3ALNxO4kSlqIDeYyD0Y9RcQeQ==}
 
-  '@tabler/icons-react@3.35.0':
-    resolution: {integrity: sha512-XG7t2DYf3DyHT5jxFNp5xyLVbL4hMJYJhiSdHADzAjLRYfL7AnjlRfiHDHeXxkb2N103rEIvTsBRazxXtAUz2g==}
+  '@tabler/icons-react@3.36.0':
+    resolution: {integrity: sha512-sSZ00bEjTdTTskVFykq294RJq+9cFatwy4uYa78HcYBCXU1kSD1DIp5yoFsQXmybkIOKCjp18OnhAYk553UIfQ==}
     peerDependencies:
       react: '>= 16'
 
-  '@tabler/icons@3.35.0':
-    resolution: {integrity: sha512-yYXe+gJ56xlZFiXwV9zVoe3FWCGuZ/D7/G4ZIlDtGxSx5CGQK110wrnT29gUj52kEZoxqF7oURTk97GQxELOFQ==}
+  '@tabler/icons@3.36.0':
+    resolution: {integrity: sha512-z9OfTEG6QbaQWM9KBOxxUdpgvMUn0atageXyiaSc2gmYm51ORO8Ua7eUcjlks+Dc0YMK4rrodAFdK9SfjJ4ZcA==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -723,8 +719,8 @@ packages:
   '@types/bun@1.3.4':
     resolution: {integrity: sha512-EEPTKXHP+zKGPkhRLv+HI0UEX8/o+65hqARxLy8Ov5rIxMBPNTjeZww00CIihrIQGEQBYg+0roO5qOnS/7boGA==}
 
-  '@types/node@24.10.1':
-    resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
+  '@types/node@25.0.3':
+    resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -749,8 +745,8 @@ packages:
     resolution: {integrity: sha512-m1Q/RaVOnTp9JxPX+F+Zn7IcLYMzM8kZofDImfsKZd8MbR+ikdOzTeztStWqfrqIxZnYWryyI9ePm3NGjnZgGw==}
     engines: {node: '>=20.19.0'}
 
-  birpc@3.0.0:
-    resolution: {integrity: sha512-by+04pHuxpCEQcucAXqzopqfhyI8TLK5Qg5MST0cB6MP+JhHna9ollrtK9moVh27aq6Q6MEJgebD0cVm//yBkg==}
+  birpc@4.0.0:
+    resolution: {integrity: sha512-LShSxJP0KTmd101b6DRyGBj57LZxSDYWKitQNW/mi8GRMvZb078Uf9+pveax1DrVL89vm7mWe+TovdI/UDOuPw==}
 
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
@@ -936,8 +932,8 @@ packages:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
 
-  import-without-cache@0.2.2:
-    resolution: {integrity: sha512-4TTuRrZ0jBULXzac3EoX9ZviOs8Wn9iAbNhJEyLhTpAGF9eNmYSruaMMN/Tec/yqaO7H6yS2kALfQDJ5FxfatA==}
+  import-without-cache@0.2.4:
+    resolution: {integrity: sha512-b/Ke0y4n26ffQhkLvgBxV/NVO/QEE6AZlrMj8DYuxBWNAAu4iMQWZTFWzKcCTEmv7VQ0ae0j8KwrlGzSy8sYQQ==}
     engines: {node: '>=20.19.0'}
 
   interpret@2.2.0:
@@ -1037,8 +1033,8 @@ packages:
     resolution: {integrity: sha512-fCPwQZVIfOeQZecBYmJy+21zSrWTlt/thUNONjTtcBHzQNu3f+zVGY0kn9gs6x6bvT570cNlPLmzHVd3NCM4Kw==}
     engines: {node: '>= 18.12.0'}
 
-  modern-tar@0.7.2:
-    resolution: {integrity: sha512-TGG1ZRk1TAQ3neuZwahAHke3rKsSlro+ooMYtjh9sl2gGPVMLMuWiHgwC7im9T5bSM566RSo2Dko56ETgEvZcA==}
+  modern-tar@0.7.3:
+    resolution: {integrity: sha512-4W79zekKGyYU4JXVmB78DOscMFaJth2gGhgfTl2alWE4rNe3nf4N2pqenQ0rEtIewrnD79M687Ouba3YGTLOvg==}
     engines: {node: '>=18.0.0'}
 
   ms@2.1.2:
@@ -1100,10 +1096,10 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
-  react-dom@19.2.1:
-    resolution: {integrity: sha512-ibrK8llX2a4eOskq1mXKu/TGZj9qzomO+sNfO98M6d9zIPOEhlBkMkBUBLd1vgS0gQsLDBzA+8jJBVXDnfHmJg==}
+  react-dom@19.2.3:
+    resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
     peerDependencies:
-      react: ^19.2.1
+      react: ^19.2.3
 
   react-number-format@5.4.4:
     resolution: {integrity: sha512-wOmoNZoOpvMminhifQYiYSTCLUDOiUbBunrMrMjA+dV52sY+vck1S4UhR6PkgnoCquvvMSeJjErXZ4qSaWCliA==}
@@ -1152,8 +1148,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  react@19.2.1:
-    resolution: {integrity: sha512-DGrYcCWK7tvYMnWh79yrPHt+vdx9tY+1gPZa7nJQtO/p8bLTDaHp4dzwEhQB7pZ4Xe3ok4XKuEPrVuc+wlpkmw==}
+  react@19.2.3:
+    resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
     engines: {node: '>=0.10.0'}
 
   rechoir@0.8.0:
@@ -1179,8 +1175,8 @@ packages:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
-  rolldown-plugin-dts@0.18.3:
-    resolution: {integrity: sha512-rd1LZ0Awwfyn89UndUF/HoFF4oH9a5j+2ZeuKSJYM80vmeN/p0gslYMnHTQHBEXPhUlvAlqGA3tVgXB/1qFNDg==}
+  rolldown-plugin-dts@0.18.4:
+    resolution: {integrity: sha512-7UpdiICFd/BhdjKtDPeakCFRk6pbkTGFe0Z6u01egt4c8aoO+JoPGF1Smc+JRuCH2s5j5hBdteBi0e10G0xQdQ==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
       '@ts-macro/tsc': ^0.3.6
@@ -1330,8 +1326,8 @@ packages:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
 
-  type-flag@4.0.2:
-    resolution: {integrity: sha512-diALGSg9wBpvowixHbIeCJtXNxUKJHUNR8oE67K9zuPkpBe5FMmg+dpevDWmEwGQDmn/RJD3m7szs6Ssdz5A4w==}
+  type-flag@4.0.3:
+    resolution: {integrity: sha512-YA09cL07U7hSV+/doSfKl+RkIZ2olCnevZsVgAuyBUG3h2ROf9Oh2vmbq5Rf26aA9/qu9RtStuc7ap5PC6k/vw==}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -1348,8 +1344,8 @@ packages:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
 
-  unrun@0.2.17:
-    resolution: {integrity: sha512-mumOyjZp1K1bsa1QwfRPw7+9TxyVHSgx6LHB2dBWI4m1hGDG9b2TK3fS3H8vCl/Gl9YTSxhZ9XuLbWv3QF8GEA==}
+  unrun@0.2.19:
+    resolution: {integrity: sha512-DbwbJ9BvPEb3BeZnIpP9S5tGLO/JIgPQ3JrpMRFIfZMZfMG19f26OlLbC2ml8RRdrI2ZA7z2t+at5tsIHbh6Qw==}
     engines: {node: '>=20.19.0'}
     hasBin: true
     peerDependencies:
@@ -1414,8 +1410,8 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
-  wretch@3.0.5:
-    resolution: {integrity: sha512-hXbnbeWaBVbSfuq0ppDhygZ0iCQqVKzuBxa7GsLKDGtgZIzzc2z+7Qn8N8Kwdykz+ryi0iSOoo3Kyx8KRMd3TA==}
+  wretch@3.0.6:
+    resolution: {integrity: sha512-qshuQ0s5973Mu9mL5PG6QYG/bD0jihX9bovq7jgGE8r6ndH+JPOzzxihh/gaanKKsrFvvIdZ+KN4BoFyTj4PWg==}
     engines: {node: '>=22'}
 
   ws@8.18.3:
@@ -1458,39 +1454,39 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@biomejs/biome@2.3.8':
+  '@biomejs/biome@2.3.9':
     optionalDependencies:
-      '@biomejs/cli-darwin-arm64': 2.3.8
-      '@biomejs/cli-darwin-x64': 2.3.8
-      '@biomejs/cli-linux-arm64': 2.3.8
-      '@biomejs/cli-linux-arm64-musl': 2.3.8
-      '@biomejs/cli-linux-x64': 2.3.8
-      '@biomejs/cli-linux-x64-musl': 2.3.8
-      '@biomejs/cli-win32-arm64': 2.3.8
-      '@biomejs/cli-win32-x64': 2.3.8
+      '@biomejs/cli-darwin-arm64': 2.3.9
+      '@biomejs/cli-darwin-x64': 2.3.9
+      '@biomejs/cli-linux-arm64': 2.3.9
+      '@biomejs/cli-linux-arm64-musl': 2.3.9
+      '@biomejs/cli-linux-x64': 2.3.9
+      '@biomejs/cli-linux-x64-musl': 2.3.9
+      '@biomejs/cli-win32-arm64': 2.3.9
+      '@biomejs/cli-win32-x64': 2.3.9
 
-  '@biomejs/cli-darwin-arm64@2.3.8':
+  '@biomejs/cli-darwin-arm64@2.3.9':
     optional: true
 
-  '@biomejs/cli-darwin-x64@2.3.8':
+  '@biomejs/cli-darwin-x64@2.3.9':
     optional: true
 
-  '@biomejs/cli-linux-arm64-musl@2.3.8':
+  '@biomejs/cli-linux-arm64-musl@2.3.9':
     optional: true
 
-  '@biomejs/cli-linux-arm64@2.3.8':
+  '@biomejs/cli-linux-arm64@2.3.9':
     optional: true
 
-  '@biomejs/cli-linux-x64-musl@2.3.8':
+  '@biomejs/cli-linux-x64-musl@2.3.9':
     optional: true
 
-  '@biomejs/cli-linux-x64@2.3.8':
+  '@biomejs/cli-linux-x64@2.3.9':
     optional: true
 
-  '@biomejs/cli-win32-arm64@2.3.8':
+  '@biomejs/cli-win32-arm64@2.3.9':
     optional: true
 
-  '@biomejs/cli-win32-x64@2.3.8':
+  '@biomejs/cli-win32-x64@2.3.9':
     optional: true
 
   '@emnapi/core@1.7.1':
@@ -1518,34 +1514,34 @@ snapshots:
       '@floating-ui/core': 1.7.3
       '@floating-ui/utils': 0.2.10
 
-  '@floating-ui/react-dom@2.1.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@floating-ui/react-dom@2.1.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@floating-ui/dom': 1.7.4
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
-  '@floating-ui/react@0.27.16(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@floating-ui/react@0.27.16(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@floating-ui/react-dom': 2.1.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@floating-ui/react-dom': 2.1.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@floating-ui/utils': 0.2.10
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
       tabbable: 6.3.0
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@gqty/react@3.1.1(gqty@3.6.0(graphql@16.12.0))(graphql@16.12.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@gqty/react@3.1.1(gqty@3.6.0(graphql@16.12.0))(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@react-hookz/web': 23.1.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@react-hookz/web': 23.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       gqty: 3.6.0(graphql@16.12.0)
       graphql: 16.12.0
       multidict: 1.0.9
       p-debounce: 4.0.0
       p-defer: 3.0.0
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
-      react-ssr-prepass: 1.6.0(react@19.2.1)
-      use-sync-external-store: 1.6.0(react@19.2.1)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      react-ssr-prepass: 1.6.0(react@19.2.3)
+      use-sync-external-store: 1.6.0(react@19.2.3)
     transitivePeerDependencies:
       - js-cookie
 
@@ -1565,287 +1561,287 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@leafer-in/export@1.11.2(@leafer-in/interface@1.11.2(@leafer-ui/interface@1.11.2)(@leafer/interface@1.11.2))(@leafer-ui/draw@1.11.2)(@leafer-ui/interface@1.11.2)':
+  '@leafer-in/export@1.12.0(@leafer-in/interface@1.12.0(@leafer-ui/interface@1.12.0)(@leafer/interface@1.12.0))(@leafer-ui/draw@1.12.0)(@leafer-ui/interface@1.12.0)':
     dependencies:
-      '@leafer-in/interface': 1.11.2(@leafer-ui/interface@1.11.2)(@leafer/interface@1.11.2)
-      '@leafer-ui/draw': 1.11.2
-      '@leafer-ui/interface': 1.11.2
+      '@leafer-in/interface': 1.12.0(@leafer-ui/interface@1.12.0)(@leafer/interface@1.12.0)
+      '@leafer-ui/draw': 1.12.0
+      '@leafer-ui/interface': 1.12.0
 
-  '@leafer-in/interface@1.11.2(@leafer-ui/interface@1.11.2)(@leafer/interface@1.11.2)':
+  '@leafer-in/interface@1.12.0(@leafer-ui/interface@1.12.0)(@leafer/interface@1.12.0)':
     dependencies:
-      '@leafer-ui/interface': 1.11.2
-      '@leafer/interface': 1.11.2
+      '@leafer-ui/interface': 1.12.0
+      '@leafer/interface': 1.12.0
 
-  '@leafer-ui/app@1.11.2':
+  '@leafer-ui/app@1.12.0':
     dependencies:
-      '@leafer-ui/data': 1.11.2
-      '@leafer-ui/display': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/data': 1.12.0
+      '@leafer-ui/display': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/bounds@1.11.2':
+  '@leafer-ui/bounds@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/color@1.11.2':
+  '@leafer-ui/color@1.12.0':
     dependencies:
-      '@leafer-ui/draw': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/draw': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/core@1.11.2':
+  '@leafer-ui/core@1.12.0':
     dependencies:
-      '@leafer-ui/app': 1.11.2
-      '@leafer-ui/draw': 1.11.2
-      '@leafer-ui/event': 1.11.2
-      '@leafer-ui/hit': 1.11.2
-      '@leafer-ui/interaction': 1.11.2
+      '@leafer-ui/app': 1.12.0
+      '@leafer-ui/draw': 1.12.0
+      '@leafer-ui/event': 1.12.0
+      '@leafer-ui/hit': 1.12.0
+      '@leafer-ui/interaction': 1.12.0
 
-  '@leafer-ui/data@1.11.2':
+  '@leafer-ui/data@1.12.0':
     dependencies:
-      '@leafer-ui/external': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/external': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/decorator@1.11.2':
+  '@leafer-ui/decorator@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/display-module@1.11.2':
+  '@leafer-ui/display-module@1.12.0':
     dependencies:
-      '@leafer-ui/bounds': 1.11.2
-      '@leafer-ui/data': 1.11.2
-      '@leafer-ui/render': 1.11.2
+      '@leafer-ui/bounds': 1.12.0
+      '@leafer-ui/data': 1.12.0
+      '@leafer-ui/render': 1.12.0
 
-  '@leafer-ui/display@1.11.2':
+  '@leafer-ui/display@1.12.0':
     dependencies:
-      '@leafer-ui/data': 1.11.2
-      '@leafer-ui/decorator': 1.11.2
-      '@leafer-ui/display-module': 1.11.2
-      '@leafer-ui/external': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/data': 1.12.0
+      '@leafer-ui/decorator': 1.12.0
+      '@leafer-ui/display-module': 1.12.0
+      '@leafer-ui/external': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/draw@1.11.2':
+  '@leafer-ui/draw@1.12.0':
     dependencies:
-      '@leafer-ui/decorator': 1.11.2
-      '@leafer-ui/display': 1.11.2
-      '@leafer-ui/display-module': 1.11.2
-      '@leafer-ui/external': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/decorator': 1.12.0
+      '@leafer-ui/display': 1.12.0
+      '@leafer-ui/display-module': 1.12.0
+      '@leafer-ui/external': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/effect@1.11.2':
+  '@leafer-ui/effect@1.12.0':
     dependencies:
-      '@leafer-ui/draw': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/draw': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/event@1.11.2':
+  '@leafer-ui/event@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/external@1.11.2':
+  '@leafer-ui/external@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/hit@1.11.2':
+  '@leafer-ui/hit@1.12.0':
     dependencies:
-      '@leafer-ui/draw': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/draw': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/interaction@1.11.2':
+  '@leafer-ui/interaction@1.12.0':
     dependencies:
-      '@leafer-ui/draw': 1.11.2
-      '@leafer-ui/event': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/draw': 1.12.0
+      '@leafer-ui/event': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/interface@1.11.2':
+  '@leafer-ui/interface@1.12.0':
     dependencies:
-      '@leafer/interface': 1.11.2
+      '@leafer/interface': 1.12.0
 
-  '@leafer-ui/node@1.11.2':
+  '@leafer-ui/node@1.12.0':
     dependencies:
-      '@leafer-in/export': 1.11.2(@leafer-in/interface@1.11.2(@leafer-ui/interface@1.11.2)(@leafer/interface@1.11.2))(@leafer-ui/draw@1.11.2)(@leafer-ui/interface@1.11.2)
-      '@leafer-in/interface': 1.11.2(@leafer-ui/interface@1.11.2)(@leafer/interface@1.11.2)
-      '@leafer-ui/core': 1.11.2
-      '@leafer-ui/draw': 1.11.2
-      '@leafer-ui/interface': 1.11.2
-      '@leafer-ui/partner': 1.11.2
-      '@leafer/canvas-node': 1.11.2
-      '@leafer/core': 1.11.2
-      '@leafer/image-node': 1.11.2
-      '@leafer/interface': 1.11.2
-      '@leafer/partner': 1.11.2
+      '@leafer-in/export': 1.12.0(@leafer-in/interface@1.12.0(@leafer-ui/interface@1.12.0)(@leafer/interface@1.12.0))(@leafer-ui/draw@1.12.0)(@leafer-ui/interface@1.12.0)
+      '@leafer-in/interface': 1.12.0(@leafer-ui/interface@1.12.0)(@leafer/interface@1.12.0)
+      '@leafer-ui/core': 1.12.0
+      '@leafer-ui/draw': 1.12.0
+      '@leafer-ui/interface': 1.12.0
+      '@leafer-ui/partner': 1.12.0
+      '@leafer/canvas-node': 1.12.0
+      '@leafer/core': 1.12.0
+      '@leafer/image-node': 1.12.0
+      '@leafer/interface': 1.12.0
+      '@leafer/partner': 1.12.0
 
-  '@leafer-ui/paint@1.11.2':
+  '@leafer-ui/paint@1.12.0':
     dependencies:
-      '@leafer-ui/draw': 1.11.2
-      '@leafer/core': 1.11.2
+      '@leafer-ui/draw': 1.12.0
+      '@leafer/core': 1.12.0
 
-  '@leafer-ui/partner@1.11.2':
+  '@leafer-ui/partner@1.12.0':
     dependencies:
-      '@leafer-ui/color': 1.11.2
-      '@leafer-ui/draw': 1.11.2
-      '@leafer-ui/effect': 1.11.2
-      '@leafer-ui/paint': 1.11.2
-      '@leafer-ui/text': 1.11.2
+      '@leafer-ui/color': 1.12.0
+      '@leafer-ui/draw': 1.12.0
+      '@leafer-ui/effect': 1.12.0
+      '@leafer-ui/paint': 1.12.0
+      '@leafer-ui/text': 1.12.0
 
-  '@leafer-ui/render@1.11.2':
+  '@leafer-ui/render@1.12.0':
     dependencies:
-      '@leafer-ui/external': 1.11.2
+      '@leafer-ui/external': 1.12.0
 
-  '@leafer-ui/text@1.11.2':
+  '@leafer-ui/text@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer/canvas-node@1.11.2':
+  '@leafer/canvas-node@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer/canvas@1.11.2':
+  '@leafer/canvas@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/file': 1.11.2
-      '@leafer/list': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/path': 1.11.2
-      '@leafer/platform': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/file': 1.12.0
+      '@leafer/list': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/path': 1.12.0
+      '@leafer/platform': 1.12.0
 
-  '@leafer/core@1.11.2':
+  '@leafer/core@1.12.0':
     dependencies:
-      '@leafer/canvas': 1.11.2
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/decorator': 1.11.2
-      '@leafer/display': 1.11.2
-      '@leafer/display-module': 1.11.2
-      '@leafer/event': 1.11.2
-      '@leafer/file': 1.11.2
-      '@leafer/helper': 1.11.2
-      '@leafer/image': 1.11.2
-      '@leafer/layout': 1.11.2
-      '@leafer/list': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/path': 1.11.2
-      '@leafer/platform': 1.11.2
-      '@leafer/task': 1.11.2
+      '@leafer/canvas': 1.12.0
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/decorator': 1.12.0
+      '@leafer/display': 1.12.0
+      '@leafer/display-module': 1.12.0
+      '@leafer/event': 1.12.0
+      '@leafer/file': 1.12.0
+      '@leafer/helper': 1.12.0
+      '@leafer/image': 1.12.0
+      '@leafer/layout': 1.12.0
+      '@leafer/list': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/path': 1.12.0
+      '@leafer/platform': 1.12.0
+      '@leafer/task': 1.12.0
 
-  '@leafer/data@1.11.2': {}
+  '@leafer/data@1.12.0': {}
 
-  '@leafer/debug@1.11.2':
+  '@leafer/debug@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/math': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/math': 1.12.0
 
-  '@leafer/decorator@1.11.2':
+  '@leafer/decorator@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/platform': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/platform': 1.12.0
 
-  '@leafer/display-module@1.11.2':
+  '@leafer/display-module@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/event': 1.11.2
-      '@leafer/helper': 1.11.2
-      '@leafer/math': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/event': 1.12.0
+      '@leafer/helper': 1.12.0
+      '@leafer/math': 1.12.0
 
-  '@leafer/display@1.11.2':
+  '@leafer/display@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/decorator': 1.11.2
-      '@leafer/display-module': 1.11.2
-      '@leafer/event': 1.11.2
-      '@leafer/helper': 1.11.2
-      '@leafer/image': 1.11.2
-      '@leafer/layout': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/platform': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/decorator': 1.12.0
+      '@leafer/display-module': 1.12.0
+      '@leafer/event': 1.12.0
+      '@leafer/helper': 1.12.0
+      '@leafer/image': 1.12.0
+      '@leafer/layout': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/platform': 1.12.0
 
-  '@leafer/event@1.11.2':
+  '@leafer/event@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/decorator': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/platform': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/decorator': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/platform': 1.12.0
 
-  '@leafer/file@1.11.2':
+  '@leafer/file@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/platform': 1.11.2
-      '@leafer/task': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/platform': 1.12.0
+      '@leafer/task': 1.12.0
 
-  '@leafer/helper@1.11.2':
+  '@leafer/helper@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/platform': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/platform': 1.12.0
 
-  '@leafer/image-node@1.11.2':
+  '@leafer/image-node@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer/image@1.11.2':
+  '@leafer/image@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/file': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/platform': 1.11.2
-      '@leafer/task': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/file': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/platform': 1.12.0
+      '@leafer/task': 1.12.0
 
-  '@leafer/interface@1.11.2': {}
+  '@leafer/interface@1.12.0': {}
 
-  '@leafer/layout@1.11.2':
+  '@leafer/layout@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/helper': 1.11.2
-      '@leafer/math': 1.11.2
-      '@leafer/platform': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/helper': 1.12.0
+      '@leafer/math': 1.12.0
+      '@leafer/platform': 1.12.0
 
-  '@leafer/layouter@1.11.2':
+  '@leafer/layouter@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer/list@1.11.2': {}
+  '@leafer/list@1.12.0': {}
 
-  '@leafer/math@1.11.2': {}
+  '@leafer/math@1.12.0': {}
 
-  '@leafer/partner@1.11.2':
+  '@leafer/partner@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
-      '@leafer/layouter': 1.11.2
-      '@leafer/renderer': 1.11.2
-      '@leafer/selector': 1.11.2
-      '@leafer/watcher': 1.11.2
+      '@leafer/core': 1.12.0
+      '@leafer/layouter': 1.12.0
+      '@leafer/renderer': 1.12.0
+      '@leafer/selector': 1.12.0
+      '@leafer/watcher': 1.12.0
 
-  '@leafer/path@1.11.2':
+  '@leafer/path@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
-      '@leafer/math': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
+      '@leafer/math': 1.12.0
 
-  '@leafer/platform@1.11.2':
+  '@leafer/platform@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/debug': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/debug': 1.12.0
 
-  '@leafer/renderer@1.11.2':
+  '@leafer/renderer@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer/selector@1.11.2':
+  '@leafer/selector@1.12.0':
     dependencies:
-      '@leafer/core': 1.11.2
+      '@leafer/core': 1.12.0
 
-  '@leafer/task@1.11.2':
+  '@leafer/task@1.12.0':
     dependencies:
-      '@leafer/debug': 1.11.2
-      '@leafer/math': 1.11.2
+      '@leafer/debug': 1.12.0
+      '@leafer/math': 1.12.0
 
-  '@leafer/watcher@1.11.2':
+  '@leafer/watcher@1.12.0':
     dependencies:
-      '@leafer/data': 1.11.2
-      '@leafer/event': 1.11.2
-      '@leafer/list': 1.11.2
+      '@leafer/data': 1.12.0
+      '@leafer/event': 1.12.0
+      '@leafer/list': 1.12.0
 
   '@libsql/client@0.15.15':
     dependencies:
@@ -1909,30 +1905,30 @@ snapshots:
   '@libsql/win32-x64-msvc@0.5.22':
     optional: true
 
-  '@mantine/core@8.3.9(@mantine/hooks@8.3.9(react@19.2.1))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@mantine/core@8.3.10(@mantine/hooks@8.3.10(react@19.2.3))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@floating-ui/react': 0.27.16(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@mantine/hooks': 8.3.9(react@19.2.1)
+      '@floating-ui/react': 0.27.16(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@mantine/hooks': 8.3.10(react@19.2.3)
       clsx: 2.1.1
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
-      react-number-format: 5.4.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      react-remove-scroll: 2.7.2(@types/react@19.2.7)(react@19.2.1)
-      react-textarea-autosize: 8.5.9(@types/react@19.2.7)(react@19.2.1)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      react-number-format: 5.4.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react-remove-scroll: 2.7.2(@types/react@19.2.7)(react@19.2.3)
+      react-textarea-autosize: 8.5.9(@types/react@19.2.7)(react@19.2.3)
       type-fest: 4.41.0
     transitivePeerDependencies:
       - '@types/react'
 
-  '@mantine/hooks@8.3.9(react@19.2.1)':
+  '@mantine/hooks@8.3.10(react@19.2.3)':
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
 
-  '@mantine/modals@8.3.9(@mantine/core@8.3.9(@mantine/hooks@8.3.9(react@19.2.1))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@mantine/hooks@8.3.9(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@mantine/modals@8.3.10(@mantine/core@8.3.10(@mantine/hooks@8.3.10(react@19.2.3))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@mantine/hooks@8.3.10(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@mantine/core': 8.3.9(@mantine/hooks@8.3.9(react@19.2.1))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@mantine/hooks': 8.3.9(react@19.2.1)
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
+      '@mantine/core': 8.3.10(@mantine/hooks@8.3.10(react@19.2.3))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@mantine/hooks': 8.3.10(react@19.2.3)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   '@mikro-orm/core@6.6.2':
     dependencies:
@@ -2000,8 +1996,6 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
 
-  '@oxc-project/runtime@0.101.0': {}
-
   '@oxc-project/types@0.101.0': {}
 
   '@quansync/fs@1.0.0':
@@ -2010,15 +2004,15 @@ snapshots:
 
   '@react-hookz/deep-equal@1.0.4': {}
 
-  '@react-hookz/web@23.1.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@react-hookz/web@23.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@react-hookz/deep-equal': 1.0.4
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
-  '@repobuddy/biome@2.1.0(@biomejs/biome@2.3.8)':
+  '@repobuddy/biome@2.2.0(@biomejs/biome@2.3.9)':
     dependencies:
-      '@biomejs/biome': 2.3.8
+      '@biomejs/biome': 2.3.9
 
   '@rolldown/binding-android-arm64@1.0.0-beta.53':
     optional: true
@@ -2063,12 +2057,12 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.0-beta.53': {}
 
-  '@tabler/icons-react@3.35.0(react@19.2.1)':
+  '@tabler/icons-react@3.36.0(react@19.2.3)':
     dependencies:
-      '@tabler/icons': 3.35.0
-      react: 19.2.1
+      '@tabler/icons': 3.36.0
+      react: 19.2.3
 
-  '@tabler/icons@3.35.0': {}
+  '@tabler/icons@3.36.0': {}
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
@@ -2079,7 +2073,7 @@ snapshots:
     dependencies:
       bun-types: 1.3.4
 
-  '@types/node@24.10.1':
+  '@types/node@25.0.3':
     dependencies:
       undici-types: 7.16.0
 
@@ -2093,7 +2087,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 25.0.3
 
   ansis@4.2.0: {}
 
@@ -2104,7 +2098,7 @@ snapshots:
       '@babel/parser': 7.28.5
       pathe: 2.0.3
 
-  birpc@3.0.0: {}
+  birpc@4.0.0: {}
 
   braces@3.0.3:
     dependencies:
@@ -2112,7 +2106,7 @@ snapshots:
 
   bun-types@1.3.4:
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 25.0.3
 
   cac@6.7.14: {}
 
@@ -2251,7 +2245,7 @@ snapshots:
 
   ignore@5.3.2: {}
 
-  import-without-cache@0.2.2: {}
+  import-without-cache@0.2.4: {}
 
   interpret@2.2.0: {}
 
@@ -2336,7 +2330,7 @@ snapshots:
 
   mikro-orm@6.6.2: {}
 
-  modern-tar@0.7.2: {}
+  modern-tar@0.7.3: {}
 
   ms@2.1.2: {}
 
@@ -2376,57 +2370,57 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  react-dom@19.2.1(react@19.2.1):
+  react-dom@19.2.3(react@19.2.3):
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
       scheduler: 0.27.0
 
-  react-number-format@5.4.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1):
+  react-number-format@5.4.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
-      react: 19.2.1
-      react-dom: 19.2.1(react@19.2.1)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
-  react-remove-scroll-bar@2.3.8(@types/react@19.2.7)(react@19.2.1):
+  react-remove-scroll-bar@2.3.8(@types/react@19.2.7)(react@19.2.3):
     dependencies:
-      react: 19.2.1
-      react-style-singleton: 2.2.3(@types/react@19.2.7)(react@19.2.1)
+      react: 19.2.3
+      react-style-singleton: 2.2.3(@types/react@19.2.7)(react@19.2.3)
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.7
 
-  react-remove-scroll@2.7.2(@types/react@19.2.7)(react@19.2.1):
+  react-remove-scroll@2.7.2(@types/react@19.2.7)(react@19.2.3):
     dependencies:
-      react: 19.2.1
-      react-remove-scroll-bar: 2.3.8(@types/react@19.2.7)(react@19.2.1)
-      react-style-singleton: 2.2.3(@types/react@19.2.7)(react@19.2.1)
+      react: 19.2.3
+      react-remove-scroll-bar: 2.3.8(@types/react@19.2.7)(react@19.2.3)
+      react-style-singleton: 2.2.3(@types/react@19.2.7)(react@19.2.3)
       tslib: 2.8.1
-      use-callback-ref: 1.3.3(@types/react@19.2.7)(react@19.2.1)
-      use-sidecar: 1.1.3(@types/react@19.2.7)(react@19.2.1)
+      use-callback-ref: 1.3.3(@types/react@19.2.7)(react@19.2.3)
+      use-sidecar: 1.1.3(@types/react@19.2.7)(react@19.2.3)
     optionalDependencies:
       '@types/react': 19.2.7
 
-  react-ssr-prepass@1.6.0(react@19.2.1):
+  react-ssr-prepass@1.6.0(react@19.2.3):
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
 
-  react-style-singleton@2.2.3(@types/react@19.2.7)(react@19.2.1):
+  react-style-singleton@2.2.3(@types/react@19.2.7)(react@19.2.3):
     dependencies:
       get-nonce: 1.0.1
-      react: 19.2.1
+      react: 19.2.3
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.7
 
-  react-textarea-autosize@8.5.9(@types/react@19.2.7)(react@19.2.1):
+  react-textarea-autosize@8.5.9(@types/react@19.2.7)(react@19.2.3):
     dependencies:
       '@babel/runtime': 7.28.4
-      react: 19.2.1
-      use-composed-ref: 1.4.0(@types/react@19.2.7)(react@19.2.1)
-      use-latest: 1.3.0(@types/react@19.2.7)(react@19.2.1)
+      react: 19.2.3
+      use-composed-ref: 1.4.0(@types/react@19.2.7)(react@19.2.3)
+      use-latest: 1.3.0(@types/react@19.2.7)(react@19.2.3)
     transitivePeerDependencies:
       - '@types/react'
 
-  react@19.2.1: {}
+  react@19.2.3: {}
 
   rechoir@0.8.0:
     dependencies:
@@ -2446,13 +2440,13 @@ snapshots:
 
   reusify@1.1.0: {}
 
-  rolldown-plugin-dts@0.18.3(rolldown@1.0.0-beta.53)(typescript@5.9.3):
+  rolldown-plugin-dts@0.18.4(rolldown@1.0.0-beta.53)(typescript@5.9.3):
     dependencies:
       '@babel/generator': 7.28.5
       '@babel/parser': 7.28.5
       '@babel/types': 7.28.5
       ast-kit: 2.2.0
-      birpc: 3.0.0
+      birpc: 4.0.0
       dts-resolver: 2.1.3
       get-tsconfig: 4.13.0
       magic-string: 0.30.21
@@ -2525,16 +2519,16 @@ snapshots:
       cac: 6.7.14
       empathic: 2.0.0
       hookable: 5.5.3
-      import-without-cache: 0.2.2
+      import-without-cache: 0.2.4
       obug: 2.1.1
       rolldown: 1.0.0-beta.53
-      rolldown-plugin-dts: 0.18.3(rolldown@1.0.0-beta.53)(typescript@5.9.3)
+      rolldown-plugin-dts: 0.18.4(rolldown@1.0.0-beta.53)(typescript@5.9.3)
       semver: 7.7.3
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tree-kill: 1.2.2
       unconfig-core: 7.4.2
-      unrun: 0.2.17
+      unrun: 0.2.19
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -2577,7 +2571,7 @@ snapshots:
 
   type-fest@4.41.0: {}
 
-  type-flag@4.0.2: {}
+  type-flag@4.0.3: {}
 
   typescript@5.9.3: {}
 
@@ -2590,52 +2584,51 @@ snapshots:
 
   universalify@2.0.1: {}
 
-  unrun@0.2.17:
+  unrun@0.2.19:
     dependencies:
-      '@oxc-project/runtime': 0.101.0
       rolldown: 1.0.0-beta.53
 
-  use-callback-ref@1.3.3(@types/react@19.2.7)(react@19.2.1):
+  use-callback-ref@1.3.3(@types/react@19.2.7)(react@19.2.3):
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.7
 
-  use-composed-ref@1.4.0(@types/react@19.2.7)(react@19.2.1):
+  use-composed-ref@1.4.0(@types/react@19.2.7)(react@19.2.3):
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
     optionalDependencies:
       '@types/react': 19.2.7
 
-  use-isomorphic-layout-effect@1.2.1(@types/react@19.2.7)(react@19.2.1):
+  use-isomorphic-layout-effect@1.2.1(@types/react@19.2.7)(react@19.2.3):
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
     optionalDependencies:
       '@types/react': 19.2.7
 
-  use-latest@1.3.0(@types/react@19.2.7)(react@19.2.1):
+  use-latest@1.3.0(@types/react@19.2.7)(react@19.2.3):
     dependencies:
-      react: 19.2.1
-      use-isomorphic-layout-effect: 1.2.1(@types/react@19.2.7)(react@19.2.1)
+      react: 19.2.3
+      use-isomorphic-layout-effect: 1.2.1(@types/react@19.2.7)(react@19.2.3)
     optionalDependencies:
       '@types/react': 19.2.7
 
-  use-sidecar@1.1.3(@types/react@19.2.7)(react@19.2.1):
+  use-sidecar@1.1.3(@types/react@19.2.7)(react@19.2.3):
     dependencies:
       detect-node-es: 1.1.0
-      react: 19.2.1
+      react: 19.2.3
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.7
 
-  use-sync-external-store@1.6.0(react@19.2.1):
+  use-sync-external-store@1.6.0(react@19.2.3):
     dependencies:
-      react: 19.2.1
+      react: 19.2.3
 
   web-streams-polyfill@3.3.3: {}
 
-  wretch@3.0.5: {}
+  wretch@3.0.6: {}
 
   ws@8.18.3: {}
 

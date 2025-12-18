@@ -2,7 +2,6 @@
   "name": "pluxel-plugin-napi-rs",
   "version": "0.1.0",
   "description": "napi-rs runtime downloader shim with generated bindings (canvas by default).",
-  "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "files": [
@@ -25,7 +24,7 @@
     ".": "./dist/index.mjs",
     "./cli": "./dist/cli.mjs",
     "./manifest": "./vendor.manifest.json",
-    "./canvas": "./napi-rs__canvas/index.js",
+    "./canvas": "./napi-rs__canvas/index.cjs",
     "./pinyin": "./napi-rs__pinyin/index.js",
     "./jieba": "./node-rs__jieba/index.js",
     "./meme-generator": "./memecrafters__meme-generator/index.js",
