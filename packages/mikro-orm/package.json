@@ -36,8 +36,7 @@
   "types": "./dist/index.d.mts",
   "scripts": {
     "build": "pluxel build",
-    "test": "bun test --conditions=@pluxel/source",
-    "selftest": "node ./scripts/selftest.mjs"
+    "test": "bun test --conditions=@pluxel/hmr"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",

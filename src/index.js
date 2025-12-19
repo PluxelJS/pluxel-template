@@ -3,6 +3,9 @@ import { PinoLoggerService } from "@pluxel/hmr/services";
 
 const ctx = new Context({
 	hmrService: { dir: ["./src/ui-demos", "."] },
+	logger: {
+		level: "debug",
+	},
 	graphql: {
 		destination: "./gqty/index.ts",
 	},

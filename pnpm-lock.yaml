@@ -64,11 +64,14 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  chatbots/bot-layer:
+  chatbots/chatbots:
     dependencies:
       pluxel-plugin-kook:
         specifier: workspace:^
         version: link:../kook
+      pluxel-plugin-mikro-orm:
+        specifier: workspace:^
+        version: link:../../packages/mikro-orm
       pluxel-plugin-telegram:
         specifier: workspace:^
         version: link:../telegram

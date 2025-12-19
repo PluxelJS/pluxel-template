@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/hmr/test'
 import { EntitySchema } from '@mikro-orm/core'
+import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
 
 import { MikroOrm, MikroOrmLibsql, type RegisterEntityOptions } from '../src/mikro-orm.ts'
 
@@ -24,9 +23,11 @@ const ConflictUserSchema = new EntitySchema({
 
 async function listTables(mikro: MikroOrm) {
 	const orm = await mikro.orm()
-	return orm.em.getConnection().execute(
-		"select name from sqlite_master where type='table' order by name",
-	) as Promise<Array<{ name: string }>>
+	return orm.em
+		.getConnection()
+		.execute("select name from sqlite_master where type='table' order by name") as Promise<
+		Array<{ name: string }>
+	>
 }
 
 async function hasTable(mikro: MikroOrm, tableName: string) {
@@ -45,7 +46,9 @@ async function insertUserRow(mikro: MikroOrm, tableName: string, id: number, nam
 async function listUserIds(mikro: MikroOrm, tableName: string) {
 	const orm = await mikro.orm()
 	const q = orm.em.getPlatform().quoteIdentifier(tableName)
-	const rows = (await orm.em.getConnection().execute(`select id from ${q} order by id`)) as Array<{ id: number }>
+	const rows = (await orm.em.getConnection().execute(`select id from ${q} order by id`)) as Array<{
+		id: number
+	}>
 	return rows.map((r) => r.id)
 }
 
@@ -127,9 +130,7 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 			await host.commitStrict()
 
 			const mikro = host.getOrThrow(MikroOrm)
-			await expect(
-				mikro.registerEntity(UserSchema),
-			).rejects.toThrow(/caller context/i)
+			await expect(mikro.registerEntity(UserSchema)).rejects.toThrow(/caller context/i)
 		})
 	})
 
