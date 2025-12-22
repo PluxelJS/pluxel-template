@@ -49,5 +49,12 @@
 			"~/*": ["src/*"]
 		}
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx"]
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"plugin/*/src/**/*.ts",
+		"plugin/*/src/**/*.tsx",
+		"packages/*/src/**/*.ts",
+		"packages/*/src/**/*.tsx"
+	]
 }

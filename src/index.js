@@ -2,15 +2,18 @@ import { Context } from "@pluxel/hmr";
 import { PinoLoggerService } from "@pluxel/hmr/services";
 
 const ctx = new Context({
-	hmrService: { dir: ["./src/ui-demos", "."] },
+	hmrService: { dir: ["./src/ui-demos", "."], deps: {
+		cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
+	}, },
+	registry: {
+		startStrategy: "ready-queue",
+		pluginCTXIsolate: [PinoLoggerService],
+	},
 	logger: {
 		level: "debug",
 	},
 	graphql: {
 		destination: "./gqty/index.ts",
-	},
-	registry: {
-		plugigCTXIsolate: [PinoLoggerService],
 	},
 });
 
