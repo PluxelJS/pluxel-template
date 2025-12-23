@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer'
 
 import { BasePlugin, Plugin } from '@pluxel/hmr'
+import 'pluxel-plugin-napi-rs'
 import {
 	resolveAttachments,
 	resolveAuthorAvatarImage,
@@ -14,7 +15,7 @@ import {
 import { Chatbots, type ChatbotsCommandContext } from 'pluxel-plugin-chatbots'
 import { MemeWorker, type MemeMetadata } from 'pluxel-plugin-meme-worker'
 
-const LIST_LIMIT = 30
+const LIST_PER_PAGE = 20
 
 type MemeImage = { name: string; data: Buffer }
 
@@ -54,12 +55,23 @@ export class MemeTest extends BasePlugin {
 				.describe('List memes or search by keyword')
 				.perm(permList)
 				.action(({ query }) => this.listMemes(query))
-
+			// Convenience aliases (so `meme list.img` works without a space)
 			cmd
-				.reg('meme info <key>')
-				.describe('Show meme metadata')
-				.perm(permInfo)
-				.action(({ key }) => this.showInfo(key))
+				.reg('meme list.img')
+				.describe('Render meme list image')
+				.perm(permList)
+				.action(() => this.listMemes('img'))
+			cmd
+				.reg('meme list.image')
+				.describe('Render meme list image')
+				.perm(permList)
+				.action(() => this.listMemes('img'))
+
+				cmd
+					.reg('meme info <key>')
+					.describe('Show meme metadata')
+					.perm(permInfo)
+					.action(({ key }) => this.showInfo(key))
 
 			cmd
 				.reg('meme make <key> [...text]')
@@ -69,22 +81,85 @@ export class MemeTest extends BasePlugin {
 		})
 	}
 
-	private listMemes(query?: string): MessageContent {
-		const keyword = String(query ?? '').trim()
-		const keys = keyword ? this.memeWorker.search(keyword, true) : this.memeWorker.listKeys()
-		if (keys.length === 0) {
-			return keyword ? `No memes match "${keyword}".` : 'No memes available.'
+	private async listMemes(query?: string): Promise<MessageContent> {
+		try {
+			await this.memeWorker.ready()
+		} catch (e) {
+			return `Meme generator not ready (${e instanceof Error ? e.message : String(e)})`
 		}
 
-		const head = keys.slice(0, LIST_LIMIT)
-		const lines = head.map((k) => `- ${k}`)
-		if (keys.length > head.length) {
-			lines.push(`...and ${keys.length - head.length} more`)
+		const raw = String(query ?? '').trim()
+		const wantsImageList =
+			raw === 'img' || raw === 'image' || raw === 'list.img' || raw === 'list.image' || raw.endsWith('.img') || raw.endsWith('.image')
+
+		const raw2 = wantsImageList ? raw.replace(/^list\./i, '').replace(/\.(img|image)$/i, '').trim() : raw
+		const isPageOnly = /^\d+$/.test(raw2)
+		const page = Math.max(1, isPageOnly ? Number(raw2) : 1)
+		const q = wantsImageList ? '' : raw2
+
+		if (wantsImageList) {
+			const res = await this.memeWorker.getMemeListImage({ sortBy: 'Key' })
+			if (!res.ok) return res.message
+			const ext =
+				res.mime === 'image/webp'
+					? 'webp'
+					: res.mime === 'image/jpeg'
+						? 'jpg'
+						: 'png'
+			return {
+				type: 'image',
+				data: res.buffer,
+				mime: res.mime,
+				name: `meme-list.${ext}`,
+			}
 		}
-		return [`Total: ${keys.length}`, ...lines].join('\n')
+
+		const keys = q ? this.memeWorker.search(q, true) : this.memeWorker.listKeys()
+		if (keys.length === 0) return q ? `No memes match "${q}".` : 'No memes available.'
+
+		const total = keys.length
+		const pages = Math.max(1, Math.ceil(total / LIST_PER_PAGE))
+		const p = Math.min(page, pages)
+		const start = (p - 1) * LIST_PER_PAGE
+		const slice = keys.slice(start, start + LIST_PER_PAGE)
+
+		const lines: string[] = []
+		lines.push(`Meme list${q ? ` (q=${q})` : ''}: page ${p}/${pages} • per ${LIST_PER_PAGE} • total ${total}`)
+		lines.push('Legend: I=min..max images, T=min..max texts, KW=keywords, TAG=tags')
+		lines.push('Tip: open /meme/memes for search + preview images')
+		lines.push('')
+		for (let i = 0; i < slice.length; i++) {
+			const key = slice[i]
+			const info = this.memeWorker.getMemeInfo(key)
+			const params = info?.params
+			const idx = String(start + i + 1).padStart(4, '0')
+			const req = params ? `I${params.minImages}..${params.maxImages} T${params.minTexts}..${params.maxTexts}` : 'I? T?'
+			const kw = (info as any)?.keywords
+			const tags = (info as any)?.tags
+			const kwText =
+				Array.isArray(kw) && kw.length ? ` KW:${kw.slice(0, 3).join(',')}${kw.length > 3 ? '…' : ''}` : ''
+			const tagArr = Array.isArray(tags) ? tags : Array.from(tags ?? [])
+			const tagText =
+				Array.isArray(tagArr) && tagArr.length
+					? ` TAG:${tagArr.slice(0, 3).join(',')}${tagArr.length > 3 ? '…' : ''}`
+					: ''
+			lines.push(`${idx} ${key} ${req}${kwText}${tagText}`)
+		}
+
+		if (pages > 1) {
+			lines.push('')
+			lines.push(`Next: meme list ${Math.min(p + 1, pages)}`)
+			lines.push(`Image: meme list.img`)
+		}
+		return lines.join('\n')
 	}
 
-	private showInfo(key: string): MessageContent {
+	private async showInfo(key: string): Promise<MessageContent> {
+		try {
+			await this.memeWorker.ready()
+		} catch (e) {
+			return `Meme generator not ready (${e instanceof Error ? e.message : String(e)})`
+		}
 		const info = this.resolveMemeInfo(key)
 		if (!info.ok) return info.message
 		return this.buildJsonBlock(this.toSerializableInfo(info.info))
@@ -95,6 +170,11 @@ export class MemeTest extends BasePlugin {
 		text: string[] | undefined,
 		ctx: ChatbotsCommandContext,
 	): Promise<MessageContent> {
+		try {
+			await this.memeWorker.ready()
+		} catch (e) {
+			return `Meme generator not ready (${e instanceof Error ? e.message : String(e)})`
+		}
 		const info = this.resolveMemeInfo(key)
 		if (!info.ok) return info.message
 
@@ -137,6 +217,8 @@ export class MemeTest extends BasePlugin {
 		}
 		return imagePart
 	}
+
+	// (catalog image list removed: avoid Takumi dependency)
 
 	private async buildTelegramAvatarHint(ctx: ChatbotsCommandContext): Promise<string> {
 		if (ctx.msg.platform !== 'telegram') return ''

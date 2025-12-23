@@ -1,21 +1,27 @@
 {
   "$schema": "https://market.pluxel.dev/schema/package.json",
   "name": "pluxel-plugin-canvas-worker",
-  "description": "共享 skia canvas 的渲染池服务 (LeafUI/ECharts)",
   "version": "0.1.0",
+  "description": "共享 skia canvas 的渲染池服务 (LeafUI/ECharts)",
   "type": "module",
+  "exports": {
+    "./canvas-worker": {
+      "@pluxel/hmr": "./src/canvas-worker.ts",
+      "default": "./dist/canvas-worker.mjs"
+    },
+    "./worker": {
+      "@pluxel/hmr": "./src/worker.ts",
+      "default": "./dist/worker.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./src/canvas-worker.ts",
   "files": [
     "dist",
     "!**/*.map"
   ],
-  "main": "./src/canvas-worker.ts",
   "scripts": {
     "build": "pluxel build"
-  },
-  "peerDependencies": {
-    "echarts": "^6",
-    "pluxel-plugin-font-manager": "workspace:^",
-    "pluxel-plugin-napi-rs": "workspace:^"
   },
   "dependencies": {
     "@leafer-ui/node": "^1.11.2",
@@ -23,7 +29,26 @@
   },
   "devDependencies": {
     "echarts": "^6",
+    "pluxel-plugin-napi-rs": "workspace:^"
+  },
+  "peerDependencies": {
+    "echarts": "^6",
     "pluxel-plugin-font-manager": "workspace:^",
     "pluxel-plugin-napi-rs": "workspace:^"
+  },
+  "publishConfig": {
+    "exports": {
+      "./canvas-worker": "./dist/canvas-worker.mjs",
+      "./worker": "./dist/worker.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "pluxel": {
+    "dependOn": {
+      "required": [],
+      "optional": [
+        "pluxel-plugin-font-manager"
+      ]
+    }
   }
 }

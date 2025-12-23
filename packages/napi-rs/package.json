@@ -24,11 +24,12 @@
     ".": "./dist/index.mjs",
     "./cli": "./dist/cli.mjs",
     "./manifest": "./vendor.manifest.json",
-    "./canvas": "./napi-rs__canvas/index.cjs",
+    "./canvas": "./napi-rs__canvas/index.js",
     "./pinyin": "./napi-rs__pinyin/index.js",
     "./jieba": "./node-rs__jieba/index.js",
     "./meme-generator": "./memecrafters__meme-generator/index.js",
     "./package.json": "./package.json",
-    "./napi_rs": "./dist/cli.mjs"
+    "./napi_rs": "./dist/cli.mjs",
+    "./core": "./takumi-rs__core/index.js"
   }
 }

@@ -23,14 +23,16 @@
   },
   "peerDependencies": {
     "pluxel-plugin-chatbots": "workspace:^",
-    "pluxel-plugin-meme-worker": "workspace:^"
+    "pluxel-plugin-meme-worker": "workspace:^",
+    "pluxel-plugin-napi-rs": "workspace:^"
   },
   "pluxel": {
     "dependOn": {
       "required": [],
       "optional": [
         "pluxel-plugin-chatbots",
-        "pluxel-plugin-meme-worker"
+        "pluxel-plugin-meme-worker",
+        "pluxel-plugin-napi-rs"
       ]
     }
   },

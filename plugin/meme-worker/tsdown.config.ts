@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: ['./src/meme-worker.ts', './src/worker.mjs'],
+	entry: ['./src/meme-worker.ts', './src/worker.ts', './src/preview-runner.mjs'],
 	dts: {
 		sourcemap: true,
 	},

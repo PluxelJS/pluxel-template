@@ -1,9 +1,8 @@
-// @ts-check
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { Leafer, Rect, Text, Image, useCanvas } from '@leafer-ui/node'
+import { Image, Leafer, Rect, Text, useCanvas } from '@leafer-ui/node'
 import {
   GlobalFonts,
   Image as SkiaImage,
@@ -12,26 +11,17 @@ import {
 } from 'pluxel-plugin-napi-rs/canvas'
 import * as skia from 'pluxel-plugin-napi-rs/canvas'
 
-/** @typedef {import('./types').FontBootstrap} FontBootstrap */
-/** @typedef {import('./types').FontSourcePayload} FontSourcePayload */
-/** @typedef {import('./types').LeaferExports} LeaferExports */
-/** @typedef {import('./types').LeaferStatic} LeaferStatic */
-/** @typedef {import('./types').RenderNode} RenderNode */
-/** @typedef {import('./types').RenderScene} RenderScene */
-/** @typedef {import('./types').WorkerJob} WorkerJob */
-/** @typedef {import('./types').WorkerRenderResult} WorkerRenderResult */
+import type { FontBootstrap, FontSourcePayload, LeaferExports, LeaferStatic, RenderNode, RenderScene, WorkerJob, WorkerRenderResult } from './types'
 
-/**
- * @typedef {Object} RuntimeState
- * @property {boolean} canvasRegistered
- * @property {boolean} echartsPlatformReady
- * @property {Set<string>} loadedThemeFiles
- * @property {Promise<typeof import('echarts')>|null} echartsModulePromise
- * @property {string|null} fontsLoadedKey
- */
+type RuntimeState = {
+  canvasRegistered: boolean
+  echartsPlatformReady: boolean
+  loadedThemeFiles: Set<string>
+  echartsModulePromise: Promise<typeof import('echarts')> | null
+  fontsLoadedKey: string | null
+}
 
-/** @type {RuntimeState} */
-const runtime = {
+const runtime: RuntimeState = {
   canvasRegistered: false,
   echartsPlatformReady: false,
   loadedThemeFiles: new Set(),
@@ -39,14 +29,14 @@ const runtime = {
   fontsLoadedKey: null,
 }
 
-function patchCanvasBackend(canvasLib) {
+function patchCanvasBackend(canvasLib: any) {
   const CanvasElement = canvasLib?.CanvasElement || canvasLib?.Canvas
   if (
-    CanvasElement &&
-    typeof CanvasElement.prototype.toDataURLSync !== 'function' &&
-    typeof CanvasElement.prototype.toDataURL === 'function'
+    CanvasElement
+    && typeof CanvasElement.prototype.toDataURLSync !== 'function'
+    && typeof CanvasElement.prototype.toDataURL === 'function'
   ) {
-    CanvasElement.prototype.toDataURLSync = function toDataURLSync(type, options) {
+    CanvasElement.prototype.toDataURLSync = function toDataURLSync(type?: string, options?: any) {
       const normalized = type && typeof type === 'string' && type.includes('/') ? type : `image/${type || 'png'}`
       return this.toDataURL(normalized, options)
     }
@@ -56,24 +46,22 @@ function patchCanvasBackend(canvasLib) {
 function ensureCanvas() {
   if (runtime.canvasRegistered) return
   patchCanvasBackend(skia)
-  useCanvas('skia', skia)
+  useCanvas('skia', skia as any)
   runtime.canvasRegistered = true
 }
 
-/** @returns {Promise<typeof import('echarts')>} */
-async function getEcharts() {
+async function getEcharts(): Promise<typeof import('echarts')> {
   if (!runtime.echartsModulePromise) {
     runtime.echartsModulePromise = import('echarts')
   }
   return runtime.echartsModulePromise
 }
 
-/** @param {typeof import('echarts')} echarts */
-async function ensureEchartsPlatform(echarts) {
+async function ensureEchartsPlatform(echarts: typeof import('echarts')) {
   if (runtime.echartsPlatformReady) return
   echarts.setPlatformAPI({
     createCanvas(width = 32, height = 32) {
-      return /** @type {any} */ (createSkiaCanvas(width, height))
+      return createSkiaCanvas(width, height) as any
     },
     loadImage(src, onload, onerror) {
       const img = new SkiaImage()
@@ -85,24 +73,23 @@ async function ensureEchartsPlatform(echarts) {
         const encoding = src.lastIndexOf('base64', commaIdx) < 0 ? 'utf-8' : 'base64'
         const data = Buffer.from(src.slice(commaIdx + 1), encoding)
         img.src = data
-        return /** @type {any} */ (img)
+        return img as any
       }
 
-      void Promise.resolve(loadImageFromCanvas(/** @type {any} */ (src))).then(
-        (loaded) => {
+      void Promise.resolve(loadImageFromCanvas(src as any)).then(
+        (loaded: any) => {
           const content = loaded?.src ?? loaded
           img.src = content
         },
         onerror,
       )
-      return /** @type {any} */ (img)
+      return img as any
     },
   })
   runtime.echartsPlatformReady = true
 }
 
-/** @param {FontBootstrap|undefined} fonts */
-function fontKey(fonts) {
+function fontKey(fonts?: FontBootstrap) {
   if (!fonts?.sources?.length) return 'none'
   const normalized = fonts.sources
     .map((source) => `${source.type}:${path.resolve(source.path)}:${source.alias ?? ''}`)
@@ -110,8 +97,7 @@ function fontKey(fonts) {
   return normalized.join('|')
 }
 
-/** @param {FontBootstrap|undefined} fonts */
-function loadFontsOnce(fonts) {
+function loadFontsOnce(fonts?: FontBootstrap) {
   const key = fontKey(fonts)
   if (runtime.fontsLoadedKey === key) return
 
@@ -126,8 +112,7 @@ function loadFontsOnce(fonts) {
   runtime.fontsLoadedKey = key
 }
 
-/** @param {FontSourcePayload} source */
-function loadFontSource(source) {
+function loadFontSource(source: FontSourcePayload) {
   const absPath = path.resolve(source.path)
   try {
     if (source.type === 'dir') {
@@ -136,16 +121,11 @@ function loadFontSource(source) {
       GlobalFonts.registerFromPath(absPath, source.alias)
     }
   } catch (err) {
-    // Best effort; swallow errors to avoid failing render
     console.warn('[canvas-worker] font load failed', absPath, err)
   }
 }
 
-/**
- * @param {typeof import('echarts')} echarts
- * @param {string|undefined} dir
- */
-function registerThemesFromDir(echarts, dir) {
+function registerThemesFromDir(echarts: typeof import('echarts'), dir?: string) {
   if (!dir) return
   const abs = path.resolve(dir)
   if (!fs.existsSync(abs)) return
@@ -166,28 +146,19 @@ function registerThemesFromDir(echarts, dir) {
   }
 }
 
-/**
- * @param {Leafer} parent
- * @param {RenderNode[]} nodes
- * @param {string} fontFamily
- */
-function addNodes(parent, nodes, fontFamily) {
+function addNodes(parent: Leafer, nodes: RenderNode[], fontFamily: string) {
   for (const node of nodes) {
     const instance = createNode(node, fontFamily)
     if (instance) {
-      parent.add(instance)
-      if (node.children?.length && 'add' in instance) {
-        addNodes(/** @type {any} */ (instance), node.children, fontFamily)
+      ;(parent as any).add(instance)
+      if ((node as any).children?.length && 'add' in (instance as any)) {
+        addNodes(instance as any, (node as any).children, fontFamily)
       }
     }
   }
 }
 
-/**
- * @param {RenderNode} node
- * @param {string} fontFamily
- */
-function createNode(node, fontFamily) {
+function createNode(node: RenderNode, fontFamily: string): any | null {
   switch (node.type) {
     case 'rect':
       return Rect.one(
@@ -217,25 +188,25 @@ function createNode(node, fontFamily) {
       })
     case 'image':
       return new Image({
-        url: node.url ?? node.src,
+        url: (node as any).url ?? (node as any).src,
         x: node.x,
         y: node.y,
         width: node.width,
         height: node.height,
         opacity: node.opacity,
-        mode: node.mode,
+        mode: (node as any).mode,
       })
     case 'group':
       return new Leafer({
-        width: /** @type {any} */ (node).width ?? 0,
-        height: /** @type {any} */ (node).height ?? 0,
-      })
+        width: (node as any).width ?? 0,
+        height: (node as any).height ?? 0,
+      }) as any
     default:
       return null
   }
 }
 
-function bufferFromExport(data) {
+function bufferFromExport(data: any): Buffer {
   if (Buffer.isBuffer(data)) return data
   if (typeof data === 'string') {
     const base64 = data.startsWith('data:') ? data.slice(data.indexOf(',') + 1) : data
@@ -246,18 +217,14 @@ function bufferFromExport(data) {
   throw new Error('Unsupported export data type')
 }
 
-/**
- * @param {WorkerJob & { kind: 'leafui' }} job
- * @returns {Promise<WorkerRenderResult>}
- */
-async function renderLeafui(job) {
+async function renderLeafui(job: Extract<WorkerJob, { kind: 'leafui' }>): Promise<WorkerRenderResult> {
   ensureCanvas()
   loadFontsOnce(job.fonts)
   const started = Date.now()
   const payload = job.payload
   const leafer = createLeaferFromPayload(payload)
   try {
-    const exportResult = await /** @type {Leafer} */ (leafer).export('png')
+    const exportResult = await (leafer as any).export('png')
     const buffer = bufferFromExport(exportResult?.data ?? exportResult)
     return {
       buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
@@ -265,15 +232,11 @@ async function renderLeafui(job) {
       meta: { width: payload.width, height: payload.height },
     }
   } finally {
-    leafer.destroy?.()
+    ;(leafer as any).destroy?.()
   }
 }
 
-/**
- * @param {WorkerJob & { kind: 'echarts' }} job
- * @returns {Promise<WorkerRenderResult>}
- */
-async function renderEcharts(job) {
+async function renderEcharts(job: Extract<WorkerJob, { kind: 'echarts' }>): Promise<WorkerRenderResult> {
   ensureCanvas()
   const echarts = await getEcharts()
   await ensureEchartsPlatform(echarts)
@@ -283,29 +246,28 @@ async function renderEcharts(job) {
   const payload = job.payload
   registerThemesFromDir(echarts, payload.themesDir)
 
-  const canvas = createSkiaCanvas(payload.width, payload.height)
-  /** @type {import('echarts').EChartsOption} */
-  const appliedOptions = { animation: false, ...payload.options }
+  const canvas = createSkiaCanvas(payload.width, payload.height) as any
+  const appliedOptions: import('echarts').EChartsOption = { animation: false, ...payload.options }
   appliedOptions.textStyle = {
     fontFamily: payload.fontFamily,
     fontSize: 16,
     ...(appliedOptions.textStyle ?? {}),
   }
 
-  const chart = echarts.init(/** @type {any} */ (canvas), payload.theme, {
+  const chart = echarts.init(canvas, payload.theme, {
     renderer: 'canvas',
     width: payload.width,
     height: payload.height,
   })
-  /** @type {Buffer} */
-  let buffer
+
+  let buffer: Buffer
   try {
     chart.setOption(appliedOptions)
 
-    if (typeof /** @type {any} */ (canvas).toBuffer === 'function') {
-      buffer = /** @type {Buffer} */ ((/** @type {any} */ (canvas)).toBuffer('image/png'))
-    } else if (typeof /** @type {any} */ (canvas).encode === 'function') {
-      const encoded = await /** @type {any} */ (canvas).encode('png')
+    if (typeof canvas.toBuffer === 'function') {
+      buffer = canvas.toBuffer('image/png') as Buffer
+    } else if (typeof canvas.encode === 'function') {
+      const encoded = await canvas.encode('png')
       buffer = Buffer.isBuffer(encoded) ? encoded : Buffer.from(encoded)
     } else {
       throw new Error('Canvas backend does not support toBuffer/encode')
@@ -321,15 +283,11 @@ async function renderEcharts(job) {
   }
 }
 
-/**
- * @param {LeaferExports} leafer
- * @param {any} tree
- */
-function applyTree(leafer, tree) {
+function applyTree(leafer: LeaferExports, tree: any) {
   if (!tree) return false
-  if (leafer.tree && typeof leafer.tree.set === 'function') {
+  if (leafer.tree && typeof (leafer.tree as any).set === 'function') {
     try {
-      leafer.tree.set(tree.children ? { children: tree.children } : tree)
+      ;(leafer.tree as any).set(tree.children ? { children: tree.children } : tree)
       return true
     } catch (err) {
       console.warn('[canvas-worker] failed to set tree', err)
@@ -338,13 +296,9 @@ function applyTree(leafer, tree) {
   return false
 }
 
-/**
- * @param {{ scene?: RenderScene; tree?: any; width: number; height: number; fontFamily: string; background?: string | null }} payload
- */
-function createLeaferFromPayload(payload) {
+function createLeaferFromPayload(payload: { scene?: RenderScene; tree?: any; width: number; height: number; fontFamily: string; background?: string | null }): LeaferExports {
   const { scene, tree, width, height, fontFamily, background } = payload
-  /** @type {LeaferExports} */
-  const leafer = /** @type {any} */ (new Leafer({ width, height }))
+  const leafer = new Leafer({ width, height }) as any as LeaferExports
 
   if (tree && applyTree(leafer, tree)) {
     if (background) {
@@ -354,15 +308,15 @@ function createLeaferFromPayload(payload) {
   }
 
   if (scene?.kind === 'leafer-json') {
-    const LeaferCtor = /** @type {LeaferStatic} */ (Leafer)
+    const LeaferCtor = Leafer as any as LeaferStatic
     if (typeof LeaferCtor.fromJSON === 'function') {
       const built = LeaferCtor.fromJSON(scene.json)
-      if (built) return /** @type {LeaferExports} */ (built)
+      if (built) return built as any
     }
-    if (typeof leafer.load === 'function') {
-      void leafer.load(scene.json)
-    } else if (typeof leafer.import === 'function') {
-      void leafer.import(scene.json)
+    if (typeof (leafer as any).load === 'function') {
+      void (leafer as any).load(scene.json)
+    } else if (typeof (leafer as any).import === 'function') {
+      void (leafer as any).import(scene.json)
     }
     return leafer
   }
@@ -372,22 +326,19 @@ function createLeaferFromPayload(payload) {
   }
 
   if (scene?.kind === 'nodes') {
-    addNodes(leafer, scene.nodes, fontFamily)
+    addNodes(leafer as any, scene.nodes, fontFamily)
   }
   return leafer
 }
 
-/**
- * @param {WorkerJob} job
- * @returns {Promise<WorkerRenderResult>}
- */
-export default async function run(job) {
+export default async function run(job: WorkerJob): Promise<WorkerRenderResult> {
   switch (job.kind) {
     case 'leafui':
-      return renderLeafui(/** @type {any} */ (job))
+      return renderLeafui(job)
     case 'echarts':
-      return renderEcharts(/** @type {any} */ (job))
+      return renderEcharts(job)
     default:
-      throw new Error(`Unknown worker job: ${/** @type {any} */ (job)?.kind}`)
+      throw new Error(`Unknown worker job: ${(job as any)?.kind}`)
   }
 }
+

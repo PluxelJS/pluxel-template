@@ -1,9 +1,8 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: ['./src/canvas-worker.ts', './src/worker.js'],
+	entry: ['./src/canvas-worker.ts', './src/worker.ts'],
 	dts: {
-		build: true,
 		sourcemap: true,
 	},
 	format: ['esm'],

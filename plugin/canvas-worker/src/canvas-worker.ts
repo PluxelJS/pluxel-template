@@ -73,8 +73,10 @@ export class CanvasWorker extends BasePlugin {
   private config!: Config<typeof CfgSchema>
 
   private pool: Tinypool | null = null
+  private poolInitPromise: Promise<void> | null = null
   private fontBootstrap: FontBootstrap | null = null
-  private readonly workerEntrypoint = resolveWorkerEntrypoint()
+  private readonly workerEntrypointFallback = resolveWorkerEntrypoint()
+  private workerEntrypoint: string | null = null
 
   constructor(private readonly fontManager: FontManager) {
     super()
@@ -82,7 +84,7 @@ export class CanvasWorker extends BasePlugin {
 
   override async init(): Promise<void> {
     await this.refreshFontBootstrap()
-    this.ensurePool()
+    await this.ensurePool()
     this.ctx.logger.info('[CanvasWorker] ready')
   }
 
@@ -218,22 +220,46 @@ export class CanvasWorker extends BasePlugin {
   }
 
   private async run(job: WorkerJob): Promise<WorkerRenderResult> {
-    this.ensurePool()
+    await this.ensurePool()
     return this.pool!.run(job)
   }
 
-  private ensurePool() {
+  private async ensurePool(): Promise<void> {
     if (this.pool) return
+    if (this.poolInitPromise) return this.poolInitPromise
     const maxThreads = this.config.maxThreads ?? Math.max(1, (os.availableParallelism?.() ?? os.cpus().length) - 1)
     const idleTimeout = this.config.idleTimeout ?? DEFAULT_IDLE_TIMEOUT
 
-    this.pool = new Tinypool({
-      filename: this.workerEntrypoint,
-      maxThreads,
-      idleTimeout,
-      concurrentTasksPerWorker: 1,
-      isolateWorkers: false,
+    this.poolInitPromise = (async () => {
+      let filename = this.workerEntrypoint
+      if (!filename) {
+        try {
+          const bundler: any = (this.ctx as any).bundlerService
+          if (bundler && typeof bundler.compileTinypoolWorker === 'function') {
+            filename = await bundler.compileTinypoolWorker('src/worker.ts', {
+              external: ['@leafer-ui/node', 'pluxel-plugin-napi-rs/canvas', 'echarts'],
+            })
+          } else {
+            filename = this.workerEntrypointFallback
+          }
+        } catch {
+          filename = this.workerEntrypointFallback
+        }
+        this.workerEntrypoint = filename
+      }
+
+      this.pool = new Tinypool({
+        filename,
+        maxThreads,
+        idleTimeout,
+        concurrentTasksPerWorker: 1,
+        isolateWorkers: false,
+      })
+    })().finally(() => {
+      this.poolInitPromise = null
     })
+
+    return this.poolInitPromise
   }
 
   private async getFontBootstrap(): Promise<FontBootstrap | undefined> {

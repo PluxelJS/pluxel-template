@@ -7,7 +7,18 @@ export interface MemeRenderPayload {
 	texts: string[]
 }
 
-export type MemeWorkerJob = { kind: 'meme'; payload: MemeRenderPayload }
+export type MemeListSortBy = 'Key' | 'Keywords' | 'KeywordsPinyin' | 'DateCreated' | 'DateModified'
+
+export interface MemeListImagePayload {
+	sortBy?: MemeListSortBy
+	sortReverse?: boolean
+	textTemplate?: string
+	addCategoryIcon?: boolean
+}
+
+export type MemeWorkerJob =
+	| { kind: 'meme'; payload: MemeRenderPayload }
+	| { kind: 'listImage'; payload: MemeListImagePayload }
 
 export type MemeWorkerResult =
 	| { ok: true; buffer: ArrayBuffer; durationMs: number; meta: { key: string } }

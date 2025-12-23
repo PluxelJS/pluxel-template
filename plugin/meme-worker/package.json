@@ -5,12 +5,20 @@
   "description": "Tinypool-based meme generator service",
   "type": "module",
   "exports": {
+    ".": {
+      "@pluxel/hmr": "./src/meme-worker.ts",
+      "default": "./dist/meme-worker.mjs"
+    },
     "./meme-worker": {
       "@pluxel/hmr": "./src/meme-worker.ts",
       "default": "./dist/meme-worker.mjs"
     },
+    "./preview-runner": {
+      "@pluxel/hmr": "./src/preview-runner.mjs",
+      "default": "./dist/preview-runner.mjs"
+    },
     "./worker": {
-      "@pluxel/hmr": "./src/worker.mjs",
+      "@pluxel/hmr": "./src/worker.ts",
       "default": "./dist/worker.mjs"
     },
     "./package.json": "./package.json"
@@ -31,7 +39,9 @@
   },
   "publishConfig": {
     "exports": {
+      ".": "./dist/meme-worker.mjs",
       "./meme-worker": "./dist/meme-worker.mjs",
+      "./preview-runner": "./dist/preview-runner.mjs",
       "./worker": "./dist/worker.mjs",
       "./package.json": "./package.json"
     }
