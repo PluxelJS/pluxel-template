@@ -3,7 +3,7 @@
 	"name": "pluxel-plugin-wretch",
 	"version": "0.1.4",
 	"description": "Wretch 插件。",
-	"main": "./src/wretch.ts",
+	"main": "./dist/wretch.mjs",
 	"files": [
 		"dist",
 		"!**/*.map"
@@ -15,7 +15,7 @@
 	"dependencies": {
 		"wretch": "^3.0.2"
 	},
-	"module": "./src/wretch.ts",
+	"module": "./dist/wretch.mjs",
 	"types": "./dist/wretch.d.mts",
 	"exports": {
 		".": {

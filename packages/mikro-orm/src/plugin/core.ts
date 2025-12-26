@@ -184,27 +184,26 @@ export abstract class MikroOrm extends BasePlugin {
 	scope(scopeKey?: MikroOrmScopeKey): MikroOrmScope {
 		const key = scopeKey ?? this.requireCallerScopeKey('scope')
 		const prefix = this.scopePrefixFor(key)
-		const mikro = this
 
 		return {
 			key,
 			prefix,
-			orm: () => mikro.orm(),
-			em: (options?: ForkOptions) => mikro.em(options),
-			sqlEm: (options?: ForkOptions) => mikro.sqlEm(options),
-			listEntities: () => mikro.listEntitiesFor(key),
+			orm: () => this.orm(),
+			em: (options?: ForkOptions) => this.em(options),
+			sqlEm: (options?: ForkOptions) => this.sqlEm(options),
+			listEntities: () => this.listEntitiesFor(key),
 			registerEntity: <T extends object>(schema: EntitySchema<T>, options?: RegisterEntityOptions) =>
-				mikro.registerEntityFor<T>(key, schema, options),
+				this.registerEntityFor<T>(key, schema, options),
 			registerEntities: async (schemas: EntitySchema<any>[], options: RegisterEntityOptions = {}) => {
 				const ensure = options.ensureSchema ?? true
 				const perEntity = ensure ? { ...options, ensureSchema: false } : options
 
 				const entities: MikroOrmEntity[] = []
 				for (const schema of schemas) {
-					entities.push(await mikro.registerEntityFor(key, schema, perEntity))
+					entities.push(await this.registerEntityFor(key, schema, perEntity))
 				}
 				if (ensure) {
-					await mikro.ensureSchema()
+					await this.ensureSchema()
 				}
 				return {
 					entities,
@@ -213,8 +212,8 @@ export abstract class MikroOrm extends BasePlugin {
 					},
 				}
 			},
-			migrate: (options?: MikroOrmMigrateOptions) => mikro.migrateFor(key, options),
-			ensureSchema: (options?: UpdateSchemaOptions) => mikro.ensureSchema(options),
+			migrate: (options?: MikroOrmMigrateOptions) => this.migrateFor(key, options),
+			ensureSchema: (options?: UpdateSchemaOptions) => this.ensureSchema(options),
 		}
 	}
 

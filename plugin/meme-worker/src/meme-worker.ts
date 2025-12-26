@@ -63,12 +63,10 @@ export class MemeWorker extends BasePlugin {
 	private keywordIndex: Map<string, string> | null = null
 
 	override async init(): Promise<void> {
-		const ctxAny: any = this.ctx as any
-		if (ctxAny?.honoService?.modifyApp) {
 			// Default to /meme-test for backwards compatibility with existing links.
 			// Downstream plugins can mount their own routes if they want a different prefix.
-			registerMemeWorkerWeb(ctxAny, this as any)
-		}
+			registerMemeWorkerWeb(this.ctx, this)
+		
 		// Do not block plugin startup on native binding download / resource checks / worker compilation.
 		void this.ensurePool().catch((e) => {
 			this.ctx.logger.warn(e, '[meme-worker] warmup failed')

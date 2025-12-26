@@ -2,11 +2,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { BasePlugin, Plugin } from '@pluxel/core'
 import { Config as UseConfig, type Config as InferConfig } from '@pluxel/hmr'
-import { RpcTarget } from '@pluxel/hmr/capnweb'
 import { v } from '@pluxel/hmr/config'
 import { Collection } from '@pluxel/hmr/signaldb'
 import type { SseChannel } from '@pluxel/hmr/services'
 import { GlobalFonts } from 'pluxel-plugin-napi-rs/canvas'
+import { registerFontManagerExtensions } from './extensions'
+import type { FontManagerRpc } from './rpc'
 
 const DEFAULT_ALIASES: Record<string, string> = {
   default: 'sans',
@@ -87,9 +88,7 @@ export class FontManager extends BasePlugin {
 
   override async init(): Promise<void> {
     await this.initData()
-    this.registerUiExtensionIfPresent()
-    this.ctx.rpc.registerExtension(() => new FontManagerRpc(this))
-    this.ctx.sse.registerExtension(() => this.createSseHandler())
+    registerFontManagerExtensions(this)
     this.registerStatusRoute()
     await this.reloadFonts('init')
     this.ctx.logger.info('[FontManager] ready')
@@ -232,7 +231,7 @@ export class FontManager extends BasePlugin {
     this.activitySeq = activities.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1
   }
 
-  private createSseHandler() {
+  createSseHandler() {
     return (channel: SseChannel) => {
       const sendSnapshot = async () => channel.emit('sync', { type: 'sync', snapshot: await this.getSnapshot('sse') })
       void sendSnapshot()
@@ -280,12 +279,6 @@ export class FontManager extends BasePlugin {
         const snapshot = await this.getSnapshot('route')
         return c.json(snapshot)
       })
-    })
-  }
-
-  private registerUiExtensionIfPresent() {
-    this.ctx.extensionService.register({
-      entryPath: './ui/index.tsx',
     })
   }
 
@@ -492,37 +485,9 @@ export class FontManager extends BasePlugin {
   }
 }
 
-export class FontManagerRpc extends RpcTarget {
-  constructor(private readonly plugin: FontManager) {
-    super()
-  }
-
-  snapshot() {
-    return this.plugin.getSnapshot('rpc')
-  }
-
-  reload(reason?: string) {
-    return this.plugin.reloadFonts(reason ?? 'rpc')
-  }
-
-  fontStack(key?: string) {
-    return this.plugin.getFontStack(key)
-  }
-
-  primary(key?: string) {
-    return this.plugin.getPrimaryFont(key)
-  }
-
-  setPreferred(key: string, families: string[]) {
-    return this.plugin.setPreferredFamilies(key, families)
-  }
-
-  resolved(keys?: string[]) {
-    return this.plugin.getResolvedStacks(keys)
-  }
-}
-
 export default FontManager
+
+export { FontManagerRpc } from './rpc'
 
 declare module '@pluxel/hmr/services' {
   interface RpcExtensions {

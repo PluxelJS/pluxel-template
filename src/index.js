@@ -2,7 +2,7 @@ import { Context } from "@pluxel/hmr";
 import { PinoLoggerService } from "@pluxel/hmr/services";
 
 const ctx = new Context({
-	hmrService: { dir: ["./src/ui-demos", "."], deps: {
+	hmrService: { dir: ["./src/ui-plugins", "."], deps: {
 		cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
 	}, },
 	registry: {

@@ -19,9 +19,11 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.10",
+		"@chatui/core": "^3.6.0",
 		"@mantine/core": "^8.3.10",
 		"@mantine/hooks": "^8.3.10",
 		"@mantine/modals": "^8.3.10",
+		"@pluxel/parts": "workspace:*",
 		"@repobuddy/biome": "^2.2.0",
 		"@tabler/icons-react": "^3.36.0",
 		"@types/bun": "^1.3.5",

@@ -48,16 +48,18 @@ export class PluginWithUI extends BasePlugin {
 
 		await this.initData()
 
-		// UI 扩展示例：自带完整页面 + 自定义 Tab + Header 按钮
-		this.ctx.extensionService.register({
+		// 插件 UI 模块示例：自带完整页面 + 自定义 Tab + Header 按钮
+		// 说明：builtin（infoCard/rpcAutoForm）展示已独立到 PluginBuiltinShowcase，
+		// PluginWithUI 只聚焦“插件自带 UI 模块”的能力演示。
+		this.ctx.ext.ui.register({
 			entryPath: './PluginWithUI/ui/index.tsx',
 		})
 
 		// RPC：供 UI 调用
-		this.ctx.rpc.registerExtension(() => new PluginWithUIRpc(this))
+		this.ctx.ext.rpc.registerExtension(() => new PluginWithUIRpc(this))
 
 		// SSE：复用宿主统一 /api/sse 连接（命名空间 = 插件名）
-		this.ctx.sse.registerExtension(() => this.pushData())
+		this.ctx.ext.sse.registerExtension(() => this.pushData())
 
 		this.ctx.logger.info('[PluginWithUI] UI extensions registered')
 	}
@@ -102,7 +104,12 @@ export class PluginWithUI extends BasePlugin {
 		return this.getSortedTasks()
 	}
 
-	async addTask(input: { title: string; priority?: PluginTaskEntry['priority']; tags?: string[]; dueAt?: number }) {
+	async addTask(input: {
+		title: string
+		priority?: PluginTaskEntry['priority']
+		tags?: string[]
+		dueAt?: number
+	}) {
 		const title = input.title.trim()
 		if (!title) {
 			throw new Error('任务标题不能为空')
@@ -257,7 +264,8 @@ export class PluginWithUI extends BasePlugin {
 	}
 
 	private async initData() {
-		const notesPersistence = await this.ctx.pluginData.persistenceForCollection<PluginMemoEntry>('notes')
+		const notesPersistence =
+			await this.ctx.pluginData.persistenceForCollection<PluginMemoEntry>('notes')
 		this.notes = new Collection<PluginMemoEntry, string, PluginMemoEntry>({
 			name: 'notes',
 			persistence: notesPersistence,
@@ -269,7 +277,8 @@ export class PluginWithUI extends BasePlugin {
 		})
 		this.activity = new Collection<PluginActivityEntry, string, PluginActivityEntry>({
 			name: 'activity',
-			persistence: await this.ctx.pluginData.persistenceForCollection<PluginActivityEntry>('activity'),
+			persistence:
+				await this.ctx.pluginData.persistenceForCollection<PluginActivityEntry>('activity'),
 		})
 
 		const existing = await this.getNotesSnapshot()
@@ -283,7 +292,11 @@ export class PluginWithUI extends BasePlugin {
 
 		const existingTasks = await this.getTasksSnapshot()
 		if (existingTasks.length === 0) {
-			await this.addTask({ title: '看看 SignalDB 多 Collection 用法', priority: 'high', tags: ['signaldb'] })
+			await this.addTask({
+				title: '看看 SignalDB 多 Collection 用法',
+				priority: 'high',
+				tags: ['signaldb'],
+			})
 			await this.addTask({ title: '随手添加备注试试', priority: 'medium' })
 			await this.addTask({ title: '切换任务状态，观察 SSE 同步', priority: 'low', tags: ['demo'] })
 		} else {
@@ -296,7 +309,10 @@ export class PluginWithUI extends BasePlugin {
 			.fetch()
 			.map((item) => ({ ...item }))
 		if (existingActivity.length > 0) {
-			const maxActivityId = existingActivity.reduce((acc, item) => Math.max(acc, Number(item.id) || 0), 0)
+			const maxActivityId = existingActivity.reduce(
+				(acc, item) => Math.max(acc, Number(item.id) || 0),
+				0,
+			)
 			this.activitySeq = maxActivityId + 1
 		}
 	}
@@ -345,9 +361,15 @@ export class PluginWithUI extends BasePlugin {
 	}
 
 	private getCursorPayload() {
-		const notes = this.notes.find({}, { sort: { createdAt: -1 }, limit: 12 }).fetch().map((note) => ({ ...note }))
+		const notes = this.notes
+			.find({}, { sort: { createdAt: -1 }, limit: 12 })
+			.fetch()
+			.map((note) => ({ ...note }))
 		const tasks = this.getSortedTasks(48)
-		const activity = this.activity.find({}, { sort: { at: -1 }, limit: 32 }).fetch().map((item) => ({ ...item }))
+		const activity = this.activity
+			.find({}, { sort: { at: -1 }, limit: 32 })
+			.fetch()
+			.map((item) => ({ ...item }))
 		return { notes, tasks, activity }
 	}
 
@@ -399,7 +421,12 @@ export class PluginWithUIRpc extends RpcTarget {
 		return this.plugin.getTasksSnapshot()
 	}
 
-	addTask(input: { title: string; priority?: PluginTaskEntry['priority']; tags?: string[]; dueAt?: number }) {
+	addTask(input: {
+		title: string
+		priority?: PluginTaskEntry['priority']
+		tags?: string[]
+		dueAt?: number
+	}) {
 		return this.plugin.addTask(input)
 	}
 
@@ -423,8 +450,18 @@ declare module '@pluxel/hmr/services' {
 
 	interface SseEvents {
 		PluginWithUI:
-			| { type: 'sync'; notes: PluginMemoEntry[]; tasks: PluginTaskEntry[]; activity: PluginActivityEntry[] }
+			| {
+					type: 'sync'
+					notes: PluginMemoEntry[]
+					tasks: PluginTaskEntry[]
+					activity: PluginActivityEntry[]
+			  }
 			| { type: 'tick'; now: number }
-			| { type: 'cursor'; notes: PluginMemoEntry[]; tasks: PluginTaskEntry[]; activity: PluginActivityEntry[] }
+			| {
+					type: 'cursor'
+					notes: PluginMemoEntry[]
+					tasks: PluginTaskEntry[]
+					activity: PluginActivityEntry[]
+			  }
 	}
 }
