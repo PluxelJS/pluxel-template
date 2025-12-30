@@ -18,7 +18,6 @@ const ctx = new Context({
 });
 
 await ctx.hmrService.start();
-setTimeout(() => console.log(ctx.loader.ctorMap), 1000);
 ctx.honoService.modifyApp((app) => {
 	app.get("/pluginadd", (c) => {
 		return c.text("lastone");

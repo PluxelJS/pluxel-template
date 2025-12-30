@@ -32,7 +32,7 @@ type PluginActivityEntry = {
 	at: number
 }
 
-@Plugin({ name: 'PluginWithUI', type: 'event' })
+@Plugin({ name: 'PluginWithUI', type: 'event', startTimeoutMs: 10_000 })
 export class PluginWithUI extends BasePlugin {
 	private startedAt = Date.now()
 	private notes!: Collection<PluginMemoEntry>
