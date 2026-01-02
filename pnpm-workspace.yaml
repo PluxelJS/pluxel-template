@@ -1,6 +1,6 @@
 packages:
   - packages/*
-  - plugin/*
+  - render-plugins/*
   - chatbots/**
 onlyBuiltDependencies:
   - esbuild

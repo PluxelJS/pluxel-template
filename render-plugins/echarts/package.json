@@ -1,0 +1,50 @@
+{
+  "$schema": "https://market.pluxel.dev/schema/package.json",
+  "name": "pluxel-plugin-echarts",
+  "version": "0.1.0",
+  "description": "这是一个示例插件",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@pluxel/hmr": "./src/echarts.ts",
+      "default": "./dist/echarts.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/echarts.mjs",
+  "module": "./dist/echarts.mjs",
+  "types": "./dist/echarts.d.mts",
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "scripts": {
+    "build": "pluxel build"
+  },
+  "dependencies": {
+    "echarts": "^6"
+  },
+  "devDependencies": {
+    "pluxel-plugin-canvas-worker": "workspace:^"
+  },
+  "peerDependencies": {
+    "pluxel-plugin-canvas-worker": "workspace:^",
+    "pluxel-plugin-font-manager": "workspace:^",
+    "pluxel-plugin-napi-rs": "workspace:^"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/echarts.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "pluxel": {
+    "dependOn": {
+      "required": [],
+      "optional": [
+        "pluxel-plugin-font-manager",
+        "pluxel-plugin-napi-rs"
+      ]
+    }
+  }
+}

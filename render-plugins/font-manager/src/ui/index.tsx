@@ -16,11 +16,12 @@ import {
 } from '@mantine/core'
 import { IconAlertCircle, IconFolder, IconReload, IconSearch, IconTypography } from '@tabler/icons-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import './runtime'
 import {
 	definePluginUIModule,
-	type PluginExtensionContext,
-	hmrWebClient,
+	ExtensionPoints,
 	rpcErrorMessage,
+	useExtensionContext,
 } from '@pluxel/hmr/web'
 import type { FontSnapshot } from '../font-manager'
 
@@ -30,15 +31,16 @@ type ResolvedMap = Snapshot['resolved']
 type FontFamilyInfo = Snapshot['families'][number]
 const DEFAULT_GROUP_KEYS = ['sans', 'serif', 'mono', 'fallback'] as const
 
-type RpcClient = {
-	snapshot: () => Promise<Snapshot>
-	reload: (reason?: string) => Promise<Snapshot>
-	setPreferred: (key: string, families: string[]) => Promise<void>
+type FontManagerRpc = ReturnType<typeof useExtensionContext>['services']['hmr']['rpc']['FontManager']
+type FontManagerSse = ReturnType<typeof useExtensionContext>['services']['hmr']['sse']
+
+function useFontManagerRuntime(): { rpc: FontManagerRpc; sse: FontManagerSse } {
+	const ctx = useExtensionContext('plugin')
+	return { rpc: ctx.services.hmr.rpc.FontManager, sse: ctx.services.hmr.sse }
 }
 
-const rpc = (): RpcClient => (hmrWebClient.rpc as any).FontManager as RpcClient
-
 function useFontManagerData() {
+	const { rpc, sse } = useFontManagerRuntime()
 	const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
@@ -46,7 +48,7 @@ function useFontManagerData() {
 	const fetchSnapshot = useCallback(async () => {
 		setLoading(true)
 		try {
-			const snap = await rpc().snapshot()
+			const snap = await rpc.snapshot()
 			setSnapshot(snap)
 			setError(null)
 		} catch (err) {
@@ -61,20 +63,19 @@ function useFontManagerData() {
 	}, [fetchSnapshot])
 
 	useEffect(() => {
-		const sse = hmrWebClient.createSse({ namespaces: ['FontManager'] })
-		const off = sse.ns('FontManager').on((msg) => {
-			const payload = msg.payload as { type?: string; snapshot?: Snapshot } | undefined
-			if (payload?.type === 'sync' && payload.snapshot) {
-				setSnapshot(payload.snapshot)
-			}
-		}, ['sync'])
-		return () => {
-			off()
-			sse.close()
-		}
-	}, [])
+		const off = sse.FontManager.on(
+			(msg) => {
+				const payload = msg.payload as { type?: string; snapshot?: Snapshot } | undefined
+				if (payload?.type === 'sync' && payload.snapshot) {
+					setSnapshot(payload.snapshot)
+				}
+			},
+			['sync'],
+		)
+		return () => off()
+	}, [sse])
 
-	return { snapshot, loading, error, fetchSnapshot }
+	return { snapshot, loading, error, fetchSnapshot, rpc }
 }
 
 function Overview({ snapshot, onReload, reloading }: { snapshot: Snapshot | null; onReload: () => void; reloading: boolean }) {
@@ -437,15 +438,15 @@ function FontsLibrary({ families, loading }: { families: Snapshot['families']; l
 	)
 }
 
-function FontManagerMappingsTab({ ctx }: { ctx: PluginExtensionContext }) {
-	const { snapshot, loading, error, fetchSnapshot } = useFontManagerData()
+function FontManagerMappingsTab() {
+	const { snapshot, loading, error, fetchSnapshot, rpc } = useFontManagerData()
 	const [reloading, setReloading] = useState(false)
 	const [savingKey, setSavingKey] = useState<string | null>(null)
 
 	const handleReload = async () => {
 		setReloading(true)
 		try {
-			await rpc().reload('ui')
+			await rpc.reload('ui')
 			await fetchSnapshot()
 		} finally {
 			setReloading(false)
@@ -455,7 +456,7 @@ function FontManagerMappingsTab({ ctx }: { ctx: PluginExtensionContext }) {
 	const handleSavePreferred = async (key: string, families: string[]) => {
 		setSavingKey(key)
 		try {
-			await rpc().setPreferred(key, families)
+			await rpc.setPreferred(key, families)
 			await fetchSnapshot()
 		} finally {
 			setSavingKey(null)
@@ -483,14 +484,14 @@ function FontManagerMappingsTab({ ctx }: { ctx: PluginExtensionContext }) {
 	)
 }
 
-function FontManagerLibraryTab({ ctx }: { ctx: PluginExtensionContext }) {
-	const { snapshot, loading, error, fetchSnapshot } = useFontManagerData()
+function FontManagerLibraryTab() {
+	const { snapshot, loading, error, fetchSnapshot, rpc } = useFontManagerData()
 	const [reloading, setReloading] = useState(false)
 
 	const handleReload = async () => {
 		setReloading(true)
 		try {
-			await rpc().reload('ui-library')
+			await rpc.reload('ui-library')
 			await fetchSnapshot()
 		} finally {
 			setReloading(false)
@@ -544,7 +545,7 @@ function FontManagerLibraryTab({ ctx }: { ctx: PluginExtensionContext }) {
 const module = definePluginUIModule({
 	extensions: [
 		{
-			point: 'plugin:tabs',
+			point: ExtensionPoints.PluginTabs,
 			id: 'font-library',
 			priority: 16,
 			meta: { label: '字体库' },
@@ -552,7 +553,7 @@ const module = definePluginUIModule({
 			Component: FontManagerLibraryTab,
 		},
 		{
-			point: 'plugin:tabs',
+			point: ExtensionPoints.PluginTabs,
 			id: 'font-mappings',
 			priority: 15,
 			meta: { label: '字体映射' },

@@ -52,8 +52,8 @@
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.tsx",
-		"plugin/*/src/**/*.ts",
-		"plugin/*/src/**/*.tsx",
+		"render-plugins/*/src/**/*.ts",
+		"render-plugins/*/src/**/*.tsx",
 		"packages/*/src/**/*.ts",
 		"packages/*/src/**/*.tsx"
 	]

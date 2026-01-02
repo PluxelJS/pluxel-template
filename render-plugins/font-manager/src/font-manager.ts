@@ -7,7 +7,6 @@ import { Collection } from '@pluxel/hmr/signaldb'
 import type { SseChannel } from '@pluxel/hmr/services'
 import { GlobalFonts } from 'pluxel-plugin-napi-rs/canvas'
 import { registerFontManagerExtensions } from './extensions'
-import type { FontManagerRpc } from './rpc'
 
 const DEFAULT_ALIASES: Record<string, string> = {
   default: 'sans',
@@ -488,13 +487,3 @@ export class FontManager extends BasePlugin {
 export default FontManager
 
 export { FontManagerRpc } from './rpc'
-
-declare module '@pluxel/hmr/services' {
-  interface RpcExtensions {
-    FontManager: FontManagerRpc
-  }
-
-  interface SseEvents {
-    FontManager: { type: 'sync'; snapshot: FontSnapshot }
-  }
-}

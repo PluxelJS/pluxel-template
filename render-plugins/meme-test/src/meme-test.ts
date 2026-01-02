@@ -11,7 +11,7 @@ import {
 	type MentionPart,
 	type Part,
 	type ResolvedAttachment,
-} from 'pluxel-plugin-chatbots'
+} from '@pluxel/bot-layer'
 import { Chatbots, type ChatbotsCommandContext } from 'pluxel-plugin-chatbots'
 import { MemeWorker, type MemeMetadata } from 'pluxel-plugin-meme-worker'
 
