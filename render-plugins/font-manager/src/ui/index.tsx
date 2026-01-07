@@ -17,6 +17,7 @@ import {
 import { IconAlertCircle, IconFolder, IconReload, IconSearch, IconTypography } from '@tabler/icons-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import './runtime'
+import type { PluginExtensionContext } from '@pluxel/hmr/web'
 import {
 	definePluginUIModule,
 	ExtensionPoints,
@@ -31,12 +32,13 @@ type ResolvedMap = Snapshot['resolved']
 type FontFamilyInfo = Snapshot['families'][number]
 const DEFAULT_GROUP_KEYS = ['sans', 'serif', 'mono', 'fallback'] as const
 
-type FontManagerRpc = ReturnType<typeof useExtensionContext>['services']['hmr']['rpc']['FontManager']
-type FontManagerSse = ReturnType<typeof useExtensionContext>['services']['hmr']['sse']
+type FontManagerRpc = PluginExtensionContext['services']['hmr']['ui']['FontManager']
+type FontManagerSse = PluginExtensionContext['services']['hmr']['sse']
 
 function useFontManagerRuntime(): { rpc: FontManagerRpc; sse: FontManagerSse } {
-	const ctx = useExtensionContext('plugin')
-	return { rpc: ctx.services.hmr.rpc.FontManager, sse: ctx.services.hmr.sse }
+	const { services } = useExtensionContext('plugin')
+	const hmr = services.hmr
+	return useMemo(() => ({ rpc: hmr.ui.FontManager, sse: hmr.sse }), [hmr])
 }
 
 function useFontManagerData() {
@@ -56,7 +58,7 @@ function useFontManagerData() {
 		} finally {
 			setLoading(false)
 		}
-	}, [])
+	}, [rpc])
 
 	useEffect(() => {
 		void fetchSnapshot()
@@ -542,25 +544,23 @@ function FontManagerLibraryTab() {
 	)
 }
 
-const module = definePluginUIModule({
-	extensions: [
-		{
-			point: ExtensionPoints.PluginTabs,
-			id: 'font-library',
-			priority: 16,
-			meta: { label: '字体库' },
-			when: (ctx) => ctx.pluginName === 'FontManager',
-			Component: FontManagerLibraryTab,
-		},
-		{
-			point: ExtensionPoints.PluginTabs,
-			id: 'font-mappings',
-			priority: 15,
-			meta: { label: '字体映射' },
-			when: (ctx) => ctx.pluginName === 'FontManager',
-			Component: FontManagerMappingsTab,
-		},
-	],
-})
+	const module = definePluginUIModule({
+		extensions: [
+			{
+				point: ExtensionPoints.PluginTabs,
+				id: 'font-library',
+				priority: 16,
+				meta: { label: '字体库' },
+				render: () => <FontManagerLibraryTab />,
+			},
+			{
+				point: ExtensionPoints.PluginTabs,
+				id: 'font-mappings',
+				priority: 15,
+				meta: { label: '字体映射' },
+				render: () => <FontManagerMappingsTab />,
+			},
+		],
+	})
 
 export default module

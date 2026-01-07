@@ -1,7 +1,7 @@
 import type { FontManagerRpc } from '../rpc'
 import type { FontSnapshot } from '../font-manager'
 
-declare module '@pluxel/hmr/web' {
+declare module '@pluxel/hmr/services' {
 	namespace UI {
 		interface rpc {
 			FontManager: FontManagerRpc
@@ -12,4 +12,3 @@ declare module '@pluxel/hmr/web' {
 		}
 	}
 }
-

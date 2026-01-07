@@ -1,3 +1,2 @@
-export * from './PluginBuiltinShowcase'
-export * from './PluginStatusBadge'
-export * from './PluginWithUI'
+export * from './PluginBuiltinShowcase';
+export * from './PluginWithUI';

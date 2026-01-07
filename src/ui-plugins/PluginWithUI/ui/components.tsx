@@ -14,7 +14,7 @@ import {
 	TextInput,
 	Title,
 } from '@mantine/core'
-import { type PluginExtensionContext, rpcErrorMessage, useExtensionContext } from '@pluxel/hmr/web'
+import { rpcErrorMessage } from '@pluxel/hmr/web'
 import {
 	IconActivity,
 	IconCirclePlus,
@@ -23,48 +23,11 @@ import {
 	IconServer,
 	IconWaveSine,
 } from '@tabler/icons-react'
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePluginWithUIRuntime, type PluginWithUIRuntime } from './runtime'
 
-type PluginWithUIRpc = PluginExtensionContext['services']['hmr']['rpc']['PluginWithUI']
-type PluginWithUISse = PluginExtensionContext['services']['hmr']['sse']
-
-type Status = Awaited<ReturnType<PluginWithUIRpc['status']>>
-type DemoEvent = Awaited<ReturnType<PluginWithUIRpc['events']>>[number]
-
-type RuntimeApi = {
-	pluginName: string
-	rpc: PluginWithUIRpc
-	sse: PluginWithUISse
-}
-
-const RuntimeContext = createContext<RuntimeApi | null>(null)
-
-export function PluginRuntimeProvider({ children }: { children: ReactNode }) {
-	const ctx = useExtensionContext('plugin')
-	const pluginName = ctx.pluginName
-	const hmr = ctx.services.hmr
-	const rpc = hmr.rpc.PluginWithUI
-	// Use the shared host SSE connection to avoid exhausting browser connection limits.
-	const sse = hmr.sse
-
-	const value = useMemo(() => ({ pluginName, rpc, sse }), [pluginName, rpc, sse])
-
-	return <RuntimeContext.Provider value={value}>{children}</RuntimeContext.Provider>
-}
-
-function useRuntime(): RuntimeApi {
-	const ctx = useContext(RuntimeContext)
-	if (!ctx) throw new Error('useRuntime must be used within PluginRuntimeProvider')
-	return ctx
-}
+type PluginWithUISse = PluginWithUIRuntime['sse']
+type PluginWithUIRpc = PluginWithUIRuntime['ui']
 
 function useLiveConnectionState(sse: PluginWithUISse) {
 	const [connected, setConnected] = useState(false)
@@ -80,7 +43,8 @@ function useLiveConnectionState(sse: PluginWithUISse) {
 }
 
 export function OverviewPanel() {
-	const { pluginName, rpc, sse } = useRuntime()
+	const { pluginName, ui, sse } = usePluginWithUIRuntime()
+	type Status = Awaited<ReturnType<PluginWithUIRpc['status']>>
 	const connected = useLiveConnectionState(sse)
 	const [status, setStatus] = useState<Status | null>(null)
 	const [tick, setTick] = useState<number | null>(null)
@@ -90,7 +54,7 @@ export function OverviewPanel() {
 	const refresh = useCallback(async () => {
 		setLoading(true)
 		try {
-			const res = await rpc.status()
+			const res = await ui.status()
 			setStatus(res)
 			setError(null)
 		} catch (e) {
@@ -98,7 +62,7 @@ export function OverviewPanel() {
 		} finally {
 			setLoading(false)
 		}
-	}, [rpc])
+	}, [ui])
 
 	useEffect(() => {
 		void refresh()
@@ -176,25 +140,25 @@ export function OverviewPanel() {
 			</Card>
 
 			<Group>
-				<Button
+					<Button
 					leftSection={<IconCirclePlus size={16} />}
 					onClick={() =>
-						rpc
+						ui
 							.increment(1)
 							.then(() => setError(null))
-							.catch((e) => setError(rpcErrorMessage(e, '无法执行 +1')))
+							.catch((e: unknown) => setError(rpcErrorMessage(e, '无法执行 +1')))
 					}
 				>
 					+1
 				</Button>
-				<Button
+					<Button
 					variant="light"
 					leftSection={<IconRestore size={16} />}
 					onClick={() =>
-						rpc
+						ui
 							.resetCounter()
 							.then(() => setError(null))
-							.catch((e) => setError(rpcErrorMessage(e, '无法重置计数器')))
+							.catch((e: unknown) => setError(rpcErrorMessage(e, '无法重置计数器')))
 					}
 				>
 					重置
@@ -205,7 +169,8 @@ export function OverviewPanel() {
 }
 
 export function EventsPanel() {
-	const { rpc, sse } = useRuntime()
+	const { ui, sse } = usePluginWithUIRuntime()
+	type DemoEvent = Awaited<ReturnType<PluginWithUIRpc['events']>>[number]
 	const [events, setEvents] = useState<DemoEvent[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
@@ -214,7 +179,7 @@ export function EventsPanel() {
 	const refresh = useCallback(async () => {
 		setLoading(true)
 		try {
-			const res = await rpc.events(50)
+			const res = await ui.events(50)
 			setEvents(res)
 			setError(null)
 		} catch (e) {
@@ -222,7 +187,7 @@ export function EventsPanel() {
 		} finally {
 			setLoading(false)
 		}
-	}, [rpc])
+	}, [ui])
 
 	useEffect(() => {
 		void refresh()
@@ -254,7 +219,7 @@ export function EventsPanel() {
 		if (!message) return
 		setText('')
 		try {
-			await rpc.addNote(message)
+			await ui.addNote(message)
 		} catch (e) {
 			setError(rpcErrorMessage(e, '无法添加事件'))
 		}
@@ -274,7 +239,7 @@ export function EventsPanel() {
 					<Button
 						variant="light"
 						color="red"
-						onClick={() => rpc.clearEvents().catch(() => undefined)}
+						onClick={() => ui.clearEvents().catch(() => undefined)}
 					>
 						清空
 					</Button>
@@ -341,25 +306,26 @@ export function EventsPanel() {
 }
 
 export function StreamsPanel() {
-	const { pluginName, sse } = useRuntime()
-	const connected = useLiveConnectionState(sse)
-	const [lines, setLines] = useState<Array<{ key: string; text: string }>>([])
+		const { pluginName, sse } = usePluginWithUIRuntime()
+		const connected = useLiveConnectionState(sse)
+		const [lines, setLines] = useState<Array<{ key: string; text: string }>>([])
+		const logs = useMemo(() => sse.ns('logs'), [sse])
 
-	useEffect(() => {
-		const off = sse.logs.onAny((msg) => {
-			const payload = msg.payload
-			const name = payload.name ?? ''
-			// best-effort client-side filtering; avoids extra SSE connections.
-			if (name && name !== pluginName) return
-			setLines((prev) =>
-				[
-					{ key: `${Date.now()}-${prev.length}`, text: `${payload.time} ${payload.msg}` },
-					...prev,
-				].slice(0, 50),
-			)
-		})
-		return () => off()
-	}, [pluginName, sse])
+		useEffect(() => {
+			const off = logs.onAny((msg) => {
+				const payload = msg.payload as any
+				const name = payload?.name ?? ''
+				// best-effort client-side filtering; avoids extra SSE connections.
+				if (name && name !== pluginName) return
+				setLines((prev) =>
+					[
+						{ key: `${Date.now()}-${prev.length}`, text: `${payload?.time ?? ''} ${payload?.msg ?? ''}` },
+						...prev,
+					].slice(0, 50),
+				)
+			})
+			return () => off()
+		}, [pluginName, logs])
 
 	return (
 		<Stack gap="md">
@@ -404,10 +370,10 @@ export function StreamsPanel() {
 }
 
 export function RoutePage() {
-	const { pluginName } = useRuntime()
-	return (
-		<Stack gap="md">
-			<Title order={3}>插件路由页面</Title>
+		const { pluginName } = usePluginWithUIRuntime()
+		return (
+			<Stack gap="md">
+				<Title order={3}>插件路由页面</Title>
 			<Text size="sm" c="dimmed">
 				这是插件提供的独立页面路由，用于演示 `routes` 能力。插件名：<Code>{pluginName}</Code>
 			</Text>

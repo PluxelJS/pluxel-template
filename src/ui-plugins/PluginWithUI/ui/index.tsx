@@ -1,7 +1,8 @@
 import { Badge, Button, Group, Stack, Text } from '@mantine/core'
+import { definePluginUIModule, ExtensionPoints } from '@pluxel/hmr/web'
 import { IconDashboard, IconExternalLink, IconRocket } from '@tabler/icons-react'
-import { definePluginUIModule, ExtensionPoints, useExtensionContext } from '@pluxel/hmr/web'
-import { OverviewPanel, EventsPanel, PluginRuntimeProvider, RoutePage, StreamsPanel } from './components'
+import { EventsPanel, OverviewPanel, RoutePage, StreamsPanel } from './components'
+import { useGlobalRuntime, usePluginDashboardHref } from './runtime'
 
 function HeaderAction() {
 	return (
@@ -12,71 +13,37 @@ function HeaderAction() {
 }
 
 function GlobalStatusBar() {
-	const ctx = useExtensionContext('global')
+	const { runningPluginsReady } = useGlobalRuntime()
 	return (
 		<Group gap="xs">
 			<Badge variant="dot" color="grape">
 				UI Demo
 			</Badge>
 			<Text size="xs" c="dimmed">
-				{ctx.runningPluginsReady ? 'plugins ready' : 'plugins loading…'}
+				{runningPluginsReady ? 'plugins ready' : 'plugins loading…'}
 			</Text>
 		</Group>
 	)
 }
 
-function TabOverview() {
-	return (
-		<PluginRuntimeProvider>
-			<OverviewPanel />
-		</PluginRuntimeProvider>
-	)
-}
-
-function TabEvents() {
-	return (
-		<PluginRuntimeProvider>
-			<EventsPanel />
-		</PluginRuntimeProvider>
-	)
-}
-
-function TabStreams() {
-	return (
-		<PluginRuntimeProvider>
-			<StreamsPanel />
-		</PluginRuntimeProvider>
-	)
-}
-
 function PluginInfo() {
-	const ctx = useExtensionContext('plugin')
+	const dashboardHref = usePluginDashboardHref()
 	return (
-		<PluginRuntimeProvider>
-			<Stack gap="xs">
-				<Text fw={600}>PluginWithUI</Text>
-				<Text size="sm" c="dimmed">
-					演示扩展 UI：Tab、Route、SSE、RPC。
-				</Text>
-				<Button
-					variant="light"
-					size="xs"
-					leftSection={<IconExternalLink size={14} />}
-					component="a"
-					href={`/plugins/${encodeURIComponent(ctx.pluginName)}/dashboard`}
-				>
-					打开 Dashboard
-				</Button>
-			</Stack>
-		</PluginRuntimeProvider>
-	)
-}
-
-function RouteDashboard() {
-	return (
-		<PluginRuntimeProvider>
-			<RoutePage />
-		</PluginRuntimeProvider>
+		<Stack gap="xs">
+			<Text fw={600}>PluginWithUI</Text>
+			<Text size="sm" c="dimmed">
+				演示扩展 UI：Tab、Route、SSE、RPC。
+			</Text>
+			<Button
+				variant="light"
+				size="xs"
+				leftSection={<IconExternalLink size={14} />}
+				component="a"
+				href={dashboardHref}
+			>
+				打开 Dashboard
+			</Button>
+		</Stack>
 	)
 }
 
@@ -87,44 +54,41 @@ export default definePluginUIModule({
 			id: 'global-status',
 			priority: 50,
 			meta: { label: 'PluginWithUI' },
-			Component: GlobalStatusBar,
+			render: () => <GlobalStatusBar />,
 		},
 		{
 			point: ExtensionPoints.HeaderActions,
 			id: 'header-action',
 			priority: 100,
-			Component: HeaderAction,
+			render: () => <HeaderAction />,
 		},
 		{
 			point: ExtensionPoints.PluginTabs,
 			id: 'tab-overview',
 			priority: 20,
 			meta: { label: '概览' },
-			when: (ctx) => ctx.pluginName === 'PluginWithUI',
-			Component: TabOverview,
+			render: () => <OverviewPanel />,
 		},
 		{
 			point: ExtensionPoints.PluginTabs,
 			id: 'tab-events',
 			priority: 19,
 			meta: { label: '事件' },
-			when: (ctx) => ctx.pluginName === 'PluginWithUI',
-			Component: TabEvents,
+			render: () => <EventsPanel />,
 		},
 		{
 			point: ExtensionPoints.PluginTabs,
 			id: 'tab-streams',
 			priority: 18,
 			meta: { label: 'Streams' },
-			when: (ctx) => ctx.pluginName === 'PluginWithUI',
-			Component: TabStreams,
+			render: () => <StreamsPanel />,
 		},
 		{
 			point: ExtensionPoints.PluginInfo,
 			id: 'plugin-info',
 			priority: 10,
 			requireRunning: true,
-			Component: PluginInfo,
+			render: () => <PluginInfo />,
 		},
 	],
 	routes: [
@@ -136,7 +100,7 @@ export default definePluginUIModule({
 				addToNav: true,
 				navPriority: 50,
 			},
-			Component: RouteDashboard,
+			render: () => <RoutePage />,
 		},
 	],
 	setup({ pluginName }) {

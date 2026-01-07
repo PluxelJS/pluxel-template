@@ -623,7 +623,7 @@ export class PluginBuiltinShowcaseRpc extends RpcTarget {
 	}
 }
 
-declare module '@pluxel/hmr/web' {
+declare module '@pluxel/hmr/services' {
 	namespace UI {
 		interface rpc {
 			PluginBuiltinShowcase: PluginBuiltinShowcaseRpc
