@@ -2,9 +2,11 @@ packages:
   - packages/*
   - render-plugins/*
   - chatbots/**
+
 onlyBuiltDependencies:
   - esbuild
   - msgpackr-extract
+
 public-hoist-pattern:
-  - "@pluxel/core"
-  - "@pluxel/hmr"
+  - '@pluxel/core'
+  - '@pluxel/hmr'

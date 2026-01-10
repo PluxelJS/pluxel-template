@@ -28,11 +28,11 @@
     "tinypool": "^1.0.1"
   },
   "devDependencies": {
-    "echarts": "^6",
+    "echarts": "^6.0.0",
     "pluxel-plugin-napi-rs": "workspace:^"
   },
   "peerDependencies": {
-    "echarts": "^6",
+    "echarts": "^6.0.0",
     "pluxel-plugin-font-manager": "workspace:^",
     "pluxel-plugin-napi-rs": "workspace:^"
   },

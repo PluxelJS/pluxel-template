@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { Context } from '@pluxel/hmr'
 import { LogtapeLoggerService } from '@pluxel/hmr/services'
 import Macro from "unplugin-macros/vite"
-import { partsTransformPlugin } from "@pluxel/bot-layer/parts/rolldown/parts-transform"
+import { partsTransformVitePlugin } from "@pluxel/bot-layer/parts/vite/parts-transform"
 
 const logsDir = join(dirname(fileURLToPath(import.meta.url)), './logs')
 await mkdir(logsDir, { recursive: true })
@@ -14,7 +14,7 @@ const ctx = new Context({
 	debug: ['pluxel:hmr:*'],
 	hmrService: {
 		dir: ['./src/ui-plugins', '.'],
-		vitePlugins: [Macro() as any, partsTransformPlugin()],
+		vitePlugins: [Macro() as any, partsTransformVitePlugin()],
 		deps: {
 			cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
 		},

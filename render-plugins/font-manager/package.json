@@ -22,7 +22,6 @@
   "scripts": {
     "build": "pluxel build"
   },
-  "devDependencies": {},
   "peerDependencies": {
     "pluxel-plugin-napi-rs": "workspace:^"
   },

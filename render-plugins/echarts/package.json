@@ -22,7 +22,7 @@
     "build": "pluxel build"
   },
   "dependencies": {
-    "echarts": "^6"
+    "echarts": "^6.0.0"
   },
   "devDependencies": {
     "pluxel-plugin-canvas-worker": "workspace:^"

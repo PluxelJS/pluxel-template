@@ -11,7 +11,6 @@
 	"scripts": {
 		"build": "pluxel build"
 	},
-	"peerDependencies": {},
 	"dependencies": {
 		"wretch": "^3.0.2"
 	},
