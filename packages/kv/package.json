@@ -2,7 +2,7 @@
 	"$schema": "https://market.pluxel.dev/schema/package.json",
 	"name": "pluxel-plugin-kv",
 	"version": "0.1.0",
-	"description": "Unstorage-based KV service plugin (token + memory backend).",
+	"description": "KV service plugin (token + memory backend).",
 	"type": "module",
 	"exports": {
 		".": {
@@ -22,7 +22,7 @@
 		"build": "pluxel build"
 	},
 	"dependencies": {
-		"unstorage": "^1.16.1"
+		"@isaacs/ttlcache": "^2.1.4"
 	},
 	"publishConfig": {
 		"exports": {

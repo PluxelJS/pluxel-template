@@ -1,36 +1,59 @@
 import { Plugin } from '@pluxel/hmr'
-import { createStorage } from 'unstorage'
-import memoryDriver from 'unstorage/drivers/memory'
-import type { Storage } from 'unstorage'
-import { Kv, type KvDriver, type KvDriverSetOptions } from './core.js'
-
-function driverFromUnstorage(storage: Storage): KvDriver {
-	return {
-		hasItem: (key) => storage.hasItem(key),
-		getItem: async <T = unknown>(key: string) => (await storage.getItem(key)) as T | null,
-		setItem: (key, value, options?: KvDriverSetOptions) =>
-			storage.setItem(key, value as any, options as any),
-		removeItem: (key) => storage.removeItem(key),
-		getKeys: (base) => storage.getKeys(base),
-		clear: (base) => storage.clear(base),
-		dispose: () => storage.dispose(),
-	}
-}
+import { TTLCache } from '@isaacs/ttlcache'
+import { Kv, type KvDriver, type KvDriverSetOptions, type KvValue } from './core.js'
 
 @Plugin(Kv, { name: 'Kv', type: 'service' })
 export class KvMemory extends Kv {
-	private _storage: Storage | undefined
-	private _driver: KvDriver | undefined
+	private cache = new TTLCache<string, KvValue>({
+		ttl: Infinity,
+		max: Infinity,
+		checkAgeOnGet: true,
+		checkAgeOnHas: true,
+	})
+	private kvDriver: KvDriver | undefined
 
 	protected driver(): KvDriver {
-		this._storage ??= createStorage({ driver: memoryDriver() })
-		this._driver ??= driverFromUnstorage(this._storage)
-		return this._driver
+		this.kvDriver ??= {
+			hasItem: async (key) => this.cache.has(key),
+			getItem: async <T = unknown>(key: string) => (this.cache.get(key) as T | undefined) ?? null,
+			setItem: async (key, value, options?: KvDriverSetOptions) => {
+				const ttlSeconds = options?.ttl
+				if (ttlSeconds === undefined) {
+					this.cache.set(key, value)
+					return
+				}
+				const ttlMs = Math.max(1, Math.ceil(Number(ttlSeconds) * 1000))
+				this.cache.set(key, value, { ttl: ttlMs })
+			},
+			removeItem: async (key) => {
+				this.cache.delete(key)
+			},
+			getKeys: async (base?: string) => {
+				this.cache.purgeStale()
+				const keys = [...this.cache.keys()]
+				return base ? keys.filter((k) => k.startsWith(base)) : keys
+			},
+			clear: async (base?: string) => {
+				this.cache.purgeStale()
+				if (!base) {
+					this.cache.clear()
+					return
+				}
+				for (const key of this.cache.keys()) {
+					if (key.startsWith(base)) this.cache.delete(key)
+				}
+			},
+			dispose: async () => {
+				this.cache.cancelTimers()
+				this.cache.clear()
+			},
+		}
+		return this.kvDriver
 	}
 
 	protected override async stop(_abort: AbortSignal): Promise<void> {
-		await this._driver?.dispose?.()
-		this._storage = undefined
-		this._driver = undefined
+		this.cache.cancelTimers()
+		this.cache.clear()
+		this.kvDriver = undefined
 	}
 }
