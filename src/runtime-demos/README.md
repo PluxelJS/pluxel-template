@@ -9,5 +9,6 @@ How to use:
 3. Enable demo plugins and use the **依赖注入** panel:
    - Base providers: `DemoClock.System` / `DemoClock.Fixed` + `DemoClockConsumer`
    - KV providers (from package): `Kv` (pluxel-plugin-kv) / `Redis` (pluxel-plugin-redis) + `DemoKvConsumer`
-   - Redis (+ Rates): `Redis` + `Rates` (Redis also acts as a `Kv` provider)
+   - Rates (best-effort): `Kv` + `Rates` (pluxel-plugin-kv)
+   - Redis rates (atomic): `Redis` + `RedisRates` (pluxel-plugin-redis)
    - Forks: `DemoWorker` + `DemoWorkerConsumer`

@@ -9,6 +9,22 @@
 			"@pluxel/hmr": "./src/index.ts",
 			"default": "./dist/index.mjs"
 		},
+		"./cache": {
+			"@pluxel/hmr": "./src/cache.ts",
+			"default": "./dist/cache.mjs"
+		},
+		"./decorators": {
+			"@pluxel/hmr": "./src/decorators.ts",
+			"default": "./dist/decorators.mjs"
+		},
+		"./rates": {
+			"@pluxel/hmr": "./src/rates.ts",
+			"default": "./dist/rates.mjs"
+		},
+		"./types": {
+			"@pluxel/hmr": "./src/types.ts",
+			"default": "./dist/types.mjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.mjs",
@@ -19,7 +35,8 @@
 		"!**/*.map"
 	],
 	"scripts": {
-		"build": "pluxel build"
+		"build": "pluxel build",
+		"test": "bun test"
 	},
 	"dependencies": {
 		"@isaacs/ttlcache": "^2.1.4"
@@ -27,6 +44,10 @@
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
+			"./cache": "./dist/cache.mjs",
+			"./decorators": "./dist/decorators.mjs",
+			"./rates": "./dist/rates.mjs",
+			"./types": "./dist/types.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

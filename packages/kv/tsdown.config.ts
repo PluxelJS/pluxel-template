@@ -3,6 +3,10 @@ import { defineConfig } from 'tsdown'
 export default defineConfig({
 	entry: {
 		index: './src/index.ts',
+		cache: './src/cache.ts',
+		decorators: './src/decorators.ts',
+		types: './src/types.ts',
+		rates: './src/rates.ts',
 	},
 	dts: {
 		sourcemap: true,

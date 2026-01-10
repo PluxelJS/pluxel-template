@@ -26,10 +26,18 @@ export type RedisEvalShaOptions = {
 
 export type RedisSession = {
 	raw: Redis
+	/** Load a Lua script and return its SHA1. */
 	scriptLoad: (script: string) => Promise<string>
+	/** Run `EVALSHA` with typed return. */
 	evalSha: <T = unknown>(sha: string, options?: RedisEvalShaOptions) => Promise<T>
 }
 
+/**
+ * Redis client service plugin.
+ *
+ * - Acts as a `Kv` provider (so consumers can inject `Kv` and use Redis as the backend).
+ * - Also provides a low-level `.use()` API for script loading / eval.
+ */
 @Plugin(Kv, { name: 'Redis', type: 'service' })
 export class RedisPlugin extends Kv {
 	@Config(RedisConfigSchema)
@@ -73,17 +81,22 @@ export class RedisPlugin extends Kv {
 		this.session = {
 			raw: this.client,
 			scriptLoad: async (script: string) => String(await this.client!.script('LOAD', script)),
-				evalSha: async <T = unknown>(sha: string, options: RedisEvalShaOptions = {}) => {
-					const keys = options.keys ?? []
-					const args = (options.arguments ?? []).map(String)
-					// ioredis: evalsha(sha, numKeys, ...keys, ...args)
-					return (await this.client!.evalsha(sha, keys.length, ...keys, ...args)) as T
-				},
-			}
+			evalSha: async <T = unknown>(sha: string, options: RedisEvalShaOptions = {}) => {
+				const keys = options.keys ?? []
+				const args = (options.arguments ?? []).map(String)
+				// ioredis: evalsha(sha, numKeys, ...keys, ...args)
+				return (await this.client!.evalsha(sha, keys.length, ...keys, ...args)) as T
+			},
+		}
 
 		return this.client
 	}
 
+	/**
+	 * Use a Redis session with a stable API surface for plugins (useful for scripts).
+	 *
+	 * The session is backed by a shared client and is caller-injected when used via decorators.
+	 */
 	async use<T>(fn: (session: RedisSession) => Promise<T>): Promise<T> {
 		this.ensureClient()
 		return await fn(this.session!)
@@ -106,6 +119,7 @@ export class RedisPlugin extends Kv {
 		this.session = undefined
 		this.kvDriver = undefined
 		this.parsed = undefined
+		await super.stop(_abort)
 	}
 
 	private createKvDriver(): KvDriver {

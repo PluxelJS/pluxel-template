@@ -1,9 +1,9 @@
 export * from './redis_plugin'
-export * from './rates'
+export * from './redis_rates'
 
 import { RedisPlugin } from './redis_plugin.js'
-import { Rates } from './rates.js'
+import { RedisRates } from './redis_rates.js'
 
 export { RedisPlugin as default } from './redis_plugin.js'
 
-export const plugins = [RedisPlugin, Rates] as const
+export const plugins = [RedisPlugin, RedisRates] as const
