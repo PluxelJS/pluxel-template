@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { withTestHost } from '@pluxel/core/test'
 
-import { Kv, KvMemory, kvCached } from '../src/index.ts'
+import { Kv, KvMemory, kvCached } from '../src/index'
 
 const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
@@ -82,7 +82,7 @@ describe('pluxel-plugin-kv (kvCached)', () => {
 
 			await sleep(30) // beyond stale window => compute path (existing envelope passed)
 			expect(
-				await kvCached({
+				await kvCached<string>({
 					store,
 					key: 'k',
 					ttlMs: 10,
@@ -96,4 +96,3 @@ describe('pluxel-plugin-kv (kvCached)', () => {
 		})
 	})
 })
-

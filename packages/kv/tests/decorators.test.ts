@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
 
-import { Cached, Kv, KvMemory } from '../src/index.ts'
+import { Cached, Kv, KvMemory } from '../src/index'
 
 const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
@@ -61,4 +61,3 @@ describe('pluxel-plugin-kv (Cached decorator)', () => {
 		})
 	})
 })
-

@@ -275,11 +275,15 @@ export function RateGuard<Self, Args extends any[]>(
 	options: RedisRateGuardOptions<Self, Args>,
 ): MethodDecorator {
 	return pluginMethodDecorator(RedisRates, async function (original, rates: RedisRates, key, ...args: any[]) {
+		const typedArgs = args as unknown as Args
 		const method = String(key)
-		const rule = typeof options.rule === 'function' ? options.rule(this as any, args, method) : options.rule
-		const parts = options.parts(this as any, args, method)
+		const rule =
+			typeof options.rule === 'function' ? options.rule(this as any, typedArgs, method) : options.rule
+		const parts = options.parts(this as any, typedArgs, method)
 		const scopeKey =
-			typeof options.scopeKey === 'function' ? options.scopeKey(this as any, args, method) : options.scopeKey
+			typeof options.scopeKey === 'function'
+				? options.scopeKey(this as any, typedArgs, method)
+				: options.scopeKey
 
 		// Avoid object spreading/allocation on hot path: call the concrete method directly.
 		const decision =
@@ -303,6 +307,6 @@ export function RateGuard<Self, Args extends any[]>(
 			})
 		}
 
-		return await original.apply(this, args)
+		return await original.apply(this, typedArgs)
 	})
 }

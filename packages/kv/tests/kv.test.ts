@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
 
-import { Kv, KvMemory } from '../src/index.ts'
+import { Kv, KvMemory } from '../src/index'
 
 const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
@@ -29,7 +29,7 @@ describe('pluxel-plugin-kv (KvMemory)', () => {
 			expect(a).toBe(b)
 
 			await a.set('k', { ok: true })
-			expect(await b.get('k')).toEqual({ ok: true })
+			expect<unknown>(await b.get('k')).toEqual({ ok: true })
 		})
 	})
 
@@ -40,7 +40,7 @@ describe('pluxel-plugin-kv (KvMemory)', () => {
 
 			const kv = host.getOrThrow(Kv).scope('Script')
 			await kv.set('a/b\\c', 123)
-			expect(await kv.get('a:b:c')).toBe(123)
+			expect<unknown>(await kv.get('a:b:c')).toBe(123)
 		})
 	})
 
@@ -87,10 +87,9 @@ describe('pluxel-plugin-kv (KvMemory)', () => {
 
 			const kv = host.getOrThrow(Kv).scope('Script')
 			await kv.set('ttl', 'v', { ttlMs: 1 })
-			expect(await kv.get('ttl')).toBe('v')
+			expect<unknown>(await kv.get('ttl')).toBe('v')
 			await sleep(1100)
 			expect(await kv.get('ttl')).toBeNull()
 		})
 	})
 })
-
