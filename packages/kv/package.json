@@ -1,0 +1,35 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-kv",
+	"version": "0.1.0",
+	"description": "Unstorage-based KV service plugin (token + memory backend).",
+	"type": "module",
+	"exports": {
+		".": {
+			"@pluxel/hmr": "./src/index.ts",
+			"default": "./dist/index.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "./dist/index.mjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"files": [
+		"dist",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build"
+	},
+	"dependencies": {
+		"unstorage": "^1.16.1"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.mjs",
+			"./package.json": "./package.json"
+		},
+		"access": "public",
+		"provenance": true
+	}
+}

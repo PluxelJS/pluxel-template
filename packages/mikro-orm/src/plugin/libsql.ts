@@ -35,7 +35,7 @@ export class MikroOrmLibsql extends MikroOrmProvider<MikroOrmLibsqlConfig> {
 	private config!: MikroOrmLibsqlConfig
 
 	protected override readConfig(): MikroOrmLibsqlConfig {
-		return v.parse(MikroOrmConfigSchema, (this.config as unknown) ?? {})
+		return this.config
 	}
 
 	protected override async createOrm(

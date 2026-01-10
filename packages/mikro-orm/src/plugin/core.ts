@@ -333,13 +333,13 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 				const pending = [...shared.pendingDropTables]
 				shared.pendingDropTables.clear()
 				for (const tableName of pending) {
-					try {
-						await this.dropTableIfExists(instance, tableName)
-					} catch (err) {
-						this.ctx.logger.debug(err, `[MikroOrm] pending drop failed: ${tableName}`)
+						try {
+							await this.dropTableIfExists(instance, tableName)
+						} catch (err) {
+							this.ctx.logger.debug(`[MikroOrm] pending drop failed: ${tableName}`, { err })
+						}
 					}
 				}
-			}
 
 			this.ctx.logger.info('[MikroOrm] ready')
 		})
@@ -446,13 +446,13 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 					tableName,
 					dropTableOnDispose,
 				}
-				const handle = new EntityHandleImpl(
-					() => this.releaseEntity(rec.entityName, rec.scopeKey),
-					rec,
-					(err, name) => {
-						this.ctx.logger.debug(err, `[MikroOrm] dispose failed: ${name}`)
-					},
-				)
+					const handle = new EntityHandleImpl(
+						() => this.releaseEntity(rec.entityName, rec.scopeKey),
+						rec,
+						(err, name) => {
+							this.ctx.logger.debug(`[MikroOrm] dispose failed: ${name}`, { err })
+						},
+					)
 				rec.handle = handle
 
 				shared.entities.set(entityName, rec)
