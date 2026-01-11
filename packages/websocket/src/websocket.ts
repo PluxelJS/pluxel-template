@@ -6,7 +6,17 @@ const ASYNC_DISPOSE: unique symbol =
 	(Symbol as any).asyncDispose ?? Symbol.for('Symbol.asyncDispose')
 
 type NodeWebSocket = WS & { off?: WS['off'] }
-type BrowserWebSocket = ReturnType<typeof createBrowserSocketAdapter>
+type BrowserWebSocket = {
+	url?: string
+	readonly readyState: number
+	on: (event: string, fn: Listener) => BrowserWebSocket
+	off: (event: string, fn: Listener) => BrowserWebSocket
+	once: (event: string, fn: Listener) => BrowserWebSocket
+	removeAllListeners: () => void
+	send: (data: any) => void
+	close: (code?: number, reason?: string) => void
+	terminate: () => void
+}
 
 export type WebSocketLike = NodeWebSocket | BrowserWebSocket
 export type WebSocketData = RawData | ArrayBuffer | ArrayBufferView | Blob | string
@@ -128,7 +138,7 @@ export class WebSocketPlugin extends BasePlugin {
 		try {
 			record.socket.close(code, reason)
 		} catch (err) {
-			this.ctx.logger.debug(err, `WS close failed: ${record.description}`)
+			this.ctx.logger.debug(`WS close failed: ${record.description}`, { err })
 		}
 		try {
 			record.socket.removeAllListeners?.()
@@ -145,7 +155,7 @@ export type { RawData }
 
 type Listener = (...args: any[]) => void
 
-function createBrowserSocketAdapter(socket: any, desc?: string) {
+function createBrowserSocketAdapter(socket: any, desc?: string): BrowserWebSocket {
 	const listeners = new Map<string, Set<Listener>>()
 
 	const emit = (event: string, ...args: any[]) => {
@@ -181,12 +191,12 @@ function createBrowserSocketAdapter(socket: any, desc?: string) {
 		return on(event, wrap)
 	}
 
-	socket.addEventListener('message', (ev) => emit('message', ev.data))
-	socket.addEventListener('close', (ev) => emit('close', ev.code, ev.reason))
-	socket.addEventListener('error', (ev) => emit('error', ev))
+	socket.addEventListener('message', (ev: any) => emit('message', ev.data))
+	socket.addEventListener('close', (ev: any) => emit('close', ev.code, ev.reason))
+	socket.addEventListener('error', (ev: any) => emit('error', ev))
 	socket.addEventListener('open', () => emit('open'))
 
-	const adapter = {
+	const adapter: BrowserWebSocket = {
 		url: socket.url || desc,
 		get readyState() {
 			return socket.readyState
@@ -198,7 +208,7 @@ function createBrowserSocketAdapter(socket: any, desc?: string) {
 		send: (data: any) => socket.send(data as any),
 		close: (code?: number, reason?: string) => socket.close(code, reason),
 		terminate: () => socket.close(),
-	} as BrowserWebSocket
+	}
 
 	return adapter
 }

@@ -81,6 +81,15 @@ importers:
 
   chatbots/bot-layer:
     dependencies:
+      pluxel-plugin-kook:
+        specifier: workspace:^
+        version: link:../kook
+      pluxel-plugin-milky:
+        specifier: workspace:^
+        version: link:../milky
+      pluxel-plugin-telegram:
+        specifier: workspace:^
+        version: link:../telegram
       type-flag:
         specifier: ^4.0.2
         version: 4.0.3
@@ -162,7 +171,6 @@ importers:
       ioredis:
         specifier: ^5.7.0
         version: 5.9.1
-    devDependencies:
       pluxel-plugin-kv:
         specifier: workspace:*
         version: link:../kv

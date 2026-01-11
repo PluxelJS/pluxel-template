@@ -1,6 +1,6 @@
 import { BasePlugin, Config, Plugin, pluginMethodDecorator } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
-import { Kv } from './core.js'
+import type { Kv } from './core.js'
 import type { KvScopeKey } from './types.js'
 
 export const RatesConfigSchema = v.object({
@@ -10,7 +10,9 @@ export const RatesConfigSchema = v.object({
 
 export type RatesConfig = Config<typeof RatesConfigSchema>
 
-export type RateDecision = { ok: true; remaining?: number } | { ok: false; retryAfterMs: number; remaining?: number }
+export type RateDecision =
+	| { ok: true; remaining?: number }
+	| { ok: false; retryAfterMs: number; remaining?: number }
 export type RateAllowed = Extract<RateDecision, { ok: true }>
 export type RateBlocked = Extract<RateDecision, { ok: false }>
 export type RateParts = Array<string | number>
@@ -67,7 +69,7 @@ export class RateLimitError extends Error {
 	constructor(details: RateLimitErrorDetails) {
 		const { source, decision, rule, parts, scopeKey, callerId, method } = details
 		const msg = [
-			`[RateLimit] blocked`,
+			'[RateLimit] blocked',
 			`source=${source}`,
 			`type=${rule.type}`,
 			`retryAfterMs=${decision.retryAfterMs}`,
@@ -158,7 +160,11 @@ export class Rates extends BasePlugin {
 	}
 
 	/** Cooldown: ok -> `{ok:true}`; blocked -> `{ok:false,retryAfterMs}` */
-	async cooldown(parts: Array<string | number>, ttlMs: number, scopeKey?: KvScopeKey): Promise<RateDecision> {
+	async cooldown(
+		parts: Array<string | number>,
+		ttlMs: number,
+		scopeKey?: KvScopeKey,
+	): Promise<RateDecision> {
 		if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
 			throw new Error('[Rates] cooldown ttlMs must be a positive, finite number')
 		}
@@ -217,7 +223,7 @@ export class Rates extends BasePlugin {
 		parts: Array<string | number>,
 		cap: number,
 		refillPerSec: number,
-		cost: number = 1,
+		cost = 1,
 		scopeKey?: KvScopeKey,
 	): Promise<RateDecision> {
 		if (!Number.isFinite(cap) || cap <= 0) throw new Error('[Rates] tokenBucket cap must be > 0')
@@ -264,7 +270,13 @@ export class Rates extends BasePlugin {
 		opts:
 			| { type: 'cooldown'; parts: Array<string | number>; ttlMs: number }
 			| { type: 'fixed'; parts: Array<string | number>; periodMs: number; limit: number }
-			| { type: 'token'; parts: Array<string | number>; cap: number; refillPerSec: number; cost?: number },
+			| {
+					type: 'token'
+					parts: Array<string | number>
+					cap: number
+					refillPerSec: number
+					cost?: number
+			  },
 		scopeKey?: KvScopeKey,
 	): Promise<RateDecision> {
 		switch (opts.type) {
@@ -273,7 +285,13 @@ export class Rates extends BasePlugin {
 			case 'fixed':
 				return await this.fixedWindow(opts.parts, opts.periodMs, opts.limit, scopeKey)
 			case 'token':
-				return await this.tokenBucket(opts.parts, opts.cap, opts.refillPerSec, opts.cost ?? 1, scopeKey)
+				return await this.tokenBucket(
+					opts.parts,
+					opts.cap,
+					opts.refillPerSec,
+					opts.cost ?? 1,
+					scopeKey,
+				)
 		}
 	}
 
@@ -317,7 +335,9 @@ export function RateGuard<Self, Args extends any[]>(
 		const typedArgs = args as unknown as Args
 		const method = String(key)
 		const rule =
-			typeof options.rule === 'function' ? options.rule(this as any, typedArgs, method) : options.rule
+			typeof options.rule === 'function'
+				? options.rule(this as any, typedArgs, method)
+				: options.rule
 		const parts = options.parts(this as any, typedArgs, method)
 		const scopeKey =
 			typeof options.scopeKey === 'function'

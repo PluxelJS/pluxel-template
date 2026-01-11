@@ -24,6 +24,7 @@ export interface ClientOverrides {
 const CoreCfg = v.object({
 	baseURL: v.optional(v.string(), ''),
 	timeout: v.optional(v.number(), 10_000),
+	throwHttpErrors: v.optional(v.boolean(), true),
 })
 
 const HeadersCfg = v.object({
@@ -75,7 +76,7 @@ export class WretchPlugin extends BasePlugin {
 					this.ctx.logger.info('HTTP: dispatcher created (not global)')
 				}
 			} catch (e) {
-				this.ctx.logger.warn('HTTP: undici unavailable, skip proxy', e)
+				this.ctx.logger.warn('HTTP: undici unavailable, skip proxy', { error: e })
 			}
 		}
 
