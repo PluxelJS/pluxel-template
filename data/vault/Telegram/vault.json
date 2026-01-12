@@ -1,0 +1,28 @@
+{
+  "v": 1,
+  "policy": "ANY",
+  "createdAt": "2026-01-11T11:39:00.201Z",
+  "updatedAt": "2026-01-12T13:44:47.554Z",
+  "payload": {
+    "alg": "aes-256-gcm",
+    "nonce": "8PpFcKE7sfEvV5cgNAx5lNy-N_yCU9Nx",
+    "aad": "cGx1eGVsfHBsdWdpbjpUZWxlZ3JhbQ",
+    "ct": "rd1HJCnQ2DKm5M-qZbTIiHW4mCjgiGN2h0tFzb0WNQjbKvcomEzF_0Fmq4cxdREQOfW_KW3BKCXIM0GN1K2I9AcOICcNHj99SETZVOJUGUZ38gAwVywCzGdQaUUtU7ysXJp5cM7v-CXWD9254mBbxGL7SdINB8dqb8m2XK1LPE1wHgoxZC28sRMpyG1wKhp_JHMtEhHHI8VkEhDdy4iK1HoB7iakQAoM7or7Lzptsz1dfSUTSE26_Zm_wBRLZWdM05m84AbDKaN9Cm8ZKRWUPsiM9Fu6r7JtCTE5Wu1u85cW6-Pd3tG3mGxMaYq4fArXhEtzxr8FUo_n"
+  },
+  "slots": [
+    {
+      "type": "keyfile",
+      "id": "kf-1",
+      "hkdf": {
+        "salt": "7v-EdTV3SMJIvAag6b6FJg",
+        "info": "vault/v1 keyfile"
+      },
+      "wrap": {
+        "alg": "aes-256-gcm",
+        "nonce": "J4eiO7y6GAf1mEDK9cMnq5Yla2HjUFQf",
+        "aad": "cGx1eGVsfHBsdWdpbjpUZWxlZ3JhbQ",
+        "ct": "nVozntbZ9vmshqpvOKDCWnf2kGc3Nrk4PL11OM_GDZMlln2IJ_1VT6bwTsNT_qb5"
+      }
+    }
+  ]
+}

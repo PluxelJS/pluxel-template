@@ -13,9 +13,9 @@
 	},
 	"dependencies": {
 		"@gqty/react": "^3.1.1",
-		"@pluxel/cli": "link:../plugin-style-ts/packages/cli",
-		"@pluxel/core": "link:../plugin-style-ts/packages/core",
-		"@pluxel/hmr": "link:../plugin-style-ts/packages/hmr"
+		"@pluxel/cli": "link:../pluxel/packages/cli",
+		"@pluxel/core": "link:../pluxel/packages/core",
+		"@pluxel/hmr": "link:../pluxel/packages/hmr"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.11",
@@ -24,16 +24,16 @@
 		"@mantine/hooks": "^8.3.12",
 		"@mantine/modals": "^8.3.12",
 		"@pluxel/bot-layer": "workspace:*",
-		"pluxel-plugin-kv": "workspace:*",
 		"@repobuddy/biome": "^2.3.0",
 		"@tabler/icons-react": "^3.36.1",
 		"@types/bun": "^1.3.5",
-		"@types/react": "^19.2.7",
+		"@types/react": "^19.2.8",
 		"@types/react-dom": "^19.2.3",
+		"pluxel-plugin-kv": "workspace:*",
 		"react": "^19.2.3",
 		"react-dom": "^19.2.3",
-		"tsdown": "0.19.0-beta.5",
-		"turbo": "^2.7.3",
+		"tsdown": "0.19.0",
+		"turbo": "^2.7.4",
 		"typescript": "^5.9.3",
 		"unplugin-macros": "^0.18.6"
 	},
@@ -55,5 +55,5 @@
 			"vite": "8.0.0-beta.5"
 		}
 	},
-	"packageManager": "pnpm@10.27.0+sha512.72d699da16b1179c14ba9e64dc71c9a40988cbdc65c264cb0e489db7de917f20dcf4d64d8723625f2969ba52d4b7e2a1170682d9ac2a5dcaeaab732b7e16f04a"
+	"packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48"
 }

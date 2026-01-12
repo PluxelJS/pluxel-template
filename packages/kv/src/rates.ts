@@ -1,6 +1,6 @@
 import { BasePlugin, Config, Plugin, pluginMethodDecorator } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
-import type { Kv } from './core.js'
+import { Kv } from './core.js'
 import type { KvScopeKey } from './types.js'
 
 export const RatesConfigSchema = v.object({
