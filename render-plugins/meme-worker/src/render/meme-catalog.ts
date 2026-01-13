@@ -140,7 +140,7 @@ async function loadTakumiRenderer(ctx: CtxLike): Promise<{ render: (node: unknow
 	const mod: any = await import('pluxel-plugin-napi-rs/core')
 	const Renderer = mod?.Renderer ?? mod?.default?.Renderer
 	if (typeof Renderer !== 'function') {
-		ctx.logger.warn({ keys: Object.keys(mod ?? {}) }, '[meme-worker] takumi Renderer unavailable')
+		ctx.logger.warn('takumi Renderer unavailable', () => ({ keys: Object.keys(mod ?? {}) }))
 		throw new Error('Renderer unavailable')
 	}
 	return new Renderer({ loadDefaultFonts: true })

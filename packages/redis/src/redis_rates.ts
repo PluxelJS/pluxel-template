@@ -142,7 +142,7 @@ export class RedisRates extends BasePlugin {
 
 	override async init(): Promise<void> {
 		await this.ensureScripts()
-		this.ctx.logger.info('[RedisRates] scripts loaded')
+		this.ctx.logger.info('scripts loaded')
 	}
 
 	private async evalShaWithReload<T>(
@@ -155,7 +155,7 @@ export class RedisRates extends BasePlugin {
 		} catch (e: any) {
 			const msg = String(e?.message || e)
 			if (!msg.includes('NOSCRIPT')) throw e
-			this.ctx.logger.info(`[RedisRates] ${which}: NOSCRIPT -> reload`)
+			this.ctx.logger.info('NOSCRIPT -> reload ({which})', { which })
 			await this.redis.use(async (c) => {
 				script.sha = await c.scriptLoad(script.source)
 			})

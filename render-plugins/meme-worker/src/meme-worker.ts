@@ -69,9 +69,9 @@ export class MemeWorker extends BasePlugin {
 		
 		// Do not block plugin startup on native binding download / resource checks / worker compilation.
 		void this.ensurePool().catch((e) => {
-			this.ctx.logger.warn(e, '[meme-worker] warmup failed')
+			this.ctx.logger.warn('warmup failed', { err: e })
 		})
-		this.ctx.logger.info('[meme-worker] started')
+		this.ctx.logger.info('started')
 	}
 
 	override async stop(): Promise<void> {
@@ -84,7 +84,7 @@ export class MemeWorker extends BasePlugin {
 			await this.pool.destroy()
 			this.pool = null
 		}
-		this.ctx.logger.info('[meme-worker] stopped')
+		this.ctx.logger.info('stopped')
 	}
 
 	async generateRaw(payload: MemeRenderPayload): Promise<MemeRenderResult> {

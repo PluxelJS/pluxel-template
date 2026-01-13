@@ -85,7 +85,7 @@ export class CanvasWorker extends BasePlugin {
   override async init(): Promise<void> {
     await this.refreshFontBootstrap()
     await this.ensurePool()
-    this.ctx.logger.info('[CanvasWorker] ready')
+    this.ctx.logger.info('ready')
   }
 
   override async stop(): Promise<void> {
@@ -93,7 +93,7 @@ export class CanvasWorker extends BasePlugin {
       await this.pool.destroy()
       this.pool = null
     }
-    this.ctx.logger.info('[CanvasWorker] stopped')
+    this.ctx.logger.info('stopped')
   }
 
   async renderLeafImage(request: LeafRenderRequest): Promise<RenderedImage> {
@@ -279,7 +279,7 @@ export class CanvasWorker extends BasePlugin {
       }
       this.fontBootstrap = sources.length ? { sources } : null
     } catch (err) {
-      this.ctx.logger.warn(err, '[CanvasWorker] failed to build font bootstrap')
+      this.ctx.logger.warn('failed to build font bootstrap', { err })
       this.fontBootstrap = null
     }
   }

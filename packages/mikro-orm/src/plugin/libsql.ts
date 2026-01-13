@@ -56,7 +56,7 @@ export class MikroOrmLibsql extends MikroOrmProvider<MikroOrmLibsqlConfig> {
 			...(isRecord(discoveryExtra) ? discoveryExtra : {}),
 		} as NonNullable<LibsqlInitOptions['discovery']>
 
-		this.ctx.logger.info(`[MikroOrm] init (db=${dbName})`)
+		this.ctx.logger.info('init ({dbName})', { dbName })
 		const initOptions: LibsqlInitOptions = {
 			...(restExtra as Partial<LibsqlInitOptions>),
 			dbName,

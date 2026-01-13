@@ -66,8 +66,7 @@ export class MyPlugin extends BasePlugin {
 		// 默认 scope() 会用 caller id 作为前缀：MyPlugin/...
 		await this.s3.put('hello.txt', 'hello', { contentType: 'text/plain; charset=utf-8' })
 		const url = this.s3.scope().publicURL('hello.txt')
-		this.ctx.logger.info('public url: %s', url)
+		this.ctx.logger.info('public url ({url})', { url })
 	}
 }
 ```
-

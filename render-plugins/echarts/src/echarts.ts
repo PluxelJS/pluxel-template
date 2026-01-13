@@ -140,9 +140,9 @@ export class Echarts extends BasePlugin {
       try {
         const theme = JSON.parse(fs.readFileSync(filePath, 'utf8'))
         echarts.registerTheme(themeName, theme)
-        this.ctx.logger.info(`ECharts theme loaded: ${themeName}`)
+        this.ctx.logger.info('ECharts theme loaded ({themeName})', { themeName })
       } catch (err) {
-        this.ctx.logger.warn(`Failed to load theme ${filePath}`, err)
+        this.ctx.logger.warn('Failed to load theme ({filePath})', { filePath, err })
       }
     }
   }
@@ -153,13 +153,13 @@ export class Echarts extends BasePlugin {
 
     this.ctx.honoService.modifyApp((app) => {
       app.get(route, async (c) => {
-        this.ctx.logger.info(`[echarts] GET ${route}`)
+        this.ctx.logger.info('GET ({route})', { route })
 
         const width = Number(c.req.query('w')) || this.config.width
         const height = Number(c.req.query('h')) || this.config.height
         const theme = c.req.query('theme') || this.config.defaultTheme
 
-        console.time("echarts")
+        const startedAt = Date.now()
         const buffer = await this.createChartPNG({
   title: {
     top: 30,
@@ -193,7 +193,12 @@ export class Echarts extends BasePlugin {
   }
 }
         )
-console.timeEnd("echarts")
+        this.ctx.logger.debug('demo rendered ({ms})', {
+          ms: Date.now() - startedAt,
+          width,
+          height,
+          theme,
+        })
         return c.body(buffer as any, 200, { 'content-type': 'image/png' })
       })
     })

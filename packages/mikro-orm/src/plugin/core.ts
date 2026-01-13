@@ -336,12 +336,12 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 						try {
 							await this.dropTableIfExists(instance, tableName)
 						} catch (err) {
-							this.ctx.logger.debug(`[MikroOrm] pending drop failed: ${tableName}`, { err })
+							this.ctx.logger.debug('pending drop failed ({tableName})', { tableName, err })
 						}
 					}
 				}
 
-			this.ctx.logger.info('[MikroOrm] ready')
+			this.ctx.logger.info('ready')
 		})
 		try {
 			await shared.initPromise
@@ -365,7 +365,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 			shared.ormInstance = undefined
 			shared.initPromise = undefined
 		})
-		this.ctx.logger.info('[MikroOrm] stopped')
+		this.ctx.logger.info('stopped')
 	}
 
 	override async orm(): Promise<MikroORM> {
@@ -450,7 +450,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 						() => this.releaseEntity(rec.entityName, rec.scopeKey),
 						rec,
 						(err, name) => {
-							this.ctx.logger.debug(`[MikroOrm] dispose failed: ${name}`, { err })
+							this.ctx.logger.debug('dispose failed ({name})', { name, err })
 						},
 					)
 				rec.handle = handle

@@ -90,11 +90,11 @@ export class FontManager extends BasePlugin {
     registerFontManagerExtensions(this)
     this.registerStatusRoute()
     await this.reloadFonts('init')
-    this.ctx.logger.info('[FontManager] ready')
+    this.ctx.logger.info('ready')
   }
 
   override async stop(): Promise<void> {
-    this.ctx.logger.info('[FontManager] stopped')
+    this.ctx.logger.info('stopped')
   }
 
   async reloadFonts(reason = 'manual'): Promise<FontSnapshot> {
@@ -314,7 +314,7 @@ export class FontManager extends BasePlugin {
       }
 
       const count = fonts.loadFontsFromDir(absPath)
-      this.ctx.logger.debug(`[FontManager] Loaded ${count} fonts from dir: ${absPath}`)
+      this.ctx.logger.debug('Loaded fonts from dir ({absPath}) ({count})', { absPath, count })
       return {
         id: `${origin}:dir:${absPath}`,
         type: 'dir',
@@ -379,9 +379,11 @@ export class FontManager extends BasePlugin {
       }
 
       const ok = fonts.registerFromPath(absPath, alias)
-      this.ctx.logger.debug(
-        ok ? `[FontManager] Font registered: ${absPath}${alias ? ` as ${alias}` : ''}` : '[FontManager] Font skipped',
-      )
+      if (ok) {
+        this.ctx.logger.debug('Font registered ({absPath})', { absPath, alias })
+      } else {
+        this.ctx.logger.debug('Font skipped ({absPath})', { absPath, alias })
+      }
 
       return {
         id: `${origin}:file:${absPath}`,

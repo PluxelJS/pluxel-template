@@ -150,7 +150,7 @@ export class S3MiniPlugin extends BasePlugin {
 	protected override init(_abort: AbortSignal): void {
 		// Validate config early for faster feedback in dev.
 		this.ensureClient()
-		this.ctx.logger.info('[S3Mini] ready')
+		this.ctx.logger.info('ready')
 	}
 
 	protected override stop(_abort: AbortSignal): void {
@@ -343,10 +343,28 @@ export class S3MiniPlugin extends BasePlugin {
 	}
 
 	private createLoggerAdapter(): Logger {
+		const forward =
+			(level: 'info' | 'warn' | 'error') =>
+			(message: string, ...args: unknown[]) => {
+				const msg = String(message ?? '')
+				if (args.length === 0) {
+					this.ctx.logger[level](msg)
+					return
+				}
+
+				const err = args.find((a) => a instanceof Error) as Error | undefined
+				const rest = err ? args.filter((a) => !(a instanceof Error)) : args
+				this.ctx.logger[level](msg, () => {
+					const props: Record<string, unknown> = {}
+					if (err) props.err = err
+					if (rest.length) props.args = rest
+					return props
+				})
+			}
 		return {
-			info: (message: string, ...args: unknown[]) => this.ctx.logger.info(message, ...args),
-			warn: (message: string, ...args: unknown[]) => this.ctx.logger.warn(message, ...args),
-			error: (message: string, ...args: unknown[]) => this.ctx.logger.error(message, ...args),
+			info: forward('info'),
+			warn: forward('warn'),
+			error: forward('error'),
 		}
 	}
 }

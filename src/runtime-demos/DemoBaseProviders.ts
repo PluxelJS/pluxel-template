@@ -71,7 +71,7 @@ export class DemoKvConsumer extends BasePlugin {
 		await scope.set('demo', { at: new Date().toISOString(), consumer: this.ctx.pluginInfo.id })
 		const value = await scope.get('demo')
 
-		this.ctx.logger.info('[DemoKvConsumer] kv ready', {
+		this.ctx.logger.info('kv ready', {
 			consumer: this.ctx.pluginInfo.id,
 			kvProvider: this.kv.ctx.pluginInfo.id,
 			scope: scope.key,
