@@ -336,7 +336,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 						try {
 							await this.dropTableIfExists(instance, tableName)
 						} catch (err) {
-							this.ctx.logger.debug('pending drop failed ({tableName})', { tableName, err })
+							this.ctx.logger.debug('pending drop failed ({tableName})', { tableName, error: err })
 						}
 					}
 				}
@@ -450,7 +450,7 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 						() => this.releaseEntity(rec.entityName, rec.scopeKey),
 						rec,
 						(err, name) => {
-							this.ctx.logger.debug('dispose failed ({name})', { name, err })
+							this.ctx.logger.debug('dispose failed ({name})', { name, error: err })
 						},
 					)
 				rec.handle = handle

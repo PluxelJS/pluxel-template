@@ -51,11 +51,7 @@ export class DemoClockConsumer extends BasePlugin {
 	}
 
 	override init(): void {
-		this.ctx.logger.info('injected base provider', {
-			consumer: this.ctx.pluginInfo.id,
-			provider: this.clock.ctx.pluginInfo.id,
-			now: this.clock.format(),
-		})
+		this.ctx.logger.info`injected base provider consumer=${this.ctx.pluginInfo.id} provider=${this.clock.ctx.pluginInfo.id} now=${this.clock.format()}`
 	}
 }
 
@@ -69,13 +65,8 @@ export class DemoKvConsumer extends BasePlugin {
 		const scope = this.kv.scope()
 
 		await scope.set('demo', { at: new Date().toISOString(), consumer: this.ctx.pluginInfo.id })
-		const value = await scope.get('demo')
+		await scope.get('demo')
 
-		this.ctx.logger.info('kv ready', {
-			consumer: this.ctx.pluginInfo.id,
-			kvProvider: this.kv.ctx.pluginInfo.id,
-			scope: scope.key,
-			value,
-		})
+		this.ctx.logger.info`kv ready consumer=${this.ctx.pluginInfo.id} provider=${this.kv.ctx.pluginInfo.id} scope=${scope.key}`
 	}
 }

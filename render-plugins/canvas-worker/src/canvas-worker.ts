@@ -278,8 +278,9 @@ export class CanvasWorker extends BasePlugin {
         sources.push({ path: src.path, alias: src.alias, type: src.type })
       }
       this.fontBootstrap = sources.length ? { sources } : null
-    } catch (err) {
-      this.ctx.logger.warn('failed to build font bootstrap', { err })
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e))
+      this.ctx.logger.warn('failed to build font bootstrap', { error })
       this.fontBootstrap = null
     }
   }

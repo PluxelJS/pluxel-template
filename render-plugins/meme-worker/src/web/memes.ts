@@ -190,7 +190,8 @@ export function registerMemeWorkerWeb(ctx: CtxLike, memeWorker: MemeWorkerLike, 
 			c.header('Content-Type', 'image/svg+xml; charset=utf-8')
 			return c.body(renderCardSvg(key))
 		} catch (e) {
-			ctx.logger.warn('render card failed', { err: e })
+			const error = e instanceof Error ? e : new Error(String(e))
+			ctx.logger.warn('render card failed', { error })
 			return c.text('Not found', 404)
 		}
 	}
@@ -201,7 +202,8 @@ export function registerMemeWorkerWeb(ctx: CtxLike, memeWorker: MemeWorkerLike, 
 		try {
 			await memeWorker.ready()
 		} catch (e) {
-			ctx.logger.warn('preview warmup failed', { err: e })
+			const error = e instanceof Error ? e : new Error(String(e))
+			ctx.logger.warn('preview warmup failed', { error })
 			return c.text('Meme generator not ready', 503)
 		}
 		if (!memeWorker.getMemeInfo(key)) return c.text('Not found', 404)
@@ -218,7 +220,8 @@ export function registerMemeWorkerWeb(ctx: CtxLike, memeWorker: MemeWorkerLike, 
 			const msg = e instanceof Error ? e.message : String(e)
 			// Avoid log spam for common/expected errors.
 			if (shouldWarnPreviewError(msg)) {
-				ctx.logger.warn('render preview failed', { err: e })
+				const error = e instanceof Error ? e : new Error(String(e))
+				ctx.logger.warn('render preview failed', { error })
 			}
 			// Always fall back to a stable, dependency-free SVG card.
 			return handleCardRequest(c, key)
@@ -341,9 +344,8 @@ export function registerMemeWorkerWeb(ctx: CtxLike, memeWorker: MemeWorkerLike, 
 		for (const p of mountPaths) mount(p, app)
 	})
 
-	ctx.logger.info('web routes mounted', {
-		urls: mountPaths.map((p) => `${p}/memes`),
-	})
+	const urls = mountPaths.map((p) => `${p}/memes`).join(', ')
+	ctx.logger.info`web routes mounted: ${urls}`
 }
 
 function createMemeIndex(memeWorker: MemeWorkerLike): MemeListItem[] {

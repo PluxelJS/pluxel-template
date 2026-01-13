@@ -141,8 +141,9 @@ export class Echarts extends BasePlugin {
         const theme = JSON.parse(fs.readFileSync(filePath, 'utf8'))
         echarts.registerTheme(themeName, theme)
         this.ctx.logger.info('ECharts theme loaded ({themeName})', { themeName })
-      } catch (err) {
-        this.ctx.logger.warn('Failed to load theme ({filePath})', { filePath, err })
+      } catch (e) {
+        const error = e instanceof Error ? e : new Error(String(e))
+        this.ctx.logger.warn('Failed to load theme ({filePath})', { filePath, error })
       }
     }
   }
@@ -153,7 +154,7 @@ export class Echarts extends BasePlugin {
 
     this.ctx.honoService.modifyApp((app) => {
       app.get(route, async (c) => {
-        this.ctx.logger.info('GET ({route})', { route })
+        this.ctx.logger.info`GET ${route}`
 
         const width = Number(c.req.query('w')) || this.config.width
         const height = Number(c.req.query('h')) || this.config.height
@@ -193,12 +194,8 @@ export class Echarts extends BasePlugin {
   }
 }
         )
-        this.ctx.logger.debug('demo rendered ({ms})', {
-          ms: Date.now() - startedAt,
-          width,
-          height,
-          theme,
-        })
+        const ms = Date.now() - startedAt
+        this.ctx.logger.debug`demo rendered ${ms}ms (w=${width}, h=${height}, theme=${theme})`
         return c.body(buffer as any, 200, { 'content-type': 'image/png' })
       })
     })

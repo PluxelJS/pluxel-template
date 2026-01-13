@@ -6,6 +6,17 @@
 ---
 ---
 
+## TL;DR (Project Rules)
+
+1. No structured fields needed → do **not** pass props (prefer `info("ready")` or tagged template).
+2. Queryable fields needed → use structured logging (message + props, or props-only).
+3. Expensive work (stringify/inspect/build big objects) → **must** be lazy.
+4. Errors → pass raw error object as structured `error` or `err`; never format it in message.
+5. Secrets → never log tokens/credentials/Authorization/webhook secrets.
+6. Repeated fields → prefer `logger.with({ ... })` (explicit contexts).
+
+---
+
 ## Allowed call forms (only these in new code)
 
 LogTape log methods (`trace/debug/info/warn/error/fatal`) have four canonical overload shapes. ([JSR][7])
@@ -131,6 +142,20 @@ If extra diagnostics are needed, attach them as separate structured fields (and 
 ```ts
 logger.error("execute failed", () => ({ error, debug: expensiveDebug() }));
 ```
+
+---
+
+## PLX Sensitive Data Rules (Storage + Audit Safety)
+
+### PLX-SEC-001 — Never log secrets or credentials (even as structured props)
+
+Forbidden examples (non-exhaustive):
+
+- Bot tokens / access tokens (`token`, `accessToken`)
+- Webhook secret tokens (`webhookSecretToken`, `secretToken`)
+- Authorization headers (`Authorization`, `Bearer ...`)
+
+If you need correlation, log a safe identifier instead (e.g. `instanceId`, database id, or a short suffix) and keep it cheap.
 
 ---
 

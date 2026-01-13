@@ -25,10 +25,6 @@ export class DemoWorkerConsumer extends BasePlugin {
 	}
 
 	override init(): void {
-		this.ctx.logger.info('injected worker', {
-			consumer: this.ctx.pluginInfo.id,
-			worker: this.worker.ctx.pluginInfo.id,
-			ping: this.worker.ping(),
-		})
+		this.ctx.logger.info`injected worker consumer=${this.ctx.pluginInfo.id} worker=${this.worker.ctx.pluginInfo.id}`
 	}
 }

@@ -137,8 +137,9 @@ export class WebSocketPlugin extends BasePlugin {
 		this.managed.delete(record)
 		try {
 			record.socket.close(code, reason)
-		} catch (err) {
-			this.ctx.logger.debug('WS close failed ({description})', { description: record.description, err })
+		} catch (e) {
+			const error = e instanceof Error ? e : new Error(String(e))
+			this.ctx.logger.debug('WS close failed ({description})', { description: record.description, error })
 		}
 		try {
 			record.socket.removeAllListeners?.()

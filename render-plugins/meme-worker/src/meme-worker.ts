@@ -69,7 +69,8 @@ export class MemeWorker extends BasePlugin {
 		
 		// Do not block plugin startup on native binding download / resource checks / worker compilation.
 		void this.ensurePool().catch((e) => {
-			this.ctx.logger.warn('warmup failed', { err: e })
+			const error = e instanceof Error ? e : new Error(String(e))
+			this.ctx.logger.warn('warmup failed', { error })
 		})
 		this.ctx.logger.info('started')
 	}

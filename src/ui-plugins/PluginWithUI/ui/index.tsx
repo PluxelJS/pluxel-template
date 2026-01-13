@@ -103,7 +103,4 @@ export default definePluginUIModule({
 			render: () => <RoutePage />,
 		},
 	],
-	setup({ pluginName }) {
-		console.log(`[${pluginName}] UI module loaded`)
-	},
 })
