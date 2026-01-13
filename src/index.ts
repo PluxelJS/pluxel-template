@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { Context } from '@pluxel/hmr'
 import { LogtapeLoggerService } from '@pluxel/hmr/services'
 import Macro from "unplugin-macros/vite"
-import { partsTransformVitePlugin } from "@pluxel/bot-layer/parts/rolldown"
+import { partsTransformVitePlugin } from 'pluxel-plugin-bot-core/parts/rolldown'
 
 const logsDir = join(dirname(fileURLToPath(import.meta.url)), './logs')
 await mkdir(logsDir, { recursive: true })
