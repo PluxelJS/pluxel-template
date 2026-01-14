@@ -151,20 +151,29 @@ importers:
         specifier: workspace:*
         version: link:../../packages/wretch
 
-  packages/debit:
+  packages/kv:
     dependencies:
+      '@isaacs/ttlcache':
+        specifier: ^2.1.4
+        version: 2.1.4
+
+  packages/ledger:
+    dependencies:
+      tigerbeetle-node:
+        specifier: ^0.16.68
+        version: 0.16.68
+
+  packages/ledger-mikro-orm:
+    dependencies:
+      pluxel-plugin-ledger:
+        specifier: workspace:^
+        version: link:../ledger
       pluxel-plugin-mikro-orm:
         specifier: workspace:^
         version: link:../mikro-orm
       tigerbeetle-node:
         specifier: ^0.16.68
         version: 0.16.68
-
-  packages/kv:
-    dependencies:
-      '@isaacs/ttlcache':
-        specifier: ^2.1.4
-        version: 2.1.4
 
   packages/mikro-orm:
     dependencies:

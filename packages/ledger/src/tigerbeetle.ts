@@ -1,26 +1,26 @@
 import { Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { createClient, type Client as TigerBeetleClient } from 'tigerbeetle-node'
-import { Debit, type DebitDriver } from './core.js'
+import { Ledger, type LedgerDriver } from './core.js'
 
-export const DebitTigerBeetleConfigSchema = v.object({
+export const LedgerTigerBeetleConfigSchema = v.object({
 	/** TigerBeetle cluster_id (u128) as decimal string. */
 	clusterId: v.string(),
 	/** Comma-separated replica addresses, e.g. `127.0.0.1:3000,127.0.0.1:3001`. */
 	replicaAddresses: v.string(),
 })
 
-export type DebitTigerBeetleConfig = Config<typeof DebitTigerBeetleConfigSchema>
+export type LedgerTigerBeetleConfig = Config<typeof LedgerTigerBeetleConfigSchema>
 
 type ResolvedConfig = {
 	cluster_id: bigint
 	replica_addresses: string[]
 }
 
-@Plugin(Debit, { name: 'TigerBeetle', type: 'service' })
-export class DebitTigerBeetle extends Debit {
-	@Config(DebitTigerBeetleConfigSchema)
-	private config!: DebitTigerBeetleConfig
+@Plugin(Ledger, { name: 'TigerBeetle', type: 'service' })
+export class LedgerTigerBeetle extends Ledger {
+	@Config(LedgerTigerBeetleConfigSchema)
+	private config!: LedgerTigerBeetleConfig
 
 	private resolved: ResolvedConfig | undefined
 	private client: TigerBeetleClient | undefined
@@ -31,7 +31,7 @@ export class DebitTigerBeetle extends Debit {
 		this.ctx.logger.info('ready')
 	}
 
-	protected createDriver(): DebitDriver {
+	protected createDriver(): LedgerDriver {
 		return this.ensureClient()
 	}
 
@@ -44,10 +44,10 @@ export class DebitTigerBeetle extends Debit {
 	private ensureResolved(): ResolvedConfig {
 		if (this.resolved) return this.resolved
 
-		const cluster_id = parseU128Decimal(this.config.clusterId, '[DebitTigerBeetle] clusterId')
+		const cluster_id = parseU128Decimal(this.config.clusterId, '[LedgerTigerBeetle] clusterId')
 		const replica_addresses = splitCommaSeparated(this.config.replicaAddresses)
 		if (replica_addresses.length === 0) {
-			throw new Error('[DebitTigerBeetle] replicaAddresses must not be empty')
+			throw new Error('[LedgerTigerBeetle] replicaAddresses must not be empty')
 		}
 
 		this.resolved = { cluster_id, replica_addresses }

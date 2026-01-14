@@ -1,0 +1,49 @@
+{
+  "$schema": "https://market.pluxel.dev/schema/package.json",
+  "name": "pluxel-plugin-ledger-mikro-orm",
+  "version": "0.1.0",
+  "description": "Persistent local TigerBeetle-compatible backend for pluxel-plugin-ledger (MikroORM).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@pluxel/hmr": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "scripts": {
+    "build": "pluxel build",
+    "test": "bun test --conditions=@pluxel/hmr"
+  },
+  "dependencies": {
+    "tigerbeetle-node": "^0.16.68"
+  },
+  "peerDependencies": {
+    "pluxel-plugin-ledger": "workspace:^",
+    "pluxel-plugin-mikro-orm": "workspace:^"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
+  },
+  "pluxel": {
+    "dependOn": {
+      "required": [],
+      "optional": [
+        "pluxel-plugin-ledger",
+        "pluxel-plugin-mikro-orm"
+      ]
+    }
+  }
+}

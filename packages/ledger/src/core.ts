@@ -14,11 +14,11 @@ import type {
  * TigerBeetle-compatible client surface.
  *
  * This is intentionally kept *identical* to the official `tigerbeetle-node` `Client` interface so
- * downstream plugins can treat `Debit` as "the TigerBeetle client", just DI-provided.
+ * downstream plugins can treat `Ledger` as "the TigerBeetle client", just DI-provided.
  */
 export type LedgerClient = TigerBeetleClient
 
-export type DebitDriver = LedgerClient & {
+export type LedgerDriver = LedgerClient & {
 	/**
 	 * Optional cleanup hook for non-TigerBeetle implementations.
 	 * Prefer `dispose()` for async cleanup.
@@ -30,17 +30,17 @@ export type DebitDriver = LedgerClient & {
 /**
  * Ledger service token.
  *
- * Design goals (from `debit.md`):
+ * Design goals:
  * - Reuse tigerbeetle-node request/response types and shapes
  * - Allow swapping backend (TigerBeetle / local simulation) without changing business code
  */
-export abstract class Debit extends BasePlugin implements LedgerClient {
-	private driverPromise: Promise<DebitDriver> | undefined
+export abstract class Ledger extends BasePlugin implements LedgerClient {
+	private driverPromise: Promise<LedgerDriver> | undefined
 	private shutdown = false
 
-	protected abstract createDriver(): DebitDriver | Promise<DebitDriver>
+	protected abstract createDriver(): LedgerDriver | Promise<LedgerDriver>
 
-	protected async driver(): Promise<DebitDriver> {
+	protected async driver(): Promise<LedgerDriver> {
 		if (this.shutdown) throw new Error('Client was shutdown.')
 		this.driverPromise ??= Promise.resolve(this.createDriver())
 		return await this.driverPromise
@@ -55,10 +55,10 @@ export abstract class Debit extends BasePlugin implements LedgerClient {
 	 * Low-level access to the underlying driver/client.
 	 *
 	 * Notes:
-	 * - Prefer the `Debit` methods for portability.
+	 * - Prefer the `Ledger` methods for portability.
 	 * - This may expose backend-specific behavior.
 	 */
-	async raw(): Promise<DebitDriver> {
+	async raw(): Promise<LedgerDriver> {
 		return await this.driver()
 	}
 

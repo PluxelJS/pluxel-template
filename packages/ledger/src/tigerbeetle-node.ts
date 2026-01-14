@@ -1,0 +1,21 @@
+export {
+	type Account,
+	type AccountBalance,
+	type AccountFilter,
+	// value exports (enums + constants)
+	AccountFilterFlags,
+	AccountFlags,
+	type AccountID,
+	amount_max,
+	type Client,
+	type ClientInitArgs,
+	CreateAccountError,
+	type CreateAccountsError,
+	CreateTransferError,
+	type CreateTransfersError,
+	type QueryFilter,
+	QueryFilterFlags,
+	type Transfer,
+	TransferFlags,
+	type TransferID,
+} from 'tigerbeetle-node'

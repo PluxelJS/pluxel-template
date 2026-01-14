@@ -1,33 +1,30 @@
 import { describe, expect, it } from 'bun:test'
 import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
-import { MikroOrm, MikroOrmLibsql } from 'pluxel-plugin-mikro-orm'
 import {
 	AccountFilterFlags,
 	AccountFlags,
 	amount_max,
 	CreateTransferError,
-	TransferFlags,
-} from 'tigerbeetle-node'
-
-import {
-	Debit,
-	DebitMikroOrm,
+	Ledger,
 	newAccount,
 	newTransferPending,
 	newTransferPosted,
 	newTransferPostPending,
 	newTransferVoidPending,
-} from '../src/index.ts'
+	TransferFlags,
+} from 'pluxel-plugin-ledger'
+import { LedgerMikroOrm } from 'pluxel-plugin-ledger-mikro-orm'
+import { MikroOrm, MikroOrmLibsql } from 'pluxel-plugin-mikro-orm'
 
 @Plugin({ name: 'Caller', type: 'service' })
 class Caller extends BasePlugin {
-	constructor(public readonly debit: Debit) {
+	constructor(public readonly ledger: Ledger) {
 		super()
 	}
 }
 
-async function withDebit<T>(
-	fn: (deps: { mikro: MikroOrm; debit: Debit; caller: Caller }) => Promise<T>,
+async function withLedger<T>(
+	fn: (deps: { mikro: MikroOrm; ledger: Ledger; caller: Caller }) => Promise<T>,
 ) {
 	return await withTestHost(async (host) => {
 		// In HMR runtime, ConfigService loads async; ensure our patches won't be overwritten by initial load.
@@ -35,17 +32,17 @@ async function withDebit<T>(
 		if (cfg.ready) await cfg.ready
 
 		host.register(MikroOrmLibsql)
-		host.register(DebitMikroOrm)
+		host.register(LedgerMikroOrm)
 		host.register(Caller)
 		host.setConfig(MikroOrmLibsql, { config: { dbName: ':memory:', ensureSchemaOnInit: true } })
-		host.setConfig(DebitMikroOrm, {
-			config: { scopeKey: 'debit', ensureSchema: true, dropTableOnDispose: false },
+		host.setConfig(LedgerMikroOrm, {
+			config: { scopeKey: 'ledger', ensureSchema: true, dropTableOnDispose: false },
 		})
 		await host.commitStrict()
 
 		return await fn({
 			mikro: host.getOrThrow(MikroOrm),
-			debit: host.getOrThrow(Debit),
+			ledger: host.getOrThrow(Ledger),
 			caller: host.getOrThrow(Caller),
 		})
 	})
@@ -57,12 +54,12 @@ function findAccount<T extends { id: bigint }>(accounts: T[], id: bigint): T {
 	return a
 }
 
-describe('pluxel-plugin-debit (MikroORM)', () => {
+describe('pluxel-plugin-ledger-mikro-orm', () => {
 	it('posted transfer updates debits_posted/credits_posted', async () => {
-		await withDebit(async ({ debit }) => {
+		await withLedger(async ({ ledger }) => {
 			const a = newAccount({ id: 1n, ledger: 1, code: 1 })
 			const b = newAccount({ id: 2n, ledger: 1, code: 1 })
-			expect(await debit.createAccounts([a, b])).toEqual([])
+			expect(await ledger.createAccounts([a, b])).toEqual([])
 
 			const t = newTransferPosted({
 				id: 100n,
@@ -72,9 +69,9 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				ledger: 1,
 				code: 1,
 			})
-			expect(await debit.createTransfers([t])).toEqual([])
+			expect(await ledger.createTransfers([t])).toEqual([])
 
-			const accounts = await debit.lookupAccounts([a.id, b.id])
+			const accounts = await ledger.lookupAccounts([a.id, b.id])
 			const a2 = findAccount(accounts, a.id)
 			const b2 = findAccount(accounts, b.id)
 			expect(a2.debits_posted).toBe(50n)
@@ -87,10 +84,10 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 	})
 
 	it('pending then post_full moves pending -> posted', async () => {
-		await withDebit(async ({ debit }) => {
+		await withLedger(async ({ ledger }) => {
 			const a = newAccount({ id: 10n, ledger: 1, code: 1 })
 			const b = newAccount({ id: 20n, ledger: 1, code: 1 })
-			expect(await debit.createAccounts([a, b])).toEqual([])
+			expect(await ledger.createAccounts([a, b])).toEqual([])
 
 			const pending = newTransferPending({
 				id: 200n,
@@ -100,10 +97,10 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				ledger: 1,
 				code: 1,
 			})
-			expect(await debit.createTransfers([pending])).toEqual([])
+			expect(await ledger.createTransfers([pending])).toEqual([])
 
 			{
-				const accounts = await debit.lookupAccounts([a.id, b.id])
+				const accounts = await ledger.lookupAccounts([a.id, b.id])
 				const a2 = findAccount(accounts, a.id)
 				const b2 = findAccount(accounts, b.id)
 				expect(a2.debits_pending).toBe(100n)
@@ -115,10 +112,10 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				pending_id: pending.id,
 				amount: amount_max,
 			})
-			expect(await debit.createTransfers([post])).toEqual([])
+			expect(await ledger.createTransfers([post])).toEqual([])
 
 			{
-				const accounts = await debit.lookupAccounts([a.id, b.id])
+				const accounts = await ledger.lookupAccounts([a.id, b.id])
 				const a2 = findAccount(accounts, a.id)
 				const b2 = findAccount(accounts, b.id)
 				expect(a2.debits_pending).toBe(0n)
@@ -130,10 +127,10 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 	})
 
 	it('pending then void releases pending without posted', async () => {
-		await withDebit(async ({ debit }) => {
+		await withLedger(async ({ ledger }) => {
 			const a = newAccount({ id: 11n, ledger: 1, code: 1 })
 			const b = newAccount({ id: 21n, ledger: 1, code: 1 })
-			expect(await debit.createAccounts([a, b])).toEqual([])
+			expect(await ledger.createAccounts([a, b])).toEqual([])
 
 			const pending = newTransferPending({
 				id: 300n,
@@ -143,12 +140,12 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				ledger: 1,
 				code: 1,
 			})
-			expect(await debit.createTransfers([pending])).toEqual([])
+			expect(await ledger.createTransfers([pending])).toEqual([])
 
 			const voided = newTransferVoidPending({ id: 301n, pending_id: pending.id })
-			expect(await debit.createTransfers([voided])).toEqual([])
+			expect(await ledger.createTransfers([voided])).toEqual([])
 
-			const accounts = await debit.lookupAccounts([a.id, b.id])
+			const accounts = await ledger.lookupAccounts([a.id, b.id])
 			const a2 = findAccount(accounts, a.id)
 			const b2 = findAccount(accounts, b.id)
 			expect(a2.debits_pending).toBe(0n)
@@ -159,10 +156,10 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 	})
 
 	it('linked chain rolls back and returns linked_event_failed for others', async () => {
-		await withDebit(async ({ debit }) => {
+		await withLedger(async ({ ledger }) => {
 			const a = newAccount({ id: 1000n, ledger: 1, code: 1 })
 			const b = newAccount({ id: 2000n, ledger: 1, code: 1 })
-			expect(await debit.createAccounts([a, b])).toEqual([])
+			expect(await ledger.createAccounts([a, b])).toEqual([])
 
 			const t0 = newTransferPosted({
 				id: 400n,
@@ -182,21 +179,21 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				code: 1,
 			})
 
-			const errors = await debit.createTransfers([t0, t1])
+			const errors = await ledger.createTransfers([t0, t1])
 			expect(errors).toEqual([
 				{ index: 0, result: CreateTransferError.debit_account_not_found },
 				{ index: 1, result: CreateTransferError.linked_event_failed },
 			])
 
-			expect(await debit.lookupTransfers([t0.id, t1.id])).toEqual([])
-			const accounts = await debit.lookupAccounts([a.id, b.id])
+			expect(await ledger.lookupTransfers([t0.id, t1.id])).toEqual([])
+			const accounts = await ledger.lookupAccounts([a.id, b.id])
 			expect(findAccount(accounts, a.id).debits_posted).toBe(0n)
 			expect(findAccount(accounts, b.id).credits_posted).toBe(0n)
 		})
 	})
 
 	it('enforces debits_must_not_exceed_credits in common cases', async () => {
-		await withDebit(async ({ debit }) => {
+		await withLedger(async ({ ledger }) => {
 			const bank = newAccount({ id: 1n, ledger: 1, code: 1 })
 			const user = newAccount({
 				id: 2n,
@@ -204,11 +201,11 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				code: 1,
 				flags: AccountFlags.debits_must_not_exceed_credits,
 			})
-			expect(await debit.createAccounts([bank, user])).toEqual([])
+			expect(await ledger.createAccounts([bank, user])).toEqual([])
 
 			// Deposit: user gets credits_posted = 100.
 			expect(
-				await debit.createTransfers([
+				await ledger.createTransfers([
 					newTransferPosted({
 						id: 500n,
 						debit_account_id: bank.id,
@@ -229,19 +226,19 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				ledger: 1,
 				code: 1,
 			})
-			const errors = await debit.createTransfers([spend])
+			const errors = await ledger.createTransfers([spend])
 			expect(errors).toEqual([{ index: 0, result: CreateTransferError.exceeds_credits }])
 		})
 	})
 
 	it('getAccountTransfers and getAccountBalances align by timestamp', async () => {
-		await withDebit(async ({ debit }) => {
+		await withLedger(async ({ ledger }) => {
 			const a = newAccount({ id: 7000n, ledger: 1, code: 1 })
 			const b = newAccount({ id: 8000n, ledger: 1, code: 1 })
-			expect(await debit.createAccounts([a, b])).toEqual([])
+			expect(await ledger.createAccounts([a, b])).toEqual([])
 
 			expect(
-				await debit.createTransfers([
+				await ledger.createTransfers([
 					newTransferPosted({
 						id: 600n,
 						debit_account_id: a.id,
@@ -273,8 +270,8 @@ describe('pluxel-plugin-debit (MikroORM)', () => {
 				flags: AccountFilterFlags.debits,
 			}
 
-			const transfers = await debit.getAccountTransfers(filter)
-			const balances = await debit.getAccountBalances(filter)
+			const transfers = await ledger.getAccountTransfers(filter)
+			const balances = await ledger.getAccountBalances(filter)
 			expect(balances.length).toBe(transfers.length)
 			expect(transfers.length).toBe(2)
 

@@ -1,5 +1,6 @@
 import { Config, Plugin, setParamToken } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
+import { Ledger, type LedgerDriver } from 'pluxel-plugin-ledger'
 import { MikroOrm } from 'pluxel-plugin-mikro-orm'
 import { EntitySchema } from 'pluxel-plugin-mikro-orm/mikro-orm/core'
 import {
@@ -18,21 +19,20 @@ import {
 	type Transfer,
 	TransferFlags,
 } from 'tigerbeetle-node'
-import { Debit, type DebitDriver } from './core.js'
 
 // Ensure `emitDecoratorMetadata` can see the runtime class for DI (avoid resolving to `Object`).
 void MikroOrm
 
-export const DebitMikroOrmConfigSchema = v.object({
-	/** Stable scopeKey for table prefixing (defaults to `debit`). */
-	scopeKey: v.optional(v.string(), 'debit'),
+export const LedgerMikroOrmConfigSchema = v.object({
+	/** Stable scopeKey for table prefixing (defaults to `ledger`). */
+	scopeKey: v.optional(v.string(), 'ledger'),
 	/** Auto create/update tables on startup (default true). */
 	ensureSchema: v.optional(v.boolean(), true),
 	/** Drop tables on dispose (default false, use with care). */
 	dropTableOnDispose: v.optional(v.boolean(), false),
 })
 
-export type DebitMikroOrmConfig = Config<typeof DebitMikroOrmConfigSchema>
+export type LedgerMikroOrmConfig = Config<typeof LedgerMikroOrmConfigSchema>
 
 type Tables = {
 	accounts: string
@@ -83,10 +83,10 @@ const U128_MAX = (1n << 128n) - 1n
 const TS_WIDTH = 20
 
 function formatTs(ts: bigint): string {
-	if (ts < 0n) throw new Error('[DebitMikroOrm] timestamp must be >= 0')
+	if (ts < 0n) throw new Error('[LedgerMikroOrm] timestamp must be >= 0')
 	const s = ts.toString(10)
 	if (s.length > TS_WIDTH) {
-		throw new Error(`[DebitMikroOrm] timestamp too large (>${TS_WIDTH} digits)`)
+		throw new Error(`[LedgerMikroOrm] timestamp too large (>${TS_WIDTH} digits)`)
 	}
 	return s.padStart(TS_WIDTH, '0')
 }
@@ -130,13 +130,13 @@ function resultRows<T>(r: unknown): T[] {
 
 function requiredString(row: Record<string, unknown>, key: string): string {
 	const v = row[key]
-	if (v == null) throw new Error(`[DebitMikroOrm] missing column: ${key}`)
+	if (v == null) throw new Error(`[LedgerMikroOrm] missing column: ${key}`)
 	return String(v)
 }
 
 function requiredNumber(row: Record<string, unknown>, key: string): number {
 	const v = row[key]
-	if (v == null) throw new Error(`[DebitMikroOrm] missing column: ${key}`)
+	if (v == null) throw new Error(`[LedgerMikroOrm] missing column: ${key}`)
 	return Number(v)
 }
 
@@ -229,7 +229,7 @@ function applyTransferToAccountState(
 		const pending = pendingById.get(u128ToDb(transfer.pending_id))
 		if (!pending) {
 			throw new Error(
-				`[DebitMikroOrm] missing pending transfer referenced by ${u128ToDb(transfer.id)} pending_id=${u128ToDb(transfer.pending_id)}`,
+				`[LedgerMikroOrm] missing pending transfer referenced by ${u128ToDb(transfer.id)} pending_id=${u128ToDb(transfer.pending_id)}`,
 			)
 		}
 
@@ -252,10 +252,10 @@ function applyTransferToAccountState(
 	if (transfer.credit_account_id === accountId) state.credits_posted += transfer.amount
 }
 
-@Plugin(Debit, { name: 'Debit', type: 'service' })
-export class DebitMikroOrm extends Debit {
-	@Config(DebitMikroOrmConfigSchema)
-	private config!: DebitMikroOrmConfig
+@Plugin(Ledger, { name: 'MikroORM', type: 'service' })
+export class LedgerMikroOrm extends Ledger {
+	@Config(LedgerMikroOrmConfigSchema)
+	private config!: LedgerMikroOrmConfig
 
 	constructor(private readonly mikro: MikroOrm) {
 		super()
@@ -268,7 +268,7 @@ export class DebitMikroOrm extends Debit {
 		void this.ensureTables()
 	}
 
-	protected createDriver(): DebitDriver {
+	protected createDriver(): LedgerDriver {
 		return {
 			createAccounts: async (accounts) => await this.createAccountsDb(accounts),
 			lookupAccounts: async (ids) => await this.lookupAccountsDb(ids),
@@ -290,15 +290,15 @@ export class DebitMikroOrm extends Debit {
 
 	private async ensureTables(): Promise<Tables> {
 		this.tablesPromise ??= (async () => {
-			const scopeKey = String(this.config.scopeKey ?? 'debit').trim()
-			if (!scopeKey) throw new Error('[DebitMikroOrm] invalid config: scopeKey')
+			const scopeKey = String(this.config.scopeKey ?? 'ledger').trim()
+			if (!scopeKey) throw new Error('[LedgerMikroOrm] invalid config: scopeKey')
 
 			const scope = this.mikro.scope(scopeKey)
 			const ensureSchema = this.config.ensureSchema ?? true
 			const dropTableOnDispose = this.config.dropTableOnDispose ?? false
 
 			const AccountRow = new EntitySchema({
-				name: 'DebitAccount',
+				name: 'LedgerAccount',
 				tableName: 'accounts',
 				properties: {
 					id: { primary: true, type: 'string' },
@@ -324,7 +324,7 @@ export class DebitMikroOrm extends Debit {
 			AccountRow.addIndex({ properties: ['user_data_32'] })
 
 			const TransferRow = new EntitySchema({
-				name: 'DebitTransfer',
+				name: 'LedgerTransfer',
 				tableName: 'transfers',
 				properties: {
 					id: { primary: true, type: 'string' },
@@ -353,7 +353,7 @@ export class DebitMikroOrm extends Debit {
 			TransferRow.addIndex({ properties: ['user_data_32'] })
 
 			const PendingResolutionRow = new EntitySchema({
-				name: 'DebitPendingResolution',
+				name: 'LedgerPendingResolution',
 				tableName: 'pending_resolution',
 				properties: {
 					pending_id: { primary: true, type: 'string' },
@@ -369,7 +369,7 @@ export class DebitMikroOrm extends Debit {
 			PendingResolutionRow.addIndex({ properties: ['resolution'] })
 
 			const ClusterClockRow = new EntitySchema({
-				name: 'DebitClusterClock',
+				name: 'LedgerClusterClock',
 				tableName: 'cluster_clock',
 				properties: {
 					key: { primary: true, type: 'string' },
@@ -388,7 +388,7 @@ export class DebitMikroOrm extends Debit {
 			const map = new Map(batch.entities.map((e) => [e.baseTableName, e.tableName]))
 			const get = (base: string) => {
 				const t = map.get(base)
-				if (!t) throw new Error(`[DebitMikroOrm] internal error: missing table ${base}`)
+				if (!t) throw new Error(`[LedgerMikroOrm] internal error: missing table ${base}`)
 				return t
 			}
 
@@ -561,7 +561,7 @@ export class DebitMikroOrm extends Debit {
 			const pendingIdDb = requiredString(r, 'pending_id')
 			const pending = byId.get(pendingIdDb)
 			if (!pending) {
-				throw new Error(`[DebitMikroOrm] missing pending transfer for expiration: ${pendingIdDb}`)
+				throw new Error(`[LedgerMikroOrm] missing pending transfer for expiration: ${pendingIdDb}`)
 			}
 			const ts = BigInt(requiredString(r, 'resolved_timestamp'))
 			expireEvents.push({ timestamp: ts, pending })
@@ -617,7 +617,7 @@ export class DebitMikroOrm extends Debit {
 			const b = balancesByTimestamp.get(tr.timestamp.toString(10))
 			if (!b) {
 				throw new Error(
-					`[DebitMikroOrm] unable to compute account balances at timestamp=${tr.timestamp.toString(10)}`,
+					`[LedgerMikroOrm] unable to compute account balances at timestamp=${tr.timestamp.toString(10)}`,
 				)
 			}
 			return b
@@ -1359,7 +1359,7 @@ export class DebitMikroOrm extends Debit {
 				'all',
 			),
 		)[0]
-		if (!reserved) throw new Error('[DebitMikroOrm] failed to reserve timestamps')
+		if (!reserved) throw new Error('[LedgerMikroOrm] failed to reserve timestamps')
 
 		const end = BigInt(requiredString(reserved, 'last_timestamp'))
 		const start = end - BigInt(reserve) + 1n
@@ -1493,4 +1493,4 @@ export class DebitMikroOrm extends Debit {
 
 // Bun/TS sometimes emits `design:paramtypes` as `Object` for cross-package abstract classes.
 // Ensure DI always injects the correct token.
-setParamToken(DebitMikroOrm, 0, MikroOrm)
+setParamToken(LedgerMikroOrm, 0, MikroOrm)

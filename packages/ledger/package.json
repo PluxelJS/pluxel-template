@@ -1,8 +1,8 @@
 {
 	"$schema": "https://market.pluxel.dev/schema/package.json",
-	"name": "pluxel-plugin-debit",
+	"name": "pluxel-plugin-ledger",
 	"version": "0.1.0",
-	"description": "TigerBeetle-compatible ledger service plugin (token + persistent local backend).",
+	"description": "TigerBeetle-compatible ledger token + builders (core abstraction).",
 	"type": "module",
 	"exports": {
 		".": {
@@ -19,14 +19,10 @@
 		"!**/*.map"
 	],
 	"scripts": {
-		"build": "pluxel build",
-		"test": "bun test --conditions=@pluxel/hmr"
+		"build": "pluxel build"
 	},
 	"dependencies": {
 		"tigerbeetle-node": "^0.16.68"
-	},
-	"peerDependencies": {
-		"pluxel-plugin-mikro-orm": "workspace:^"
 	},
 	"publishConfig": {
 		"exports": {
@@ -35,13 +31,5 @@
 		},
 		"access": "public",
 		"provenance": true
-	},
-	"pluxel": {
-		"dependOn": {
-			"required": [],
-			"optional": [
-				"pluxel-plugin-mikro-orm"
-			]
-		}
 	}
 }
