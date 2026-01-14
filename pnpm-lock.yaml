@@ -134,7 +134,7 @@ importers:
         version: 4.3.5
 
   chatbots/plugins/meme-test:
-    devDependencies:
+    dependencies:
       pluxel-plugin-bot-suite:
         specifier: workspace:*
         version: link:../../bot-suite
@@ -150,6 +150,15 @@ importers:
       pluxel-plugin-wretch:
         specifier: workspace:*
         version: link:../../packages/wretch
+
+  packages/debit:
+    dependencies:
+      pluxel-plugin-mikro-orm:
+        specifier: workspace:^
+        version: link:../mikro-orm
+      tigerbeetle-node:
+        specifier: ^0.16.68
+        version: 0.16.68
 
   packages/kv:
     dependencies:
@@ -1588,6 +1597,10 @@ packages:
   tarn@3.0.2:
     resolution: {integrity: sha512-51LAVKUSZSVfI05vjPESNc5vwqqZpbXCsU+/+wxlOrUjk2SnFTt97v9ZgQrD4YmxYW1Px6w2KjaDitCfkvgxMQ==}
     engines: {node: '>=8.0.0'}
+
+  tigerbeetle-node@0.16.68:
+    resolution: {integrity: sha512-DhQisDA51JlsuoorZxn7eYgnZRzeJihRaphQPt4f1bwVxzBIaN+6Ke+k5BO+MUuPG8Mh4HX497R/v3rook9vlQ==}
+    engines: {node: '>=18.0.0'}
 
   tildify@2.0.0:
     resolution: {integrity: sha512-Cc+OraorugtXNfs50hU9KS369rFXCfgGLpfCfvlc+Ud5u6VWmUQsOAa9HbTvheQdYnrdJqqv1e5oIqXppMYnSw==}
@@ -3129,6 +3142,8 @@ snapshots:
   tabbable@6.4.0: {}
 
   tarn@3.0.2: {}
+
+  tigerbeetle-node@0.16.68: {}
 
   tildify@2.0.0: {}
 
