@@ -175,6 +175,19 @@ importers:
         specifier: workspace:*
         version: link:../../packages/wretch
 
+  packages/ax:
+    dependencies:
+      '@ax-llm/ax':
+        specifier: ^15.0.0
+        version: 15.1.1
+      '@pluxel/cmd':
+        specifier: workspace:^
+        version: link:../cmd
+    devDependencies:
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
+
   packages/cmd:
     dependencies:
       '@standard-schema/spec':
@@ -327,6 +340,9 @@ importers:
         version: 1.1.1
 
 packages:
+
+  '@ax-llm/ax@15.1.1':
+    resolution: {integrity: sha512-gKd0m+Fuw6xeAB+nAOVtfhLaGBjYhenQCOH7WwpmkP6bfbaAJ0BB0yci7alomjIvMDjv5j93ejCexQvti/FQZg==}
 
   '@babel/generator@7.28.5':
     resolution: {integrity: sha512-3EwLFhZ38J4VyIP6WNtt2kUdW9dokXA9Cr4IVIFHuCpZ3H8/YFOl5JjZHisrn1fATPBmKKqXzDFvh9fUwHz6CQ==}
@@ -761,6 +777,10 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
+  '@opentelemetry/api@1.9.0':
+    resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
+    engines: {node: '>=8.0.0'}
+
   '@oxc-project/runtime@0.103.0':
     resolution: {integrity: sha512-sQKZo5lLS1/yzbsVlZ+zaQorOkLe3OkQjyyMN29tMvCax5e5Sa9uUYKChDDMR4D41n6ApEazMN2UcIwFdHgS7g==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1060,6 +1080,9 @@ packages:
 
   dataloader@2.2.3:
     resolution: {integrity: sha512-y2krtASINtPFS1rSDjacrFgn1dcUuoREVabwlOGOe4SdxenREqwjwjElAdwvbGM7kgZz9a3KVicWR7vcz8rnzA==}
+
+  dayjs@1.11.19:
+    resolution: {integrity: sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw==}
 
   debounce-microtasks@0.1.8:
     resolution: {integrity: sha512-7mbJYntoO1FFIuOgwX2vnVwZMfbRpN6s16zTUHm/a1xmpZTGxSKvT6nOpAs1kHWQn7Ly2DGlCKeKdQrKMLBslw==}
@@ -1937,6 +1960,11 @@ packages:
 
 snapshots:
 
+  '@ax-llm/ax@15.1.1':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      dayjs: 1.11.19
+
   '@babel/generator@7.28.5':
     dependencies:
       '@babel/parser': 7.28.5
@@ -2526,6 +2554,8 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
+  '@opentelemetry/api@1.9.0': {}
+
   '@oxc-project/runtime@0.103.0': {}
 
   '@oxc-project/types@0.103.0': {}
@@ -2722,6 +2752,8 @@ snapshots:
   data-uri-to-buffer@4.0.1: {}
 
   dataloader@2.2.3: {}
+
+  dayjs@1.11.19: {}
 
   debounce-microtasks@0.1.8: {}
 
