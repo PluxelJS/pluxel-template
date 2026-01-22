@@ -1,0 +1,37 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-cmd-catalog",
+	"version": "0.1.0",
+	"description": "Tiny catalog/registry helpers for cmdkit executables (discover + compose + optional permission strings).",
+	"type": "module",
+	"exports": {
+		".": {
+			"@pluxel/hmr": "./src/index.ts",
+			"default": "./dist/index.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "./dist/index.mjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"files": [
+		"dist",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "pnpm run typecheck && bun test --conditions=@pluxel/hmr"
+	},
+	"dependencies": {
+		"@pluxel/cmd": "workspace:*"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.mjs",
+			"./package.json": "./package.json"
+		},
+		"access": "public",
+		"provenance": true
+	}
+}

@@ -1,19 +1,17 @@
 [
   {
-    "id": "7ddb465d-bdb2-4a51-b595-61b6c4d7abbe",
+    "id": "05862143-cf16-4ae7-96e3-b1a8f65e9975",
     "mode": "polling",
     "state": "polling",
     "stateMessage": "等待新更新",
-    "createdAt": 1768225487553,
-    "updatedAt": 1768226818051,
+    "connectedAt": 1769087012191,
+    "createdAt": 1769086537161,
+    "updatedAt": 1769088298746,
     "secure": true,
     "tokenPreview": "8446…jmGM",
-    "connectedAt": 1768226478220,
     "username": "pluxel_bot",
     "displayName": "test",
-    "pollingOffset": 723591911,
-    "pollingBackoff": 0,
-    "lastUpdateAt": 1768226499607,
-    "lastUpdateId": 723591910
+    "pollingOffset": 0,
+    "pollingBackoff": 0
   }
 ]

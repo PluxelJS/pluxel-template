@@ -39,6 +39,9 @@ importers:
       '@mantine/modals':
         specifier: ^8.3.12
         version: 8.3.12(@mantine/core@8.3.12(@mantine/hooks@8.3.12(react@19.2.3))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@mantine/hooks@8.3.12(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@pluxel/cmd':
+        specifier: workspace:*
+        version: link:packages/cmd
       '@repobuddy/biome':
         specifier: ^2.3.0
         version: 2.3.0(@biomejs/biome@2.3.11)
@@ -81,6 +84,9 @@ importers:
 
   chatbots/bot-core:
     dependencies:
+      '@pluxel/cmd':
+        specifier: workspace:^
+        version: link:../../packages/cmd
       pluxel-plugin-kook:
         specifier: workspace:^
         version: link:../kook
@@ -90,12 +96,18 @@ importers:
       pluxel-plugin-telegram:
         specifier: workspace:^
         version: link:../telegram
-      type-flag:
-        specifier: ^4.0.2
-        version: 4.0.3
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
 
   chatbots/bot-suite:
     dependencies:
+      '@mikro-orm/libsql':
+        specifier: ^6.6.3
+        version: 6.6.3(@mikro-orm/core@6.6.3)
+      '@pluxel/cmd':
+        specifier: workspace:*
+        version: link:../../packages/cmd
       pluxel-plugin-bot-core:
         specifier: workspace:*
         version: link:../bot-core
@@ -111,6 +123,9 @@ importers:
       pluxel-plugin-telegram:
         specifier: workspace:^
         version: link:../telegram
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
 
   chatbots/kook:
     dependencies:
@@ -135,12 +150,21 @@ importers:
 
   chatbots/plugins/meme-test:
     dependencies:
+      '@pluxel/cmd':
+        specifier: workspace:*
+        version: link:../../../packages/cmd
+      pluxel-plugin-bot-core:
+        specifier: workspace:*
+        version: link:../../bot-core
       pluxel-plugin-bot-suite:
         specifier: workspace:*
         version: link:../../bot-suite
       pluxel-plugin-meme-worker:
         specifier: workspace:*
         version: link:../../../render-plugins/meme-worker
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
 
   chatbots/telegram:
     dependencies:
@@ -150,6 +174,31 @@ importers:
       pluxel-plugin-wretch:
         specifier: workspace:*
         version: link:../../packages/wretch
+
+  packages/cmd:
+    dependencies:
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
+      '@valibot/to-json-schema':
+        specifier: ^1.5.0
+        version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
+      option-t:
+        specifier: ^55.1.1
+        version: 55.1.1
+      type-flag:
+        specifier: ^4.0.2
+        version: 4.0.3
+    devDependencies:
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
+
+  packages/cmd-catalog:
+    dependencies:
+      '@pluxel/cmd':
+        specifier: workspace:*
+        version: link:../cmd
 
   packages/kv:
     dependencies:
@@ -907,6 +956,9 @@ packages:
   '@saltify/milky-types@1.1.0':
     resolution: {integrity: sha512-ixm10sI+7ZAykPfKxWPEZ/Ag94gkDL/WSYPFBON0MIuunUiNHl6R9ISpXDS2aLH3SO5toav52pOwvFt5EcVbbw==}
 
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
   '@tabler/icons-react@3.36.1':
     resolution: {integrity: sha512-/8nOXeNeMoze9xY/QyEKG65wuvRhkT3q9aytaur6Gj8bYU2A98YVJyLc9MRmc5nVvpy+bRlrrwK/Ykr8WGyUWg==}
     peerDependencies:
@@ -937,6 +989,11 @@ packages:
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
+  '@valibot/to-json-schema@1.5.0':
+    resolution: {integrity: sha512-GE7DmSr1C2UCWPiV0upRH6mv0cCPsqYGs819fb6srCS1tWhyXrkGGe+zxUiwzn/L1BOfADH4sNjY/YHCuP8phQ==}
+    peerDependencies:
+      valibot: ^1.2.0
 
   acorn@8.15.0:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
@@ -1397,6 +1454,10 @@ packages:
   ohash@1.1.6:
     resolution: {integrity: sha512-TBu7PtV8YkAZn0tSxobKY2n2aAQva936lhRrj6957aDaCf9IEtqsKbgMzXE/F/sjqYOwmrukeORHNLe5glk7Cg==}
 
+  option-t@55.1.1:
+    resolution: {integrity: sha512-ziEKvr/12Yta8rSSvs01W8I+FfhVMhvnEKX6c34FDGLHIl2EunrRBVhg5KomDTUnNxQ3ks6Qsz8vrAh+Py0lVA==}
+    engines: {node: '>=24.5.0'}
+
   p-debounce@4.0.0:
     resolution: {integrity: sha512-4Ispi9I9qYGO4lueiLDhe4q4iK5ERK8reLsuzH6BPaXn53EGaua8H66PXIFGrW897hwjXp+pVLrm/DLxN0RF0A==}
     engines: {node: '>=12'}
@@ -1791,6 +1852,14 @@ packages:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  valibot@1.2.0:
+    resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   vite-node@5.2.0:
     resolution: {integrity: sha512-7UT39YxUukIA97zWPXUGb0SGSiLexEGlavMwU3HDE6+d/HJhKLjLqu4eX2qv6SQiocdhKLRcusroDwXHQ6CnRQ==}
@@ -2569,6 +2638,8 @@ snapshots:
     dependencies:
       zod: 4.3.5
 
+  '@standard-schema/spec@1.1.0': {}
+
   '@tabler/icons-react@3.36.1(react@19.2.3)':
     dependencies:
       '@tabler/icons': 3.36.1
@@ -2604,6 +2675,10 @@ snapshots:
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 25.0.5
+
+  '@valibot/to-json-schema@1.5.0(valibot@1.2.0(typescript@5.9.3))':
+    dependencies:
+      valibot: 1.2.0(typescript@5.9.3)
 
   acorn@8.15.0: {}
 
@@ -2962,6 +3037,8 @@ snapshots:
 
   ohash@1.1.6: {}
 
+  option-t@55.1.1: {}
+
   p-debounce@4.0.0: {}
 
   p-defer@3.0.0: {}
@@ -3313,6 +3390,10 @@ snapshots:
   use-sync-external-store@1.6.0(react@19.2.3):
     dependencies:
       react: 19.2.3
+
+  valibot@1.2.0(typescript@5.9.3):
+    optionalDependencies:
+      typescript: 5.9.3
 
   vite-node@5.2.0(@types/node@25.0.6):
     dependencies:

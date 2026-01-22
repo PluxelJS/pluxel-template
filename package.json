@@ -23,6 +23,7 @@
 		"@mantine/core": "^8.3.12",
 		"@mantine/hooks": "^8.3.12",
 		"@mantine/modals": "^8.3.12",
+		"@pluxel/cmd": "workspace:*",
 		"pluxel-plugin-bot-core": "workspace:*",
 		"@repobuddy/biome": "^2.3.0",
 		"@tabler/icons-react": "^3.36.1",
