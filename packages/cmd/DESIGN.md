@@ -164,7 +164,45 @@ export interface CmdBuilder<I, O, S extends State> {
 }
 
 export function cmd(id: string): CmdBuilder<{}, unknown, { hasHandle: false; hasText: false }>;
-````
+```
+
+### 4.1.1 流式（Streaming）/ 可观测（Observability）
+
+cmdkit 不引入 Observable/事件协议：只提供 `ctx.emit(type, payload)`，上层自定义事件名与 payload，并决定如何渲染/转发（CLI 实时输出、MCP notification、日志/trace）。
+
+**最适合场景**：长耗时批处理/搜索/索引——边处理边产出进度与部分结果，同时 `exec()` 仍返回最终汇总。
+
+```ts
+import { cmd } from '@pluxel/cmd'
+
+const EVT = {
+  PROGRESS: 'index.progress',
+  CHUNK: 'index.chunk',
+} as const
+
+const index = cmd('index')
+  .handle(async (_input, ctx) => {
+    const items = ['a', 'b', 'c']
+    for (let i = 0; i < items.length; i++) {
+      ctx.emit?.(EVT.PROGRESS, { id: 'index', current: i + 1, total: items.length })
+      ctx.emit?.(EVT.CHUNK, { id: 'index', chunk: { item: items[i] } })
+    }
+    return { indexed: items.length }
+  })
+  .build()
+
+await index.exec({}, {
+  emit: (type, payload) => {
+    if (type === EVT.PROGRESS) console.error(payload)
+    if (type === EVT.CHUNK) console.log((payload as any).chunk)
+  },
+})
+```
+
+建议（保持精炼 + 可组合）：
+- 事件名由上层定义成常量（避免散落字符串），并尽量做“模块级 namespace”（例如 `index.progress`）。
+- payload 保持 JSON 友好、短小；总是带 `id`，进度用 `{ current, total? }`，分片用 `{ chunk }`，日志用 `{ level?, message }`。
+- `emit` 回调应当不抛异常（上层吞掉/降级），避免影响命令主流程。
 
 ### 4.2 Text 能力：`text()` 是唯一入口
 
@@ -203,17 +241,19 @@ export interface TextConfig {
 cmdkit 的 doc 仅用于 **MCP/tool 与上游渲染的原材料**，本身不负责最终 help 文本渲染。
 
 **核心建议**：
-- 绝大多数情况只写 `description` +（可选）`details` 就够了。
+- 绝大多数情况只写 `description` +（可选）`details` 就够了；需要更友好的 help 时再补 `usage/examples`。
 - `details`（Markdown）可以作为 **text + MCP** 共用的“唯一文档语言”。
 
 ```ts
 export interface CmdDoc {
   description?: string;
   details?: string;
+  usage?: string;
+  examples?: string[];
 }
 
 cmd('ping')
-  .doc({ description: 'Health check' })
+  .doc({ description: 'Health check', usage: 'ping', examples: ['ping'] })
   .text()
   .handle(() => 'pong')
   .build()

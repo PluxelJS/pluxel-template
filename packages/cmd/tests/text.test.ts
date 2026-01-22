@@ -35,6 +35,17 @@ describe('cmdkit: text()', () => {
 		await expect(exec.execText!('unknown --nope x --foo ok')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_ARGV_PARSE' } })
 	})
 
+	it('supports boolean negation via --no-<flag>', async () => {
+		const exec = cmd('bool')
+			.input(v.object({ enabled: v.optional(v.boolean(), true) }))
+			.text()
+			.handle((input) => input.enabled)
+			.build()
+
+		await expect(exec.execText!('bool')).resolves.toEqual({ ok: true, val: true, err: null })
+		await expect(exec.execText!('bool --no-enabled')).resolves.toEqual({ ok: true, val: false, err: null })
+	})
+
 	it('supports custom triggers and positionals via map', async () => {
 		const exec = cmd('echo')
 			.input(v.object({ msg: v.string() }))

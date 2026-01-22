@@ -13,6 +13,22 @@ export type CmdDoc = {
 	 * - MCP/tool call guidance
 	 */
 	details?: string
+
+	/**
+	 * Optional usage string (single-line recommended).
+	 *
+	 * Examples:
+	 * - `echo <msg>`
+	 * - `user create --email <email>`
+	 */
+	usage?: string
+
+	/**
+	 * Optional examples, as plain text.
+	 *
+	 * Upstream can render these into CLI help and/or tool docs.
+	 */
+	examples?: string[]
 }
 
 export type DocContext = {

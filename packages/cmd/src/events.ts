@@ -17,4 +17,3 @@ export const CMD_EVENT = {
 } as const
 
 export type CmdEvent = (typeof CMD_EVENT)[keyof typeof CMD_EVENT]
-

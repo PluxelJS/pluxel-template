@@ -43,15 +43,20 @@ const compileTypeFlagSchemas = (specs: readonly FlagSpec[]): {
 }
 
 const preprocessNegates = (tokens: readonly string[], negateTokenToLogical: Record<string, string>) => {
-	if (!tokens.length) return { tokens: tokens.slice() as string[], forced: {} as Record<string, boolean> }
+	if (!tokens.length) return { tokens: [] as string[], forced: {} as Record<string, boolean> }
 	const forced: Record<string, boolean> = {}
+	let changed = false
 	const out: string[] = []
 	for (const t of tokens) {
 		const logical = negateTokenToLogical[t]
-		if (logical) forced[logical] = false
-		else out.push(t)
+		if (logical) {
+			forced[logical] = false
+			changed = true
+		} else {
+			out.push(t)
+		}
 	}
-	return { tokens: out, forced }
+	return { tokens: changed ? out : (tokens as string[]), forced }
 }
 
 export function createTypeFlagAdapter(): ArgvAdapter {

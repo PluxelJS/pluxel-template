@@ -64,6 +64,32 @@ describe('cmdkit: router', () => {
 		await expect(router.dispatch('ping')).resolves.toEqual({ ok: true, val: 'a2', err: null })
 	})
 
+	it('helpCommand() resolves by id or trigger (canonical + case-insensitive)', () => {
+		const router = createRouter({ caseInsensitive: true })
+		const exec = cmd('x').text({ triggers: ['foo bar'] }).handle(() => 'ok').build()
+		router.add(exec, { triggers: exec.meta!.triggers })
+
+		expect(router.helpCommand('x')?.id).toBe('x')
+		expect(router.helpCommand('foo bar')?.id).toBe('x')
+		expect(router.helpCommand('FOO BAR')?.id).toBe('x')
+		expect(router.helpCommand('foo     bar')?.id).toBe('x')
+	})
+
+	it('set() is atomic: reject invalid upsert without removing old entry', async () => {
+		const router = createRouter({ caseInsensitive: true })
+
+		const a1 = cmd('a').text({ triggers: ['ping'] }).handle(() => 'a1').build()
+		const b = cmd('b').text({ triggers: ['pong'] }).handle(() => 'b').build()
+		router.add(a1)
+		router.add(b)
+
+		const a2 = cmd('a').text({ triggers: ['pong'] }).handle(() => 'a2').build()
+		expect(() => router.set(a2)).toThrow()
+
+		await expect(router.dispatch('ping')).resolves.toEqual({ ok: true, val: 'a1', err: null })
+		await expect(router.dispatch('pong')).resolves.toEqual({ ok: true, val: 'b', err: null })
+	})
+
 	it('supports dispatchTokens() and match()', async () => {
 		const router = createRouter({ caseInsensitive: true })
 		const exec = cmd('x').text({ triggers: ['foo bar'] }).handle(() => 'ok').build()

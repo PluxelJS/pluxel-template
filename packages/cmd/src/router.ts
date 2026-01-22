@@ -6,6 +6,7 @@ import type { CmdDocSource } from './doc'
 import type { FlagSpec } from './argv/types'
 import { CMDKIT_TEXT_RUNNER, type TextRunner } from './text-runner'
 import { defaultTokenizer, type TextTokenizer } from './tokenize'
+import { splitSpace } from './internal/strings'
 
 export interface RouterHelpIndexResult {
 	/** Debug/introspection only (rendering belongs to upstream). */
@@ -82,15 +83,9 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 	const entries = new Map<string, { exec: any; triggers: string[]; tokenized: Array<readonly string[]> }>()
 	const flatNames = new Map<string, string>() // normalized trigger -> exec.id
 
-	const splitName = (name: string) =>
-		name
-			.trim()
-			.split(/\s+/)
-			.map((t) => t.trim())
-			.filter(Boolean)
-
-	const canonTrigger = (raw: string) => splitName(raw).join(' ')
+	const canonTrigger = (raw: string) => splitSpace(raw).join(' ')
 	const keyOfTrigger = (raw: string) => norm(canonTrigger(raw))
+	const normalizeTriggers = (src: unknown) => (src as unknown[] | undefined)?.map(String).map(canonTrigger).filter(Boolean) ?? []
 
 	const put = (tokens: readonly string[], exec: any) => {
 		let cur = root
@@ -162,12 +157,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 
 		check(exec, opts, ignoreId) {
 			const id = String(exec.id ?? '').trim()
-			const triggers = (opts?.triggers ?? exec.meta?.triggers ?? [])
-				.map(String)
-				.map((s) => s.trim())
-				.filter(Boolean)
-				.map(canonTrigger)
-				.filter(Boolean)
+			const triggers = normalizeTriggers(opts?.triggers ?? exec.meta?.triggers)
 
 			const issues: RouterIssue[] = []
 			if (!triggers.length) issues.push({ kind: 'MISSING_TRIGGERS', id })
@@ -178,17 +168,15 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 
 			const seen = new Set<string>()
 			for (const raw of triggers) {
-				const t = raw.trim()
-				if (!t) continue
-				if (seen.has(t)) {
-					issues.push({ kind: 'DUPLICATE_TRIGGER', id, trigger: t })
+				if (seen.has(raw)) {
+					issues.push({ kind: 'DUPLICATE_TRIGGER', id, trigger: raw })
 					continue
 				}
-				seen.add(t)
-				const key = keyOfTrigger(t)
+				seen.add(raw)
+				const key = keyOfTrigger(raw)
 				const existingId = flatNames.get(key)
 				if (existingId && existingId !== id && existingId !== ignoreId) {
-					issues.push({ kind: 'CONFLICTING_TRIGGER', id, trigger: t, existingId })
+					issues.push({ kind: 'CONFLICTING_TRIGGER', id, trigger: raw, existingId })
 				}
 			}
 
@@ -204,21 +192,23 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 				})
 			}
 
-			const triggers = opts?.triggers ?? exec.meta?.triggers ?? []
-			const list = triggers
-				.map(String)
-				.map((s) => s.trim())
-				.filter(Boolean)
-				.map(canonTrigger)
-				.filter(Boolean)
-
-			const tokenized = list.map(splitName).filter((x) => x.length > 0)
+			const list = normalizeTriggers(opts?.triggers ?? exec.meta?.triggers)
+			const tokenized = list.map(splitSpace).filter((x) => x.length > 0)
 			entries.set(exec.id, { exec, triggers: list, tokenized })
 			for (const t of tokenized) put(t, exec)
 			for (const name of list) flatNames.set(keyOfTrigger(name), exec.id)
 		},
 
 		set(exec, opts) {
+			// Pre-check to keep set() atomic: do not remove the existing entry when the upsert is invalid.
+			const checked = this.check(exec, opts, exec.id)
+			if (!checked.ok) {
+				throw new CmdError('E_INTERNAL', 'Internal error', {
+					message: `router.set("${exec.id}") rejected`,
+					details: { issues: checked.issues },
+				})
+			}
+
 			this.remove(exec.id)
 			this.add(exec, opts)
 		},
@@ -303,17 +293,29 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 		},
 
 		helpCommand(name) {
-			for (const e of entries.values()) {
-				if (e.exec.id === name || e.triggers.includes(name)) {
-					return {
-						id: e.exec.id as string,
-						triggers: e.triggers.slice(),
-						...(Array.isArray((e.exec as any)?.meta?.flags) ? { flags: (e.exec as any).meta.flags as FlagSpec[] } : {}),
-						...((e.exec as any).doc ? { doc: (e.exec as any).doc as CmdDocSource } : {}),
-					}
+			const raw = String(name ?? '').trim()
+			if (!raw) return undefined
+
+			const byId = entries.get(raw)
+			if (byId) {
+				return {
+					id: byId.exec.id as string,
+					triggers: byId.triggers.slice(),
+					...(Array.isArray((byId.exec as any)?.meta?.flags) ? { flags: (byId.exec as any).meta.flags as FlagSpec[] } : {}),
+					...((byId.exec as any).doc ? { doc: (byId.exec as any).doc as CmdDocSource } : {}),
 				}
 			}
-			return undefined
+
+			const byTriggerId = flatNames.get(keyOfTrigger(raw))
+			const byTrigger = byTriggerId ? entries.get(byTriggerId) : undefined
+			if (!byTrigger) return undefined
+
+			return {
+				id: byTrigger.exec.id as string,
+				triggers: byTrigger.triggers.slice(),
+				...(Array.isArray((byTrigger.exec as any)?.meta?.flags) ? { flags: (byTrigger.exec as any).meta.flags as FlagSpec[] } : {}),
+				...((byTrigger.exec as any).doc ? { doc: (byTrigger.exec as any).doc as CmdDocSource } : {}),
+			}
 		},
 	}
 }
