@@ -17,6 +17,10 @@
 			"@pluxel/hmr": "./src/decorators.ts",
 			"default": "./dist/decorators.mjs"
 		},
+		"./sdk": {
+			"@pluxel/hmr": "./src/sdk.ts",
+			"default": "./dist/sdk.mjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.mjs",
@@ -24,6 +28,7 @@
 	"types": "./dist/index.d.mts",
 	"files": [
 		"dist",
+		"src/ui",
 		"!**/*.map"
 	],
 	"scripts": {
@@ -43,6 +48,7 @@
 			".": "./dist/index.mjs",
 			"./cmdkit": "./dist/cmdkit.mjs",
 			"./decorators": "./dist/decorators.mjs",
+			"./sdk": "./dist/sdk.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

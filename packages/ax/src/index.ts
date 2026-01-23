@@ -1,5 +1,4 @@
 export { Ax } from './core'
-export * from './decorators'
 export type { AxProfileId, AxProfilePublic } from './profiles'
 
 import { AxHub } from './hub'

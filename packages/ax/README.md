@@ -13,7 +13,7 @@ Design:
 import { BasePlugin, Plugin } from '@pluxel/hmr'
 import { cmd } from '@pluxel/cmd'
 import { Ax } from 'pluxel-plugin-ax'
-import { ax } from '@ax-llm/ax'
+import { ax } from 'pluxel-plugin-ax/sdk'
 
 @Plugin({ name: 'MyPlugin' })
 export class MyPlugin extends BasePlugin {

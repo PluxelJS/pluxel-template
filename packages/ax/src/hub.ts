@@ -39,7 +39,7 @@ export class AxHub extends Ax {
 		})
 		this.readyPromise = this.profiles.isReady()
 
-		this.ctx.ext.ui.register({ entryPath: './ui/index.tsx' })
+		this.ctx.ext.ui.register({ entryPath: './src/ui/index.tsx' })
 		this.ctx.ext.rpc.registerExtension(() => new AxHubRpc(this))
 	}
 
