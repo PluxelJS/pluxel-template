@@ -42,15 +42,22 @@ export class MyPlugin extends BasePlugin {
 
 ## Decorators
 
-If you prefer not to inject `Ax` in your constructor, you can use decorators:
+Decorator helpers that inject `AxAI` / `{ ai, functions }` as the first argument.
+
+Note: your plugin still needs to declare `Ax` as a dependency (constructor param or `setParamToken`) because `pluginMethodDecorator(...)` requires it.
 
 ```ts
 import type { AxAI } from '@ax-llm/ax'
 import { BasePlugin, Plugin } from '@pluxel/hmr'
+import { Ax } from 'pluxel-plugin-ax'
 import { WithAxAI } from 'pluxel-plugin-ax/decorators'
 
 @Plugin({ name: 'MyPlugin' })
 export class MyPlugin extends BasePlugin {
+	constructor(_ax: Ax) {
+		super()
+	}
+
 	@WithAxAI()
 	async summarize(ai: AxAI, text: string) {
 		// ...

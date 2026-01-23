@@ -23,5 +23,32 @@ describe('pluxel-plugin-ax: cmdkit bridge', () => {
 		const out = await fn.func({ msg: 'hi' })
 		expect(out).toBe('hi')
 	})
-})
 
+	it('propagates trace/session ids from Ax extra into cmdkit ExecCtx.meta', async () => {
+		let seenCtx: any
+		const exec: McpExecutable<any, any> = {
+			mcp: { name: 'tool', title: 'tool', description: 'tool', inputSchema: { type: 'object' } as any } as any,
+			exec: async (_args: any, ctx?: any) => {
+				seenCtx = ctx
+				return { ok: true as const, val: 'ok' }
+			},
+		} as any
+
+		const fn: any = cmdExecutableToAxFunction(exec)
+		await fn.func({}, { sessionId: 's1', traceId: 't1' })
+		expect(seenCtx).toEqual({ meta: { sessionId: 's1', traceId: 't1' } })
+	})
+
+	it('returns a structured error when executable throws', async () => {
+		const exec: McpExecutable<any, any> = {
+			mcp: { name: 'boom', title: 'boom', description: 'boom', inputSchema: { type: 'object' } as any } as any,
+			exec: async () => {
+				throw new Error('boom')
+			},
+		} as any
+
+		const fn: any = cmdExecutableToAxFunction(exec)
+		const out = await fn.func({})
+		expect(out).toEqual({ error: { code: 'INTERNAL', message: 'boom' } })
+	})
+})

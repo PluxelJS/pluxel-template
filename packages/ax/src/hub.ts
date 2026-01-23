@@ -39,8 +39,22 @@ export class AxHub extends Ax {
 		})
 		this.readyPromise = this.profiles.isReady()
 
-		this.ctx.ext.ui.register({ entryPath: './src/ui/index.tsx' })
-		this.ctx.ext.rpc.registerExtension(() => new AxHubRpc(this))
+		const ext = (this.ctx as any).ext
+		// UI/RPC are optional in the host runtime (tests often don't mount them).
+		if (ext?.ui?.register) {
+			try {
+				ext.ui.register({ entryPath: './src/ui/index.tsx' })
+			} catch (error) {
+				this.ctx.logger.warn('Ax UI extension register skipped', { error })
+			}
+		}
+		if (ext?.rpc?.registerExtension) {
+			try {
+				ext.rpc.registerExtension(() => new AxHubRpc(this))
+			} catch (error) {
+				this.ctx.logger.warn('Ax RPC extension register skipped', { error })
+			}
+		}
 	}
 
 	private async whenReady() {
@@ -112,24 +126,27 @@ export class AxHub extends Ax {
 		const cacheKey = profile.id
 
 		let promise = this.aiByProfileId.get(cacheKey)
-			if (!promise) {
-				promise = (async () => {
-					const apiKey = await this.readApiKey(profile.id)
-					const provider = this.normalizeRequiredString('provider', profile.provider)
-					const model = this.normalizeOptionalString(profile.model)
-					const apiURL = this.normalizeOptionalString(profile.apiURL)
+		if (!promise) {
+			promise = (async () => {
+				const apiKey = await this.readApiKey(profile.id)
+				const provider = this.normalizeRequiredString('provider', profile.provider)
+				const model = this.normalizeOptionalString(profile.model)
+				const apiURL = this.normalizeOptionalString(profile.apiURL)
 
-					const config = { ...(this.normalizeObject('config', profile.config)), ...(model ? { model } : {}) }
-					const options = this.normalizeObject('options', profile.options)
+				const config = { ...(this.normalizeObject('config', profile.config)), ...(model ? { model } : {}) }
+				const options = this.normalizeObject('options', profile.options)
 
-					return axAi({
-						name: provider as any,
-						apiKey,
-						...(apiURL ? { apiURL } : {}),
+				return axAi({
+					name: provider as any,
+					apiKey,
+					...(apiURL ? { apiURL } : {}),
 					...(Object.keys(config).length ? { config: config as any } : {}),
 					...(Object.keys(options).length ? { options: options as any } : {}),
 				} as any) as any
-			})()
+			})().catch((err) => {
+				this.aiByProfileId.delete(cacheKey)
+				throw err
+			})
 			this.aiByProfileId.set(cacheKey, promise)
 		}
 
@@ -193,7 +210,8 @@ export class AxHub extends Ax {
 			await this.setDefaultProfile(id)
 		}
 
-		return toPublicProfile(doc, hasApiKey)
+		const latest = this.profiles.findOne({ id })!
+		return toPublicProfile(latest, await this.hasApiKey(id))
 	}
 
 	async updateProfile(id: AxProfileId, input: UpdateProfileInput): Promise<AxProfilePublic> {

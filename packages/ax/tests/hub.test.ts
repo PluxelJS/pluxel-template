@@ -1,0 +1,90 @@
+import '@pluxel/hmr/services'
+import { describe, expect, it } from 'bun:test'
+import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+
+import { Ax, AxHub } from '../src'
+
+@Plugin({ name: 'ToolOwner', type: 'service' })
+class ToolOwner extends BasePlugin {
+	constructor(private readonly ax: Ax) {
+		super()
+	}
+
+	registerTool(name: string) {
+		this.ax.tool({ name, description: name, parameters: { type: 'object', properties: {} }, func: async () => name } as any)
+	}
+}
+
+describe('pluxel-plugin-ax: profiles + vault + default selection', () => {
+	it('creates profiles, sets apiKey, and resolves ai()', async () => {
+		await withTestHost(async (host) => {
+			host.register(AxHub)
+			await host.commitStrict()
+
+			const hub = host.getOrThrow(AxHub)
+			const p = await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test', makeDefault: true })
+
+			expect(p.isDefault).toBe(true)
+			expect(p.hasApiKey).toBe(true)
+
+			const ai = await host.getOrThrow(Ax).ai()
+			expect(ai.getName().toLowerCase()).toBe('openai')
+		})
+	})
+
+	it('allows creating a profile without apiKey and fails ai() until apiKey is set', async () => {
+		await withTestHost(async (host) => {
+			host.register(AxHub)
+			await host.commitStrict()
+
+			const hub = host.getOrThrow(AxHub)
+			const p = await hub.createProfile({ provider: 'openai', makeDefault: true })
+			expect(p.hasApiKey).toBe(false)
+
+			await expect(host.getOrThrow(Ax).ai()).rejects.toThrow(/missing apiKey/i)
+
+			await hub.setApiKey(p.id, 'sk-test')
+			const ai = await host.getOrThrow(Ax).ai()
+			expect(ai.getName().toLowerCase()).toBe('openai')
+		})
+	})
+
+	it('moves default away when the default profile is disabled', async () => {
+		await withTestHost(async (host) => {
+			host.register(AxHub)
+			await host.commitStrict()
+
+			const hub = host.getOrThrow(AxHub)
+			const a = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true })
+			const b = await hub.createProfile({ provider: 'openai', apiKey: 'sk-b', makeDefault: false })
+
+			await hub.setDefaultProfile(b.id)
+			await hub.updateProfile(b.id, { enabled: false })
+
+			const list = await hub.listProfiles()
+			const pa = list.find((p) => p.id === a.id)!
+			const pb = list.find((p) => p.id === b.id)!
+			expect(pa.isDefault).toBe(true)
+			expect(pb.isDefault).toBe(false)
+			expect(pb.enabled).toBe(false)
+		})
+	})
+
+	it('tooling() rejects extra function name conflicts', async () => {
+		await withTestHost(async (host) => {
+			host.registerAll(AxHub, ToolOwner)
+			await host.commitStrict()
+
+			const hub = host.getOrThrow(AxHub)
+			await hub.createProfile({ provider: 'openai', apiKey: 'sk-test', makeDefault: true })
+
+			host.getOrThrow(ToolOwner).registerTool('dup')
+
+			await expect(
+				host.getOrThrow(Ax).tooling({
+					functions: [{ name: 'dup', description: 'dup', parameters: { type: 'object' }, func: async () => 'x' } as any],
+				}),
+			).rejects.toThrow(/name conflict/i)
+		})
+	})
+})

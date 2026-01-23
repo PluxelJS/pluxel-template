@@ -3,13 +3,20 @@ import type { Context } from '@pluxel/hmr'
 import { BasePlugin } from '@pluxel/hmr'
 
 import type { DocContext, ExecCtx, Executable, McpExecutable } from '@pluxel/cmd'
-import { isExecutable, isMcpExecutable } from '@pluxel/cmd'
 
 import { cmdExecutableToAxFunction } from './cmdkit'
 
 type ToolRecord = {
 	ownerKey: string
 	fn: AxFunction
+}
+
+function isExecutableLike(v: unknown): v is Executable<any, any> {
+	return !!v && typeof v === 'object' && typeof (v as any).exec === 'function'
+}
+
+function isMcpExecutableLike(v: unknown): v is McpExecutable<any, any> {
+	return isExecutableLike(v) && !!(v as any).mcp && typeof (v as any).mcp === 'object'
 }
 
 export class AxToolRegistry {
@@ -109,8 +116,7 @@ export abstract class Ax extends BasePlugin {
 		opts?: { docCtx?: DocContext; execCtx?: ExecCtx | ((args: unknown, extra: unknown) => ExecCtx | undefined) },
 	): void {
 		for (const v of Object.values(exportsObj ?? {})) {
-			if (!isExecutable(v)) continue
-			if (!isMcpExecutable(v)) continue
+			if (!isMcpExecutableLike(v)) continue
 			this.cmd(v, opts)
 		}
 	}
@@ -130,7 +136,7 @@ export abstract class Ax extends BasePlugin {
 		exec: McpExecutable<any, any> | Executable<any, any>,
 		opts?: { docCtx?: DocContext; execCtx?: ExecCtx | ((args: unknown, extra: unknown) => ExecCtx | undefined) },
 	): void {
-		if (!isMcpExecutable(exec)) {
+		if (!isMcpExecutableLike(exec)) {
 			throw new Error('[ax] cmd(): executable is missing .mcp (opt-in required)')
 		}
 		this.tool(cmdExecutableToAxFunction(exec as any, opts))
