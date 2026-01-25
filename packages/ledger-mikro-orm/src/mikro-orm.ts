@@ -1,4 +1,4 @@
-import { Config, Plugin, setParamToken } from '@pluxel/hmr'
+import { type Config, Plugin, setParamToken } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { Ledger, type LedgerDriver } from 'pluxel-plugin-ledger'
 import { MikroOrm } from 'pluxel-plugin-mikro-orm'
@@ -254,8 +254,7 @@ function applyTransferToAccountState(
 
 @Plugin(Ledger, { name: 'MikroORM', type: 'service' })
 export class LedgerMikroOrm extends Ledger {
-	@Config(LedgerMikroOrmConfigSchema)
-	private config!: LedgerMikroOrmConfig
+	private config: LedgerMikroOrmConfig = this.configs.use(LedgerMikroOrmConfigSchema)
 
 	constructor(private readonly mikro: MikroOrm) {
 		super()

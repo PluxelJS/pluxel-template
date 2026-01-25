@@ -5,7 +5,7 @@ Ax LLM service plugin for the Pluxel/HMR runtime.
 Design:
 - Provider profiles are data-driven (pluginData) and API keys live in Vault.
 - Other plugins can register reusable Ax tools, and can bridge cmdkit MCP tools (`exec.mcp`) into Ax functions.
-- UI is optional but included for managing profiles (no hard-coded `@Config` provider settings).
+- UI is optional but included for managing profiles (no hard-coded config provider settings).
 
 ## Quick usage
 

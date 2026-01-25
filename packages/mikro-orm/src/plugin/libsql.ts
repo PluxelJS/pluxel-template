@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { EntitySchema, MikroORM } from '@mikro-orm/core'
-import { Config, Plugin } from '@pluxel/hmr'
+import { type Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { MikroOrm, MikroOrmProvider } from './core.js'
 
@@ -31,8 +31,7 @@ async function importLibsqlOrm() {
 
 @Plugin(MikroOrm, { name: 'MikroOrm', type: 'service' })
 export class MikroOrmLibsql extends MikroOrmProvider<MikroOrmLibsqlConfig> {
-	@Config(MikroOrmConfigSchema)
-	private config!: MikroOrmLibsqlConfig
+	private config: MikroOrmLibsqlConfig = this.configs.use(MikroOrmConfigSchema)
 
 	protected override readConfig(): MikroOrmLibsqlConfig {
 		return this.config
@@ -40,7 +39,7 @@ export class MikroOrmLibsql extends MikroOrmProvider<MikroOrmLibsqlConfig> {
 
 	protected override async createOrm(
 		config: MikroOrmLibsqlConfig,
-		entities: EntitySchema<any>[],
+		entities: EntitySchema<object>[],
 	): Promise<MikroORM> {
 		const { MikroORM } = await importLibsqlOrm()
 		const dbName = resolveDbName(config.dbName)
@@ -79,7 +78,11 @@ function resolveDbName(dbName: string): string {
 	// 对相对路径做 normalize，避免 cwd 变化带来的问题
 	if (dbName === ':memory:') return dbName
 	// 远端 libsql 以及 http(s) 直连都保留原值
-	if (dbName.startsWith('libsql:') || dbName.startsWith('http://') || dbName.startsWith('https://')) {
+	if (
+		dbName.startsWith('libsql:') ||
+		dbName.startsWith('http://') ||
+		dbName.startsWith('https://')
+	) {
 		return dbName
 	}
 

@@ -1,4 +1,4 @@
-import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
+import { BasePlugin, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import wretch, { type Wretch } from 'wretch'
 import AbortAddon from 'wretch/addons/abort'
@@ -42,9 +42,9 @@ const ProxyCfg = v.object({
 
 @Plugin({ name: 'Wretch', type: 'service' })
 export class WretchPlugin extends BasePlugin {
-	@Config(CoreCfg) private core!: v.InferOutput<typeof CoreCfg>
-	@Config(HeadersCfg) private header!: v.InferOutput<typeof HeadersCfg>
-	@Config(ProxyCfg) private proxy!: v.InferOutput<typeof ProxyCfg>
+	private core: v.InferOutput<typeof CoreCfg> = this.configs.use(CoreCfg)
+	private header: v.InferOutput<typeof HeadersCfg> = this.configs.use(HeadersCfg)
+	private proxy: v.InferOutput<typeof ProxyCfg> = this.configs.use(ProxyCfg)
 
 	public client!: HttpClient
 

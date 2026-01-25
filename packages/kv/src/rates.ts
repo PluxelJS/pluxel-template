@@ -1,7 +1,10 @@
-import { BasePlugin, Config, Plugin, pluginMethodDecorator } from '@pluxel/hmr'
+import { BasePlugin, type Config, Plugin, pluginMethodDecorator } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { Kv } from './core.js'
 import type { KvScopeKey } from './types.js'
+
+// Ensure `emitDecoratorMetadata` can see the runtime class for DI (avoid resolving to `Object`).
+void Kv
 
 export const RatesConfigSchema = v.object({
 	/** Key namespace inside the caller scope. */
@@ -94,10 +97,14 @@ export class RateLimitError extends Error {
 }
 
 export function isRateLimitError(err: unknown): err is RateLimitError {
-	return !!(err && typeof err === 'object' && (err as any)[RATE_LIMIT_ERROR])
+	return !!(
+		err &&
+		typeof err === 'object' &&
+		(err as { [RATE_LIMIT_ERROR]?: unknown })[RATE_LIMIT_ERROR]
+	)
 }
 
-export type RateGuardOptions<Self, Args extends any[]> = {
+export type RateGuardOptions<Self, Args extends unknown[]> = {
 	/**
 	 * The rate limit policy.
 	 * You can provide a function if it depends on args (e.g. per-plan limits).
@@ -131,14 +138,13 @@ type TokenBucketState = { tokens: number; ts: number }
  */
 @Plugin({ name: 'Rates', type: 'service' })
 export class Rates extends BasePlugin {
-	@Config(RatesConfigSchema)
-	private config!: RatesConfig
+	private config: RatesConfig = this.configs.use(RatesConfigSchema)
 
 	constructor(private kv: Kv) {
 		super()
 	}
 
-	private inflight = new Map<string, Promise<any>>()
+	private inflight = new Map<string, Promise<unknown>>()
 
 	private coalesce<T>(key: string, run: () => Promise<T>): Promise<T> {
 		const existing = this.inflight.get(key) as Promise<T> | undefined
@@ -300,6 +306,7 @@ export class Rates extends BasePlugin {
 	}
 }
 
+// biome-ignore lint/style/noDefaultExport: keep compatibility with existing default import users
 export default Rates
 
 /**
@@ -328,42 +335,48 @@ export default Rates
  * }
  * ```
  */
-export function RateGuard<Self, Args extends any[]>(
+export function RateGuard<Self, Args extends unknown[]>(
 	options: RateGuardOptions<Self, Args>,
 ): MethodDecorator {
-	return pluginMethodDecorator(Rates, async function (original, rates: Rates, key, ...args: any[]) {
-		const typedArgs = args as unknown as Args
-		const method = String(key)
-		const rule =
-			typeof options.rule === 'function'
-				? options.rule(this as any, typedArgs, method)
-				: options.rule
-		const parts = options.parts(this as any, typedArgs, method)
-		const scopeKey =
-			typeof options.scopeKey === 'function'
-				? options.scopeKey(this as any, typedArgs, method)
-				: options.scopeKey
+	type WithCtx = { ctx?: { pluginInfo?: { id?: unknown } } }
 
-		// Avoid object spreading/allocation on hot path: call the concrete method directly.
-		const decision =
-			rule.type === 'cooldown'
-				? await rates.cooldown(parts, rule.ttlMs, scopeKey)
-				: rule.type === 'fixed'
-					? await rates.fixedWindow(parts, rule.periodMs, rule.limit, scopeKey)
-					: await rates.tokenBucket(parts, rule.cap, rule.refillPerSec, rule.cost ?? 1, scopeKey)
-		if (!decision.ok) {
-			const callerId = (this as any)?.ctx?.pluginInfo?.id
-			throw new RateLimitError({
-				source: 'kv',
-				decision,
-				rule,
-				parts,
-				scopeKey,
-				callerId,
-				method,
-			})
-		}
+	return pluginMethodDecorator(
+		Rates,
+		async function (original, rates: Rates, key, ...args: unknown[]) {
+			const typedArgs = args as unknown as Args
+			const method = String(key)
+			const rule =
+				typeof options.rule === 'function'
+					? options.rule(this as unknown as Self, typedArgs, method)
+					: options.rule
+			const parts = options.parts(this as unknown as Self, typedArgs, method)
+			const scopeKey =
+				typeof options.scopeKey === 'function'
+					? options.scopeKey(this as unknown as Self, typedArgs, method)
+					: options.scopeKey
 
-		return await original.apply(this, typedArgs)
-	})
+			// Avoid object spreading/allocation on hot path: call the concrete method directly.
+			const decision =
+				rule.type === 'cooldown'
+					? await rates.cooldown(parts, rule.ttlMs, scopeKey)
+					: rule.type === 'fixed'
+						? await rates.fixedWindow(parts, rule.periodMs, rule.limit, scopeKey)
+						: await rates.tokenBucket(parts, rule.cap, rule.refillPerSec, rule.cost ?? 1, scopeKey)
+			if (!decision.ok) {
+				const callerIdRaw = (this as unknown as WithCtx)?.ctx?.pluginInfo?.id
+				const callerId = callerIdRaw == null ? undefined : String(callerIdRaw)
+				throw new RateLimitError({
+					source: 'kv',
+					decision,
+					rule,
+					parts,
+					scopeKey,
+					callerId,
+					method,
+				})
+			}
+
+			return await original.apply(this, typedArgs)
+		},
+	)
 }

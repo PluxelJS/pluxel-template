@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { BasePlugin, Plugin } from '@pluxel/core'
-import { Config as UseConfig, type Config as InferConfig } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { Collection } from '@pluxel/hmr/signaldb'
 import type { SseChannel } from '@pluxel/hmr/services'
@@ -23,7 +22,7 @@ const CfgSchema = v.object({
   fontDirs: v.optional(v.array(v.string()), []),
 })
 
-type PluginConfig = InferConfig<typeof CfgSchema>
+type PluginConfig = v.InferOutput<typeof CfgSchema>
 type FontSourceType = 'dir' | 'file'
 type FontOrigin = 'config' | 'user' | 'system'
 type FontStatus = 'ok' | 'skipped' | 'error'
@@ -74,8 +73,7 @@ export type FontFamilyInfo = {
 
 @Plugin({ name: 'FontManager', type: 'service' })
 export class FontManager extends BasePlugin {
-  @UseConfig(CfgSchema)
-  private config!: PluginConfig
+  private config: PluginConfig = this.configs.use(CfgSchema)
 
   private activity!: Collection<FontActivity, string, FontActivity>
   private preferences!: Collection<FontPreference, string, FontPreference>

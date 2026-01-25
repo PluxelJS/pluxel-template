@@ -1,4 +1,4 @@
-import { Config, Plugin } from '@pluxel/hmr'
+import { type Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { createClient, type Client as TigerBeetleClient } from 'tigerbeetle-node'
 import { Ledger, type LedgerDriver } from './core.js'
@@ -19,8 +19,7 @@ type ResolvedConfig = {
 
 @Plugin(Ledger, { name: 'TigerBeetle', type: 'service' })
 export class LedgerTigerBeetle extends Ledger {
-	@Config(LedgerTigerBeetleConfigSchema)
-	private config!: LedgerTigerBeetleConfig
+	private config: LedgerTigerBeetleConfig = this.configs.use(LedgerTigerBeetleConfigSchema)
 
 	private resolved: ResolvedConfig | undefined
 	private client: TigerBeetleClient | undefined

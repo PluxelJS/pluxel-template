@@ -1,4 +1,4 @@
-import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
+import { BasePlugin, Plugin, type Config } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import * as echarts from 'echarts'
 import fs from 'node:fs'
@@ -56,8 +56,7 @@ function ensurePlatform() {
 
 @Plugin({ name: 'echarts' })
 export class Echarts extends BasePlugin {
-  @Config(CfgSchema)
-  private config!: PluginConfig
+  private config: PluginConfig = this.configs.use(CfgSchema)
 
   constructor(private readonly fontManager: FontManager) {
     super()

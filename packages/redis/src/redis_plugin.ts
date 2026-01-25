@@ -1,6 +1,6 @@
-import Redis, { type RedisOptions } from 'ioredis'
-import { Config, Plugin } from '@pluxel/hmr'
+import { type Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
+import Redis, { type RedisOptions } from 'ioredis'
 import { Kv, type KvDriver, type KvDriverSetOptions, type KvValue } from 'pluxel-plugin-kv'
 
 export const RedisConfigSchema = v.object({
@@ -40,8 +40,7 @@ export type RedisSession = {
  */
 @Plugin(Kv, { name: 'Redis', type: 'service' })
 export class RedisPlugin extends Kv {
-	@Config(RedisConfigSchema)
-	private config!: RedisConfig
+	private config: RedisConfig = this.configs.use(RedisConfigSchema)
 
 	private parsed:
 		| {
@@ -136,13 +135,16 @@ export class RedisPlugin extends Kv {
 		const fromRedisKey = (key: string) =>
 			key.startsWith(this.keyPrefix) ? key.slice(this.keyPrefix.length) : key
 
-		const scanKeys = async (base: string = ''): Promise<string[]> => {
+		const scanKeys = async (base = ''): Promise<string[]> => {
 			const pattern = `${this.keyPrefix}${base}*`
 			const out = new Set<string>()
 			await this.use(async ({ raw }) => {
 				let cursor = '0'
 				do {
-					const res = (await raw.scan(cursor, 'MATCH', pattern, 'COUNT', '1000')) as [string, string[]]
+					const res = (await raw.scan(cursor, 'MATCH', pattern, 'COUNT', '1000')) as [
+						string,
+						string[],
+					]
 					cursor = res[0]
 					for (const key of res[1]) {
 						if (key.endsWith('$')) continue
@@ -203,6 +205,7 @@ export class RedisPlugin extends Kv {
 	}
 }
 
+// biome-ignore lint/style/noDefaultExport: keep compatibility with existing default import users
 export default RedisPlugin
 
 function normalizeKeyPrefix(prefix: unknown): string {

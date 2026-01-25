@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
+import { BasePlugin, Plugin, type Config } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import Tinypool from 'tinypool'
 import FontManager from 'pluxel-plugin-font-manager'
@@ -69,8 +69,7 @@ function resolveWorkerEntrypoint(): string {
 
 @Plugin({ name: 'CanvasWorker', type: 'service' })
 export class CanvasWorker extends BasePlugin {
-  @Config(CfgSchema)
-  private config!: Config<typeof CfgSchema>
+  private config: Config<typeof CfgSchema> = this.configs.use(CfgSchema)
 
   private pool: Tinypool | null = null
   private poolInitPromise: Promise<void> | null = null

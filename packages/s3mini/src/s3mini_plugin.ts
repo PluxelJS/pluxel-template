@@ -1,6 +1,6 @@
-import { BasePlugin, Config, Plugin } from '@pluxel/hmr'
+import { BasePlugin, type Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
-import { S3mini, type AWSHeaders, type ExistResponseCode, type Logger, type S3Config } from 's3mini'
+import { type AWSHeaders, type ExistResponseCode, type Logger, type S3Config, S3mini } from 's3mini'
 
 export type { AWSHeaders, ExistResponseCode, Logger, S3Config }
 export { S3mini }
@@ -141,8 +141,7 @@ type ResolvedConfig = {
 
 @Plugin({ name: 'S3Mini', type: 'service' })
 export class S3MiniPlugin extends BasePlugin {
-	@Config(S3MiniPluginConfigSchema)
-	private config!: S3MiniPluginConfig
+	private config: S3MiniPluginConfig = this.configs.use(S3MiniPluginConfigSchema)
 
 	private resolved: ResolvedConfig | undefined
 	private client: S3mini | undefined
@@ -206,7 +205,8 @@ export class S3MiniPlugin extends BasePlugin {
 			prefix,
 			objectKey,
 			publicURL,
-			getText: async (k: string, opts?: Record<string, unknown>) => await s3.getObject(objectKey(k), opts),
+			getText: async (k: string, opts?: Record<string, unknown>) =>
+				await s3.getObject(objectKey(k), opts),
 			getJSON: async <T = unknown>(k: string, opts?: Record<string, unknown>) =>
 				await s3.getObjectJSON<T>(objectKey(k), opts),
 			getArrayBuffer: async (k: string, opts?: Record<string, unknown>) =>
@@ -298,8 +298,8 @@ export class S3MiniPlugin extends BasePlugin {
 	private ensureResolved(): ResolvedConfig {
 		if (this.resolved) return this.resolved
 		// NOTE:
-		// - 在 HMR runtime 中，PluginRegistry 会基于 @Config schema 校验并补齐默认值；
-		// - 这里直接使用注入后的 output，避免重复 parse + 类型断言。
+		// - 在 HMR runtime 中，PluginRegistry 会基于 `configs.use(schema)` 注册的 schema 校验并补齐默认值；
+		// - 这里直接使用 output，避免重复 parse + 类型断言。
 		const cfg = this.config
 
 		const { accessKeyId, secretAccessKey } = resolveCredentials(cfg)

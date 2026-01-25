@@ -1,7 +1,10 @@
-import { BasePlugin, Config, Plugin, pluginMethodDecorator } from '@pluxel/hmr'
+import { BasePlugin, type Config, Plugin, pluginMethodDecorator } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
+import { type RateDecision, RateLimitError, type RateParts, type RateRule } from 'pluxel-plugin-kv'
 import { RedisPlugin, type RedisSession } from './redis_plugin.js'
-import { RateLimitError, type RateDecision, type RateParts, type RateRule } from 'pluxel-plugin-kv'
+
+// Ensure `emitDecoratorMetadata` can see the runtime class for DI (avoid resolving to `Object`).
+void RedisPlugin
 
 export const RedisRatesConfigSchema = v.object({
 	/** Redis key namespace prefix. */
@@ -95,8 +98,7 @@ end
  */
 @Plugin({ name: 'RedisRates', type: 'service' })
 export class RedisRates extends BasePlugin {
-	@Config(RedisRatesConfigSchema)
-	private config!: RedisRatesConfig
+	private config: RedisRatesConfig = this.configs.use(RedisRatesConfigSchema)
 
 	constructor(private redis: RedisPlugin) {
 		super()
@@ -152,8 +154,8 @@ export class RedisRates extends BasePlugin {
 		const script = this.scripts[which]
 		try {
 			return await this.redis.use((c) => run(c, script.sha))
-		} catch (e: any) {
-			const msg = String(e?.message || e)
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e)
 			if (!msg.includes('NOSCRIPT')) throw e
 			this.ctx.logger.info('NOSCRIPT -> reload ({which})', { which })
 			await this.redis.use(async (c) => {
@@ -164,7 +166,11 @@ export class RedisRates extends BasePlugin {
 	}
 
 	/** Cooldown: ok -> `{ok:true}`; blocked -> `{ok:false,retryAfterMs}` */
-	async cooldown(parts: Array<string | number>, ttlMs: number, scopeKey?: string): Promise<RateDecision> {
+	async cooldown(
+		parts: Array<string | number>,
+		ttlMs: number,
+		scopeKey?: string,
+	): Promise<RateDecision> {
 		await this.ensureScripts()
 		const k = this.key('cool', parts, scopeKey)
 		const r = await this.evalShaWithReload<number>('cooldown', (c, sha) =>
@@ -230,7 +236,13 @@ export class RedisRates extends BasePlugin {
 			| { type: 'cooldown'; parts: Array<string | number>; ttlMs: number }
 			| { type: 'fixed'; parts: Array<string | number>; periodMs: number; limit: number }
 			| { type: 'sliding'; parts: Array<string | number>; windowMs: number; limit: number }
-			| { type: 'token'; parts: Array<string | number>; cap: number; refillPerSec: number; cost?: number },
+			| {
+					type: 'token'
+					parts: Array<string | number>
+					cap: number
+					refillPerSec: number
+					cost?: number
+			  },
 		scopeKey?: string,
 	): Promise<RateDecision> {
 		switch (opts.type) {
@@ -241,14 +253,21 @@ export class RedisRates extends BasePlugin {
 			case 'sliding':
 				return await this.slidingWindow(opts.parts, opts.windowMs, opts.limit, scopeKey)
 			case 'token':
-				return await this.tokenBucket(opts.parts, opts.cap, opts.refillPerSec, opts.cost ?? 1, scopeKey)
+				return await this.tokenBucket(
+					opts.parts,
+					opts.cap,
+					opts.refillPerSec,
+					opts.cost ?? 1,
+					scopeKey,
+				)
 		}
 	}
 }
 
+// biome-ignore lint/style/noDefaultExport: keep compatibility with existing default import users
 export default RedisRates
 
-export type RedisRateGuardOptions<Self, Args extends any[]> = {
+export type RedisRateGuardOptions<Self, Args extends unknown[]> = {
 	rule: RateRule | ((self: Self, args: Args, method: string) => RateRule)
 	parts: (self: Self, args: Args, method: string) => RateParts
 	scopeKey?: string | ((self: Self, args: Args, method: string) => string)
@@ -271,42 +290,56 @@ export type RedisRateGuardOptions<Self, Args extends any[]> = {
  * }
  * ```
  */
-export function RateGuard<Self, Args extends any[]>(
+export function RateGuard<Self, Args extends unknown[]>(
 	options: RedisRateGuardOptions<Self, Args>,
 ): MethodDecorator {
-	return pluginMethodDecorator(RedisRates, async function (original, rates: RedisRates, key, ...args: any[]) {
-		const typedArgs = args as unknown as Args
-		const method = String(key)
-		const rule =
-			typeof options.rule === 'function' ? options.rule(this as any, typedArgs, method) : options.rule
-		const parts = options.parts(this as any, typedArgs, method)
-		const scopeKey =
-			typeof options.scopeKey === 'function'
-				? options.scopeKey(this as any, typedArgs, method)
-				: options.scopeKey
+	type WithCtx = { ctx?: { pluginInfo?: { id?: unknown } } }
 
-		// Avoid object spreading/allocation on hot path: call the concrete method directly.
-		const decision =
-			rule.type === 'cooldown'
-				? await rates.cooldown(parts, rule.ttlMs, scopeKey)
-				: rule.type === 'fixed'
-					? await rates.fixedWindow(parts, rule.periodMs, rule.limit, scopeKey)
-					: rule.type === 'sliding'
-						? await rates.slidingWindow(parts, rule.windowMs, rule.limit, scopeKey)
-						: await rates.tokenBucket(parts, rule.cap, rule.refillPerSec, rule.cost ?? 1, scopeKey)
-		if (!decision.ok) {
-			const callerId = (this as any)?.ctx?.pluginInfo?.id
-			throw new RateLimitError({
-				source: 'redis',
-				decision,
-				rule,
-				parts,
-				scopeKey,
-				callerId,
-				method,
-			})
-		}
+	return pluginMethodDecorator(
+		RedisRates,
+		async function (original, rates: RedisRates, key, ...args: unknown[]) {
+			const typedArgs = args as unknown as Args
+			const method = String(key)
+			const rule =
+				typeof options.rule === 'function'
+					? options.rule(this as unknown as Self, typedArgs, method)
+					: options.rule
+			const parts = options.parts(this as unknown as Self, typedArgs, method)
+			const scopeKey =
+				typeof options.scopeKey === 'function'
+					? options.scopeKey(this as unknown as Self, typedArgs, method)
+					: options.scopeKey
 
-		return await original.apply(this, typedArgs)
-	})
+			// Avoid object spreading/allocation on hot path: call the concrete method directly.
+			const decision =
+				rule.type === 'cooldown'
+					? await rates.cooldown(parts, rule.ttlMs, scopeKey)
+					: rule.type === 'fixed'
+						? await rates.fixedWindow(parts, rule.periodMs, rule.limit, scopeKey)
+						: rule.type === 'sliding'
+							? await rates.slidingWindow(parts, rule.windowMs, rule.limit, scopeKey)
+							: await rates.tokenBucket(
+									parts,
+									rule.cap,
+									rule.refillPerSec,
+									rule.cost ?? 1,
+									scopeKey,
+								)
+			if (!decision.ok) {
+				const callerIdRaw = (this as unknown as WithCtx)?.ctx?.pluginInfo?.id
+				const callerId = callerIdRaw == null ? undefined : String(callerIdRaw)
+				throw new RateLimitError({
+					source: 'redis',
+					decision,
+					rule,
+					parts,
+					scopeKey,
+					callerId,
+					method,
+				})
+			}
+
+			return await original.apply(this, typedArgs)
+		},
+	)
 }
