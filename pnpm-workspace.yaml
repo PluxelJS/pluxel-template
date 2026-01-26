@@ -1,7 +1,9 @@
 packages:
   - packages/**
+  - plugins/*
+  - builtin-plugins/*
   # vendored/bundled packages (not real workspaces)
-  - '!packages/napi-rs/*__*'
+  - '!plugins/napi-rs/*__*'
   - render-plugins/*
   - chatbots/**
 

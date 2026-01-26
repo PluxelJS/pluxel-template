@@ -4,16 +4,26 @@ import { fileURLToPath } from 'node:url'
 
 import { Context } from '@pluxel/hmr'
 import { LogtapeLoggerService } from '@pluxel/hmr/services'
+import { GraphQLPlugin } from '@pluxel/graphql'
 import Macro from "unplugin-macros/vite"
 import { partsTransformVitePlugin } from 'pluxel-plugin-bot-core/parts/rolldown'
+import { WretchPlugin } from '@pluxel/wretch'
 
-const logsDir = join(dirname(fileURLToPath(import.meta.url)), './logs')
+if (process.env.PLUXEL_HMR_SSR === undefined) process.env.PLUXEL_HMR_SSR = 'true'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const root = join(here, '..')
+const logsDir = join(root, 'logs')
 await mkdir(logsDir, { recursive: true })
 
 const ctx = new Context({
 	debug: ['pluxel:hmr:*'],
 	hmrService: {
-		dir: ['./src/ui-plugins', '.'],
+		// Scan workspace plugin entrypoints (chatbots, render-plugins, etc).
+		// Builtin plugins are loaded via `builtins` to avoid relying on scanning.
+		dir: [join(root, 'chatbots'), join(root, 'render-plugins'), join(root, 'plugins'), join(root, '.') ],
+		coldStart: 'background',
+		builtins: [GraphQLPlugin, WretchPlugin],
 		vitePlugins: [Macro() as any, partsTransformVitePlugin()],
 		deps: {
 			cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
@@ -29,6 +39,4 @@ const ctx = new Context({
 })
 
 await ctx.hmrService.start()
-ctx.honoService.modifyApp((app) => {
-	app.get('/pluginadd', (c) => c.text('lastone'))
-})
+ctx.logger.info`HMR host ready`

@@ -1,0 +1,14 @@
+import { defineConfig } from 'tsdown'
+
+export default defineConfig({
+	entry: './src/index.ts',
+	dts: {
+		sourcemap: true,
+	},
+	format: ['esm'],
+	clean: true,
+	minify: true,
+	treeshake: true,
+	// 供 pluxel-cli build 覆盖
+	external: [],
+})
