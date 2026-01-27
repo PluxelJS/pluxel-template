@@ -13,9 +13,10 @@ const { ctx } = await startHmrHost({
 	},
 	builtins: [GraphQL, Wretch],
 	vitePlugins: [Macro() as any, partsTransformVitePlugin()],
-	deps: {
-		cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
-	},
+	// If the host imports builtins from compiled `dist/` (Node), but the runner would resolve `@pluxel/hmr`
+	// to TS sources, we must bridge them so DI tokens (ctors) match across host/runner.
+	deps: { bridgeModules: ['@pluxel/graphql', '@pluxel/wretch'] },
+	cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
 	registry: {
 		pluginCTXIsolate: [LogtapeLoggerService],
 	},
