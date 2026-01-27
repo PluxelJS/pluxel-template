@@ -5,7 +5,8 @@
 	"version": "0.1.0",
 	"description": "使用 HMR 管理插件的运行时，让 HMR Build 后以提升加载速度。",
 	"scripts": {
-		"dev": "node --conditions=@pluxel/hmr src/index.ts",
+		"bootstrap": "sh ./scripts/bootstrap.sh",
+		"dev": "pnpm --filter @pluxel/graphql --filter @pluxel/wretch build && node src/index.ts",
 		"build": "turbo build",
 		"publish": "turbo publish",
 		"new": "pluxel new plugin",

@@ -90,3 +90,6 @@ export class WretchPlugin extends ForkablePlugin {
 		return this.clients.get(resolved) ?? this.clients.get('default')!
 	}
 }
+
+// biome-ignore lint/style/noDefaultExport: plugin ctors are intentionally default-exported for ergonomic host imports.
+export default WretchPlugin

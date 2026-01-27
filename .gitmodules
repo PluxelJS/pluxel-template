@@ -1,0 +1,3 @@
+[submodule "chatbots"]
+	path = chatbots
+	url = https://github.com/ahdg6/chatbots.git
