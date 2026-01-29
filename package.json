@@ -16,7 +16,8 @@
 		"@gqty/react": "^3.1.1",
 		"@pluxel/cli": "link:../pluxel/packages/cli",
 		"@pluxel/core": "link:../pluxel/packages/core",
-		"@pluxel/hmr": "link:../pluxel/packages/hmr"
+		"@pluxel/hmr": "link:../pluxel/packages/hmr",
+		"drizzle-orm": "^0.44.7"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.12",
