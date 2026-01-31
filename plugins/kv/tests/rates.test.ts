@@ -1,26 +1,25 @@
 import { describe, expect, it } from 'bun:test'
 import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
 
-import { isRateLimitError, KvMemory, RateGuard, Rates } from '../src/index'
+import { isRateLimitError, Kv, KvMemory, RateGuard } from '../src/index'
 
 const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
-describe('pluxel-plugin-kv (Rates)', () => {
+describe('pluxel-plugin-kv (kv.rates)', () => {
 	it('cooldown blocks and then allows after ttl', async () => {
 		await withTestHost(async (host) => {
 			@Plugin({ name: 'Foo', type: 'service' })
 			class Foo extends BasePlugin {
-				constructor(private readonly rates: Rates) {
+				constructor(private readonly kv: Kv) {
 					super()
 				}
 
 				async login(userId: string) {
-					return await this.rates.cooldown(['login', userId], 30)
+					return await this.kv.rates.cooldown(['login', userId], 30)
 				}
 			}
 
-			host.registerAll(KvMemory, Rates, Foo)
-			host.setConfig('Rates', { config: {} })
+			host.registerAll(KvMemory, Foo)
 			await host.commitStrict()
 
 			const foo = host.getOrThrow(Foo)
@@ -39,16 +38,15 @@ describe('pluxel-plugin-kv (Rates)', () => {
 		await withTestHost(async (host) => {
 			@Plugin({ name: 'Foo', type: 'service' })
 			class Foo extends BasePlugin {
-				constructor(private readonly rates: Rates) {
+				constructor(private readonly kv: Kv) {
 					super()
 				}
 				async hit(userId: string) {
-					return await this.rates.fixedWindow(['hit', userId], 60, 2)
+					return await this.kv.rates.fixedWindow(['hit', userId], 60, 2)
 				}
 			}
 
-			host.registerAll(KvMemory, Rates, Foo)
-			host.setConfig('Rates', { config: {} })
+			host.registerAll(KvMemory, Foo)
 			await host.commitStrict()
 
 			const foo = host.getOrThrow(Foo)
@@ -65,7 +63,7 @@ describe('pluxel-plugin-kv (Rates)', () => {
 		await withTestHost(async (host) => {
 			@Plugin({ name: 'Foo', type: 'service' })
 			class Foo extends BasePlugin {
-				constructor(private readonly rates: Rates) {
+				constructor(private readonly kv: Kv) {
 					super()
 				}
 
@@ -78,8 +76,7 @@ describe('pluxel-plugin-kv (Rates)', () => {
 				}
 			}
 
-			host.registerAll(KvMemory, Rates, Foo)
-			host.setConfig('Rates', { config: {} })
+			host.registerAll(KvMemory, Foo)
 			await host.commitStrict()
 
 			const foo = host.getOrThrow(Foo)

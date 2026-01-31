@@ -2,6 +2,7 @@ import { type Config, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import Redis, { type RedisOptions } from 'ioredis'
 import { Kv, type KvDriver, type KvDriverSetOptions, type KvValue } from 'pluxel-plugin-kv'
+import { getRedisRates, type RedisRates, type RedisRatesHost } from './redis_rates_impl.js'
 
 export const RedisConfigSchema = v.object({
 	/** Connection URL: redis://localhost:6379/0 */
@@ -52,6 +53,16 @@ export class RedisPlugin extends Kv {
 	private client: Redis | undefined
 	private session: RedisSession | undefined
 	private kvDriver: KvDriver | undefined
+
+	__ratesRoot(): { use: RedisRatesHost['use']; ctx: RedisRatesHost['ctx'] } {
+		const proto = Object.getPrototypeOf(this) as unknown
+		// When injected as a dep, `this` is a caller-injected view and its prototype is the root instance.
+		return proto instanceof RedisPlugin ? (proto as RedisPlugin) : this
+	}
+
+	override get rates(): RedisRates {
+		return getRedisRates(this as unknown as RedisRatesHost)
+	}
 
 	private ensureConfig(): { url?: string; keyPrefix: string; lazyConnect: boolean } {
 		if (this.parsed) return this.parsed

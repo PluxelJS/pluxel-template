@@ -5,7 +5,7 @@ Redis client service plugin (ioredis).
 ## What you get
 
 - `RedisPlugin`: a Redis client service that also provides the `Kv` token (Redis-backed KV).
-- `RedisRates`: Redis-only Lua rate-limit primitives (scripts + NOSCRIPT reload).
+- `redis.rates`: Redis-only Lua rate-limit primitives (scripts + NOSCRIPT reload).
 
 ## Register
 
@@ -59,14 +59,14 @@ export class Scripts extends BasePlugin {
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
-import { RedisRates } from 'pluxel-plugin-redis'
+import { RedisPlugin } from 'pluxel-plugin-redis'
 
 @Plugin({ name: 'Foo' })
 export class Foo extends BasePlugin {
-  constructor(private rates: RedisRates) { super() }
+  constructor(private redis: RedisPlugin) { super() }
 
   async login(userId: string) {
-    const r = await this.rates.cooldown(['login', userId], 10_000)
+    const r = await this.redis.rates.cooldown(['login', userId], 10_000)
     if (!r.ok) return { ok: false, retryAfterMs: r.retryAfterMs }
     return { ok: true }
   }
@@ -80,18 +80,16 @@ Notes:
 
 ## RateGuard decorator (throws)
 
-`pluxel-plugin-redis` also exports a `RateGuard(...)` decorator bound to `RedisRates` (supports `sliding`).
+`pluxel-plugin-redis` also exports a `RateGuard(...)` decorator that uses `redis.rates` (supports `sliding`).
 It runs the original method when allowed, and throws a `RateLimitError` when blocked.
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
-import { RedisRates, RateGuard } from 'pluxel-plugin-redis'
+import { RateGuard } from 'pluxel-plugin-redis'
 import { isRateLimitError } from 'pluxel-plugin-kv'
 
 @Plugin({ name: 'Foo' })
 export class Foo extends BasePlugin {
-  constructor(private rates: RedisRates) { super() }
-
   @RateGuard({
     rule: { type: 'sliding', windowMs: 10_000, limit: 5 },
     parts: (_self, [userId]) => ['login', userId],

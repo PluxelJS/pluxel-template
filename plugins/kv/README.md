@@ -71,20 +71,21 @@ export class Foo extends BasePlugin {
 
 ## Rates (best-effort)
 
-This package also ships a KV-backed `Rates` service for lightweight, best-effort limits.
+This package also ships a KV-backed rates helper for lightweight, best-effort limits:
+`kv.rates`.
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
-import { Rates } from 'pluxel-plugin-kv'
+import { Kv } from 'pluxel-plugin-kv'
 
 @Plugin({ name: 'Foo' })
 export class Foo extends BasePlugin {
-  constructor(private rates: Rates) {
+  constructor(private kv: Kv) {
     super()
   }
 
   async login(userId: string) {
-    const r = await this.rates.cooldown(['login', userId], 10_000)
+    const r = await this.kv.rates.cooldown(['login', userId], 10_000)
     if (!r.ok) return { ok: false, retryAfterMs: r.retryAfterMs }
     return { ok: true }
   }
@@ -95,20 +96,19 @@ Notes:
 - This is not strictly distributed-safe (KV read-modify-write is not atomic across processes).
 - Works without backend TTL, but TTL is used for cleanup when available.
 - Limits are isolated by caller plugin id by default (built on KV scopes).
-- There is no `slidingWindow` here by design; use `RedisRates.slidingWindow()` if you need that policy.
+- There is no `slidingWindow` here by design; use `redis.rates.slidingWindow()` if you need that policy.
 
 ## RateGuard decorator (throws)
 
 `@RateGuard(...)` runs the original method when allowed, and throws a `RateLimitError` when blocked.
+It uses `kv.rates` under the hood.
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
-import { Rates, RateGuard, isRateLimitError } from 'pluxel-plugin-kv'
+import { RateGuard, isRateLimitError } from 'pluxel-plugin-kv'
 
 @Plugin({ name: 'Foo' })
 export class Foo extends BasePlugin {
-  constructor(private rates: Rates) { super() }
-
   @RateGuard({
     rule: { type: 'cooldown', ttlMs: 10_000 },
     parts: (_self, [userId]) => ['login', userId],

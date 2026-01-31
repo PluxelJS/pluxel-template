@@ -1,6 +1,7 @@
 import { BasePlugin } from '@pluxel/hmr'
 import { kvCached, type KvCachedOptions } from './cache.js'
 import type { KvDriverSetOptions, KvScopeKey, KvSetOptions, KvValue } from './types.js'
+import { getKvRates, KV_RATES, type KvRates, type RatesApi } from './kv_rates.js'
 
 export type { KvDriverSetOptions, KvScopeKey, KvSetOptions, KvValue } from './types.js'
 
@@ -63,6 +64,11 @@ export interface KvScope {
 export abstract class Kv extends BasePlugin {
 	/** Backend driver. */
 	protected abstract driver(): KvDriver
+
+	/** Best-effort rates helper (caller-scoped by default). */
+	get rates(): RatesApi {
+		return getKvRates(this)
+	}
 
 	/**
 	 * In-flight de-duplication of *identical* operations.
@@ -222,6 +228,8 @@ export abstract class Kv extends BasePlugin {
 	}
 
 	protected override async stop(_abort: AbortSignal): Promise<void> {
+		const rates = (this as unknown as Record<symbol, unknown>)[KV_RATES] as KvRates | undefined
+		rates?.dispose()
 		this.inflight.clear()
 		this.scopes.clear()
 	}

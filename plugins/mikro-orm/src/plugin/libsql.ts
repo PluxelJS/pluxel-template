@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { EntitySchema, MikroORM } from '@mikro-orm/core'
-import { type Config, Plugin } from '@pluxel/hmr'
+import { Config, type Config as PluxelConfig, Plugin } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
 import { MikroOrm, MikroOrmProvider } from './core.js'
 
@@ -21,7 +21,7 @@ export const MikroOrmConfigSchema = v.object({
 	mikroOptions: v.optional(v.record(v.string(), v.any()), {}),
 })
 
-type MikroOrmLibsqlConfig = Config<typeof MikroOrmConfigSchema>
+type MikroOrmLibsqlConfig = PluxelConfig<typeof MikroOrmConfigSchema>
 
 let LIBSQL_ORM: Promise<{ MikroORM: typeof import('@mikro-orm/libsql').MikroORM }> | undefined
 async function importLibsqlOrm() {
@@ -31,7 +31,8 @@ async function importLibsqlOrm() {
 
 @Plugin(MikroOrm, { name: 'MikroOrm', type: 'service' })
 export class MikroOrmLibsql extends MikroOrmProvider<MikroOrmLibsqlConfig> {
-	private config: MikroOrmLibsqlConfig = this.configs.use(MikroOrmConfigSchema)
+	@Config(MikroOrmConfigSchema)
+	private config!: MikroOrmLibsqlConfig
 
 	protected override readConfig(): MikroOrmLibsqlConfig {
 		return this.config

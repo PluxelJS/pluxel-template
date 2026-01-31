@@ -5,7 +5,6 @@ export * from './memory'
 export * from './rates'
 
 import { KvMemory } from './memory.js'
-import { Rates } from './rates.js'
 
 /** Default provider plugin: in-memory KV (`KvMemory`). */
 export { KvMemory as default } from './memory.js'
@@ -17,4 +16,4 @@ export { KvMemory as default } from './memory.js'
  * import { plugins } from 'pluxel-plugin-kv'
  * ```
  */
-export const plugins = [KvMemory, Rates] as const
+export const plugins = [KvMemory] as const
