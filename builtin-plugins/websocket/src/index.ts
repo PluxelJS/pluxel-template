@@ -1,5 +1,5 @@
 import { BasePlugin, Plugin } from '@pluxel/hmr'
-import WS, { type RawData, type ClientOptions as WSClientOptions } from 'ws'
+import WS, { type ClientOptions as WSClientOptions, type RawData } from 'ws'
 
 const DISPOSE: unique symbol = (Symbol as any).dispose ?? Symbol.for('Symbol.dispose')
 const ASYNC_DISPOSE: unique symbol =
@@ -58,11 +58,11 @@ type ManagedRecord = {
 export class WebSocketPlugin extends BasePlugin {
 	private readonly managed = new Set<ManagedRecord>()
 
-	init(): void {
+	override init(): void {
 		this.ctx.logger.info('WebSocketPlugin ready')
 	}
 
-	async stop(): Promise<void> {
+	override async stop(): Promise<void> {
 		for (const rec of [...this.managed]) {
 			this.safeClose(rec, 1001, 'plugin stopped')
 		}
@@ -154,6 +154,9 @@ export class WebSocketPlugin extends BasePlugin {
 
 export type { RawData }
 
+// biome-ignore lint/style/noDefaultExport: plugin ctors are intentionally default-exported for ergonomic host imports.
+export default WebSocketPlugin
+
 type Listener = (...args: any[]) => void
 
 function createBrowserSocketAdapter(socket: any, desc?: string): BrowserWebSocket {
@@ -213,3 +216,4 @@ function createBrowserSocketAdapter(socket: any, desc?: string): BrowserWebSocke
 
 	return adapter
 }
+

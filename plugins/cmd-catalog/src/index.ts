@@ -45,6 +45,7 @@ export type McpToolDescriptor = {
 	title: string
 	description: string
 	inputSchema: Record<string, unknown>
+	outputSchema?: Record<string, unknown>
 	exec: Executable<any, any> & { mcp: McpMeta }
 }
 
@@ -146,6 +147,7 @@ export function createCmdCatalog(opts?: { nsKey?: string }): CmdCatalog {
 					title: resolveMcpText(meta.title, docCtx),
 					description: resolveMcpText(meta.description, docCtx),
 					inputSchema: meta.inputSchema as any,
+					...(meta.outputSchema ? { outputSchema: meta.outputSchema as any } : {}),
 					exec: e.exec as any,
 				})
 			}

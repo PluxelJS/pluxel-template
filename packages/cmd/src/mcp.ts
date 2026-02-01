@@ -1,5 +1,5 @@
 import type { AnyStdSchema } from './core'
-import { CmdError, getInputJsonSchema } from './core'
+import { CmdError, getInputJsonSchema, getOutputJsonSchema } from './core'
 import type { DocTextSource } from './doc'
 import { isNonEmptyString } from './internal/strings'
 
@@ -29,6 +29,21 @@ export type McpConfig = {
 	 * If omitted, cmdkit derives it from the input Standard Schema at build-time.
 	 */
 	inputSchema?: Record<string, unknown>
+
+	/**
+	 * Optional output JSON Schema for MCP (structured outputs).
+	 *
+	 * If provided, cmdkit uses it as-is.
+	 */
+	outputSchema?: Record<string, unknown>
+
+	/**
+	 * Whether to derive `outputSchema` from the cmdkit output Standard Schema (when present).
+	 *
+	 * Default: false (explicit opt-in to avoid accidentally exposing internal output structure).
+	 * Note: derivation is best-effort and may be inaccurate for transform/pipe schemas; prefer `outputSchema` override.
+	 */
+	deriveOutputSchema?: boolean
 }
 
 export type McpMeta = {
@@ -36,9 +51,10 @@ export type McpMeta = {
 	title: DocTextSource
 	description: DocTextSource
 	inputSchema: Record<string, unknown>
+	outputSchema?: Record<string, unknown>
 }
 
-export const compileMcpMeta = (id: string, input: AnyStdSchema, cfg: McpConfig): McpMeta => {
+export const compileMcpMeta = (id: string, input: AnyStdSchema, output: AnyStdSchema | undefined, cfg: McpConfig): McpMeta => {
 	if (typeof cfg.title === 'string' && !isNonEmptyString(cfg.title)) {
 		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'mcp(): title must be a non-empty string' })
 	}
@@ -58,6 +74,8 @@ export const compileMcpMeta = (id: string, input: AnyStdSchema, cfg: McpConfig):
 		})
 	}
 
-	return { name, title: cfg.title, description: cfg.description, inputSchema }
-}
+	const outputSchema =
+		cfg.outputSchema ?? (cfg.deriveOutputSchema && output ? getOutputJsonSchema(output) : undefined)
 
+	return { name, title: cfg.title, description: cfg.description, inputSchema, ...(outputSchema ? { outputSchema } : {}) }
+}

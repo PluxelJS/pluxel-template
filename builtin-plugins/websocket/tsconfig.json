@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"composite": true,
+		"declaration": true,
+		"declarationMap": true,
+		"noEmitOnError": true
+	},
+	"extends": "../../tsconfig.json",
+	"include": ["src/**/*.ts", "tests/**/*.ts"]
+}
+

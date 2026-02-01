@@ -6,8 +6,9 @@
 	"description": "使用 HMR 管理插件的运行时，让 HMR Build 后以提升加载速度。",
 	"scripts": {
 		"bootstrap": "sh ./scripts/bootstrap.sh",
-		"dev": "pnpm --filter @pluxel/graphql --filter @pluxel/wretch build && node src/index.ts",
+		"dev": "turbo build:builtin --filter=./builtin-plugins/* && node src/index.ts",
 		"build": "turbo build",
+		"build:builtin": "turbo build:builtin --filter=./builtin-plugins/*",
 		"test": "node scripts/test-vitest.mjs",
 		"publish": "turbo publish",
 		"new": "pluxel new plugin",
@@ -29,6 +30,7 @@
 		"@pluxel/cmd": "workspace:*",
 		"@pluxel/graphql": "workspace:*",
 		"@pluxel/test": "link:../pluxel/packages/test",
+		"@pluxel/websocket": "workspace:*",
 		"@pluxel/wretch": "workspace:*",
 		"@repobuddy/biome": "^2.3.1",
 		"@tabler/icons-react": "^3.36.1",

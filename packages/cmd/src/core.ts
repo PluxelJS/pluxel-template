@@ -256,6 +256,24 @@ export const getInputJsonSchema = (schema: AnyStdSchema): Record<string, unknown
 	}
 }
 
+const OUTPUT_JSON_SCHEMA_CACHE = new WeakMap<object, Record<string, unknown> | null>()
+
+export const getOutputJsonSchema = (schema: AnyStdSchema): Record<string, unknown> | undefined => {
+	const cached = OUTPUT_JSON_SCHEMA_CACHE.get(schema as any)
+	if (cached !== undefined) return cached ?? undefined
+	try {
+		const std = schema['~standard']
+		const conv = (std as any)?.jsonSchema?.output
+		const out =
+			typeof conv === 'function' ? (conv({ target: 'draft-07' }) as any) : (toJsonSchema(schema as any) as any)
+		OUTPUT_JSON_SCHEMA_CACHE.set(schema as any, out)
+		return out
+	} catch {
+		OUTPUT_JSON_SCHEMA_CACHE.set(schema as any, null)
+		return undefined
+	}
+}
+
 export async function withSpan<T>(ctx: ExecCtx | undefined, name: string, attrs: Record<string, unknown>, fn: () => T | Promise<T>): Promise<T> {
 	if (!ctx?.span) return await fn()
 	return await ctx.span(name, attrs, fn)

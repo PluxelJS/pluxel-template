@@ -18,6 +18,7 @@
 	],
 	"scripts": {
 		"build": "pluxel build",
+		"build:builtin": "pluxel build",
 		"test": "bun test"
 	},
 	"dependencies": {

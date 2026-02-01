@@ -1,8 +1,8 @@
 {
 	"$schema": "https://market.pluxel.dev/schema/package.json",
-	"name": "@pluxel/wretch",
+	"name": "@pluxel/websocket",
 	"version": "0.1.0",
-	"description": "Pluxel builtin forkable HTTP client plugin powered by wretch",
+	"description": "Pluxel builtin plugin: WebSocket manager (tracked, disposable connections).",
 	"type": "module",
 	"types": "./dist/index.d.mts",
 	"exports": {
@@ -18,12 +18,13 @@
 	],
 	"scripts": {
 		"build": "pluxel build",
-		"build:builtin": "pluxel build",
-		"test": "bun test"
+		"build:builtin": "pluxel build"
 	},
 	"dependencies": {
-		"valibot": "^1.2.0",
-		"wretch": "^3.0.6"
+		"ws": "^8.18.3"
+	},
+	"devDependencies": {
+		"@types/ws": "^8.18.1"
 	},
 	"publishConfig": {
 		"exports": {

@@ -51,6 +51,9 @@ importers:
       '@pluxel/test':
         specifier: link:../pluxel/packages/test
         version: link:../pluxel/packages/test
+      '@pluxel/websocket':
+        specifier: workspace:*
+        version: link:builtin-plugins/websocket
       '@pluxel/wretch':
         specifier: workspace:*
         version: link:builtin-plugins/wretch
@@ -118,6 +121,16 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(typescript@5.9.3)
 
+  builtin-plugins/websocket:
+    dependencies:
+      ws:
+        specifier: ^8.18.3
+        version: 8.19.0
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+
   builtin-plugins/wretch:
     dependencies:
       valibot:
@@ -174,12 +187,12 @@ importers:
 
   chatbots/kook:
     dependencies:
+      '@pluxel/websocket':
+        specifier: workspace:*
+        version: link:../../builtin-plugins/websocket
       '@pluxel/wretch':
         specifier: workspace:*
         version: link:../../builtin-plugins/wretch
-      pluxel-plugin-websocket:
-        specifier: workspace:*
-        version: link:../../plugins/websocket
 
   chatbots/milky:
     dependencies:
@@ -379,16 +392,6 @@ importers:
       s3mini:
         specifier: ^0.9.0
         version: 0.9.0
-
-  plugins/websocket:
-    dependencies:
-      ws:
-        specifier: ^8.18.3
-        version: 8.19.0
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
 
   render-plugins/canvas-worker:
     dependencies:

@@ -93,7 +93,7 @@ function makeExecutable<I, O>(spec: BuilderSpec): Executable<I, O> {
 	const executable: Executable<I, O> = {
 		id: spec.id,
 		...(spec.doc ? { doc: spec.doc } : {}),
-		...(spec.mcp ? { mcp: compileMcpMeta(spec.id, spec.input, spec.mcp) } : {}),
+		...(spec.mcp ? { mcp: compileMcpMeta(spec.id, spec.input, spec.output, spec.mcp) } : {}),
 		inputSchema: spec.input,
 		...(spec.output ? { outputSchema: spec.output } : {}),
 		exec: execFn,

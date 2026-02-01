@@ -299,6 +299,7 @@ const tool = {
   name: meta.name,
   description: typeof meta.description === 'function' ? meta.description({ locale: 'en-US' }) : meta.description,
   inputSchema: meta.inputSchema,
+  ...(meta.outputSchema ? { outputSchema: meta.outputSchema } : {}),
 }
 ```
 
@@ -306,13 +307,29 @@ const tool = {
 这让“可被 MCP 调用”变得更确定（不会有隐式推断/桥接行为）。
 
 若你的 Standard Schema 无法自动转换为 JSON Schema，可在 `.mcp({ inputSchema: ... })` 中手动提供 `inputSchema` 覆盖。
+若你希望在支持 Structured Outputs 的 MCP SDK/Registry 中暴露输出结构，可：
+- 在 `.mcp({ outputSchema: ... })` 中手动提供输出 JSON Schema（可选，最明确）
+- 或使用 `.mcp({ deriveOutputSchema: true })` 让 cmdkit 从 `.output(schema)` best-effort 派生 `meta.outputSchema`（可选；仍然需要你显式声明 `.output(...)`；对 transform/pipe 类 schema 可能不精确，建议手写 `outputSchema` 覆盖）
+
+#### 4.2.2.1 从 mcp-lite 这类 minimal MCP server 的设计取向借鉴的几个“桥接”要点
+
+由于当前环境限制无法直接拉取 `fiberplane/mcp-lite` 源码逐行对照，这里总结的是“mcp-lite 这类 minimal MCP server 常见的设计取向”：
+**data-only 的 tool 定义 + transport/middleware 在上层**，适合拿来约束我们在 cmdkit 之上的 MCP 适配层边界。
+
+- **tool 定义纯数据**：cmdkit 只产出 `name/description/inputSchema/outputSchema?`；至于“把它注册到哪个 server / 用什么 transport”，完全由 upstream 决定。
+- **Structured Outputs 优先**：当 `outputSchema` 存在时，把 cmdkit 的返回值作为“结构化输出”传给 MCP SDK（具体字段名以 SDK 为准），避免把 JSON 塞进字符串里。
+- **取消/超时从 transport 贯穿**：把 MCP request 的取消信号映射到 `ExecCtx.signal`，把 request deadline 映射到 `ExecCtx.deadlineMs`；cmdkit 不创建 timer，但能做一致分类/观测。
+- **middleware ≈ interceptor 组装**：像 mcp-lite 那样在 server 层做 middleware（鉴权/限流/日志/trace），在 cmdkit 层用 interceptor 做命令级语义（输入/输出 envelope、脱敏、recover）。
+
+> mcp-lite 的 server 注册形态大致是 `server.tool(name, desc, { inputSchema, outputSchema }, handler)`。
+> cmdkit 的 `exec.mcp` 刚好就是这份 `{ inputSchema, outputSchema? }` 的来源。
 
 ### 4.2.3 doc 可选 + i18n：允许函数
 
 `doc()` 可完全不写；同时为了 i18n，允许传入函数形式：
 
 ```ts
-cmd('echo')
+const echo = cmd('echo')
   .input(EchoInput)
   .doc((ctx) => ({
     description: ctx.locale === 'zh-CN' ? '复读消息' : 'Echo a message',
@@ -330,6 +347,7 @@ const tool = {
   name: meta.name,
   description: typeof meta.description === 'function' ? meta.description({ locale: 'zh-CN' }) : meta.description,
   inputSchema: meta.inputSchema,
+  ...(meta.outputSchema ? { outputSchema: meta.outputSchema } : {}),
 }
 ```
 
