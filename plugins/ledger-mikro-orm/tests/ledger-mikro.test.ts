@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test'
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 import {
 	AccountFilterFlags,
 	AccountFlags,
@@ -26,24 +26,21 @@ class Caller extends BasePlugin {
 async function withLedger<T>(
 	fn: (deps: { mikro: MikroOrm; ledger: Ledger; caller: Caller }) => Promise<T>,
 ) {
-	return await withTestHost(async (host) => {
+	return await withHost(async (host) => {
 		// In HMR runtime, ConfigService loads async; ensure our patches won't be overwritten by initial load.
 		const cfg = host.ctx.configService as unknown as { ready?: Promise<void> }
 		if (cfg.ready) await cfg.ready
 
-		host.register(MikroOrmLibsql)
-		host.register(LedgerMikroOrm)
-		host.register(Caller)
-		host.setConfig(MikroOrmLibsql, { config: { dbName: ':memory:', ensureSchemaOnInit: true } })
-		host.setConfig(LedgerMikroOrm, {
-			config: { scopeKey: 'ledger', ensureSchema: true, dropTableOnDispose: false },
-		})
-		await host.commitStrict()
+		host.cfg('MikroOrm').set({ config: { dbName: ':memory:', ensureSchemaOnInit: true } })
+		host.cfg('MikroORM').set({ config: { scopeKey: 'ledger', ensureSchema: true, dropTableOnDispose: false } })
+
+		host.add([MikroOrmLibsql, LedgerMikroOrm, Caller])
+		await host.commit()
 
 		return await fn({
-			mikro: host.getOrThrow(MikroOrm),
-			ledger: host.getOrThrow(Ledger),
-			caller: host.getOrThrow(Caller),
+			mikro: host.require(MikroOrm),
+			ledger: host.require(Ledger),
+			caller: host.require(Caller),
 		})
 	})
 }

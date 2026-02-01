@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it } from 'vitest'
 import type { BatchReq, PollSpec, Selection, SelectionInput } from '../src/core.js'
 import { PollKernelEngine } from '../src/kernel.js'
 import type { ChoiceAgg, PollMeta, Repo } from '../src/repo.js'

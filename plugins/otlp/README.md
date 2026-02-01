@@ -23,15 +23,15 @@ Pluxel/HMR runtime 的 OTLP exporter 插件（当前实现：OTLP/HTTP JSON Logs
 import { plugins as otlpPlugins } from 'pluxel-plugin-otlp'
 ```
 
-通常在宿主把插件集注册进 runtime（示例以 `@pluxel/core/test` 的 host API 表达思路；具体以你的 host 实现为准）：
+通常在宿主把插件集注册进 runtime（示例以 `@pluxel/test` 的 Host API 表达思路；具体以你的 host 实现为准）：
 
 ```ts
-import { withTestHost } from '@pluxel/core/test'
+import { withHost } from '@pluxel/test'
 import { plugins as otlpPlugins } from 'pluxel-plugin-otlp'
 
-await withTestHost(async (host) => {
-  host.registerAll(...otlpPlugins)
-  await host.commitStrict()
+await withHost(async (host) => {
+  host.add(otlpPlugins)
+  await host.commit()
 })
 ```
 
@@ -105,7 +105,7 @@ const s = otlp.stats()
 
 ```ts
 // tests / host bootstrap
-host.setConfig('OtlpHub', {
+host.cfg('OtlpHub').set({
   core: { enabled: true, endpoint: 'http://localhost:4318' },
   signals: { logs: true, traces: true, metrics: true },
   // 可选：headers (例如鉴权 / 多租户)

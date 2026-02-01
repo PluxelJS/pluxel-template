@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test'
-import { withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { withHost } from '@pluxel/test'
 
 import { Kv, KvMemory, kvCached } from '../src/index'
 
@@ -7,11 +7,11 @@ const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
 describe('pluxel-plugin-kv (kvCached)', () => {
 	it('dedupes concurrent cache misses (getFreshValue called once)', async () => {
-		await withTestHost(async (host) => {
-			host.register(KvMemory)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add(KvMemory)
+			await host.commit()
 
-			const store = host.getOrThrow(Kv).scope('Script')
+			const store = host.require(Kv).scope('Script')
 
 			let calls = 0
 			let resolve!: () => void
@@ -37,11 +37,11 @@ describe('pluxel-plugin-kv (kvCached)', () => {
 	})
 
 	it('supports stale-while-revalidate (returns stale immediately, refreshes in background)', async () => {
-		await withTestHost(async (host) => {
-			host.register(KvMemory)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add(KvMemory)
+			await host.commit()
 
-			const store = host.getOrThrow(Kv).scope('Script')
+			const store = host.require(Kv).scope('Script')
 
 			let calls = 0
 			let resolveSecond: ((v: { n: number }) => void) | undefined
@@ -71,11 +71,11 @@ describe('pluxel-plugin-kv (kvCached)', () => {
 	})
 
 	it('falls back to stale on error when enabled', async () => {
-		await withTestHost(async (host) => {
-			host.register(KvMemory)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add(KvMemory)
+			await host.commit()
 
-			const store = host.getOrThrow(Kv).scope('Script')
+			const store = host.require(Kv).scope('Script')
 			expect(await kvCached({ store, key: 'k', ttlMs: 10, staleTtlMs: 20, getFreshValue: async () => 'v1' })).toBe(
 				'v1',
 			)

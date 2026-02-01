@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test'
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 
 import { Cached, Kv, KvMemory } from '../src/index'
 
@@ -7,7 +7,7 @@ const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
 describe('pluxel-plugin-kv (Cached decorator)', () => {
 	it('memoizes when ttlMs is omitted', async () => {
-		await withTestHost(async (host) => {
+		await withHost(async (host) => {
 			let calls = 0
 
 			@Plugin({ name: 'Foo', type: 'service' })
@@ -23,10 +23,10 @@ describe('pluxel-plugin-kv (Cached decorator)', () => {
 				}
 			}
 
-			host.registerAll(KvMemory, Foo)
-			await host.commitStrict()
+			host.add([KvMemory, Foo])
+			await host.commit()
 
-			const foo = host.getOrThrow(Foo)
+			const foo = host.require(Foo)
 			expect(await foo.getUser('u1')).toEqual({ id: 'u1', calls: 1 })
 			expect(await foo.getUser('u1')).toEqual({ id: 'u1', calls: 1 })
 			expect(calls).toBe(1)
@@ -34,7 +34,7 @@ describe('pluxel-plugin-kv (Cached decorator)', () => {
 	})
 
 	it('respects ttlMs and refreshes after expiry (envelope-based, not backend TTL)', async () => {
-		await withTestHost(async (host) => {
+		await withHost(async (host) => {
 			let calls = 0
 
 			@Plugin({ name: 'Foo', type: 'service' })
@@ -50,10 +50,10 @@ describe('pluxel-plugin-kv (Cached decorator)', () => {
 				}
 			}
 
-			host.registerAll(KvMemory, Foo)
-			await host.commitStrict()
+			host.add([KvMemory, Foo])
+			await host.commit()
 
-			const foo = host.getOrThrow(Foo)
+			const foo = host.require(Foo)
 			expect(await foo.getUser('u1')).toEqual({ id: 'u1', calls: 1 })
 			expect(await foo.getUser('u1')).toEqual({ id: 'u1', calls: 1 })
 			await sleep(30)

@@ -1,6 +1,5 @@
 import { nanoid } from '@pluxel/toolkit/id'
 import { SieveCache } from '@pluxel/toolkit/cache'
-import { asyncQueue } from '@pluxel/toolkit/pacer'
 import type { AdminCtx, BatchReq, Decision, PollKernelDriver, PollSpec, ResultsSnapshot, SelectionInput, VoteCtx } from './core.js'
 import type { Repo } from './repo.js'
 import { normalizeSpec } from './spec.js'
@@ -12,6 +11,19 @@ export type KernelOptions = {
 }
 
 type Task<T> = () => Promise<T>
+
+function createSerialQueue(): <T>(task: Task<T>) => Promise<T> {
+	let tail: Promise<unknown> = Promise.resolve()
+	return async <T>(task: Task<T>): Promise<T> => {
+		const run = tail.then(task, task)
+		// Ensure the queue continues even if the task rejects.
+		tail = run.then(
+			() => undefined,
+			() => undefined,
+		)
+		return await run
+	}
+}
 
 export class PollKernelEngine implements PollKernelDriver {
 	private readonly snapshotCache: SieveCache<string, ResultsSnapshot> | null
@@ -137,9 +149,7 @@ export class PollKernelEngine implements PollKernelDriver {
 	private getQueue(pollId: string): (task: Task<unknown>) => Promise<unknown> {
 		const existing = this.queues.get(pollId)
 		if (existing) return existing
-		const enqueue = asyncQueue<Task<unknown>>(async (task) => await task(), {
-			concurrency: 1,
-		})
+		const enqueue = createSerialQueue() as (task: Task<unknown>) => Promise<unknown>
 		this.queues.set(pollId, enqueue)
 		return enqueue
 	}

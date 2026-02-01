@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test'
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 
 import { isRateLimitError, Kv, KvMemory, RateGuard } from '../src/index'
 
@@ -7,7 +7,7 @@ const sleep = async (ms: number) => await new Promise((r) => setTimeout(r, ms))
 
 describe('pluxel-plugin-kv (kv.rates)', () => {
 	it('cooldown blocks and then allows after ttl', async () => {
-		await withTestHost(async (host) => {
+		await withHost(async (host) => {
 			@Plugin({ name: 'Foo', type: 'service' })
 			class Foo extends BasePlugin {
 				constructor(private readonly kv: Kv) {
@@ -19,10 +19,10 @@ describe('pluxel-plugin-kv (kv.rates)', () => {
 				}
 			}
 
-			host.registerAll(KvMemory, Foo)
-			await host.commitStrict()
+			host.add([KvMemory, Foo])
+			await host.commit()
 
-			const foo = host.getOrThrow(Foo)
+			const foo = host.require(Foo)
 			expect(await foo.login('u1')).toEqual({ ok: true })
 
 			const blocked = await foo.login('u1')
@@ -35,7 +35,7 @@ describe('pluxel-plugin-kv (kv.rates)', () => {
 	})
 
 	it('fixedWindow enforces limit within the period', async () => {
-		await withTestHost(async (host) => {
+		await withHost(async (host) => {
 			@Plugin({ name: 'Foo', type: 'service' })
 			class Foo extends BasePlugin {
 				constructor(private readonly kv: Kv) {
@@ -46,10 +46,10 @@ describe('pluxel-plugin-kv (kv.rates)', () => {
 				}
 			}
 
-			host.registerAll(KvMemory, Foo)
-			await host.commitStrict()
+			host.add([KvMemory, Foo])
+			await host.commit()
 
-			const foo = host.getOrThrow(Foo)
+			const foo = host.require(Foo)
 			expect(await foo.hit('u1')).toEqual({ ok: true, remaining: 1 })
 			expect(await foo.hit('u1')).toEqual({ ok: true, remaining: 0 })
 
@@ -60,7 +60,7 @@ describe('pluxel-plugin-kv (kv.rates)', () => {
 	})
 
 	it('RateGuard decorator throws RateLimitError when blocked', async () => {
-		await withTestHost(async (host) => {
+		await withHost(async (host) => {
 			@Plugin({ name: 'Foo', type: 'service' })
 			class Foo extends BasePlugin {
 				constructor(private readonly kv: Kv) {
@@ -76,10 +76,10 @@ describe('pluxel-plugin-kv (kv.rates)', () => {
 				}
 			}
 
-			host.registerAll(KvMemory, Foo)
-			await host.commitStrict()
+			host.add([KvMemory, Foo])
+			await host.commit()
 
-			const foo = host.getOrThrow(Foo)
+			const foo = host.require(Foo)
 			expect(await foo.login('u1')).toEqual({ ok: true, userId: 'u1' })
 
 			try {

@@ -637,7 +637,7 @@ export class OtlpHub extends Otlp {
 		await svcAny.ready?.catch(() => undefined)
 
 		const id = String(this.ctx.pluginInfo?.id ?? 'OtlpHub')
-		const record = this.ctx.configService.getConfig(id) as any
+		const record = this.ctx.configService.getRawConfig(id) as any
 
 		this.cfg = {
 			core: parseCfg('core', OtlpHubCoreCfgSchema, record?.core ?? this.core),

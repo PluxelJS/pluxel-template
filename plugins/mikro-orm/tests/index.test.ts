@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it } from 'vitest'
 import { EntitySchema } from '@mikro-orm/core'
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 
 import { MikroOrm, MikroOrmLibsql, type RegisterEntityOptions } from '../src/mikro-orm.ts'
 
@@ -50,6 +50,11 @@ async function listUserIds(mikro: MikroOrm, tableName: string) {
 		id: number
 	}>
 	return rows.map((r) => r.id)
+}
+
+async function ensureConfigReady(host: { ctx: { configService: unknown } }) {
+	const cfg = host.ctx.configService as unknown as { ready?: Promise<void> }
+	if (cfg.ready) await cfg.ready
 }
 
 @Plugin({ name: 'CallerA', type: 'service' })
@@ -123,24 +128,26 @@ class CallerUnderscore extends BasePlugin {
 }
 
 describe('pluxel-plugin-mikro-orm (libsql)', () => {
-	it('throws when called without caller context', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('throws when called without caller context', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			await expect(mikro.registerEntity(UserSchema)).rejects.toThrow(/caller context/i)
 		})
 	})
 
-	it('supports explicit scope without caller context', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:', ensureSchemaOnInit: false } })
-			await host.commitStrict()
+		it('supports explicit scope without caller context', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:', ensureSchemaOnInit: false } })
+				await host.commit()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			const handle = await mikro.scope('Script').registerEntity(UserSchema)
 			expect(handle.tableName).toBe('Script_users')
 			expect(handle.entityName).toBe('Script_User')
@@ -148,20 +155,21 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 		})
 	})
 
-	it('registers entity and creates schema in :memory:', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:', ensureSchemaOnInit: true } })
-			await host.commitStrict()
+		it('registers entity and creates schema in :memory:', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:', ensureSchemaOnInit: true } })
+				await host.commit()
 
-			const caller = host.getOrThrow(CallerA)
+			const caller = host.require(CallerA)
 			const handle = await caller.registerUser()
 			expect(handle.tableName).toBe('CallerA_users')
 			expect(handle.entityName).toBe('CallerA_User')
 			expect(handle.schema).not.toBe(UserSchema)
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			expect(await hasTable(mikro, 'CallerA_users')).toBe(true)
 			expect(mikro.scope('CallerA').listEntities()).toEqual([
 				{ entityName: 'CallerA_User', tableName: 'CallerA_users' },
@@ -169,17 +177,18 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 		})
 	})
 
-	it('drops table when handle disposed', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('drops table when handle disposed', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			const caller = host.getOrThrow(CallerA)
+			const caller = host.require(CallerA)
 			const handle = await caller.registerUser({ dropTableOnDispose: true })
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			expect(await hasTable(mikro, 'CallerA_users')).toBe(true)
 
 			await handle.dispose()
@@ -187,68 +196,72 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 		})
 	})
 
-	it('throws on table name conflict across entities (default)', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('throws on table name conflict across entities (default)', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			const caller = host.getOrThrow(CallerA)
+			const caller = host.require(CallerA)
 			await caller.registerUser()
 			await expect(caller.registerConflictUser()).rejects.toThrow(/table name conflict/i)
 		})
 	})
 
-	it('prefixes tables by caller id (no cross-plugin collisions)', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.register(CallerB)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('prefixes tables by caller id (no cross-plugin collisions)', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.add(CallerB)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			await host.getOrThrow(CallerA).registerUser()
-			await host.getOrThrow(CallerB).registerUser()
+			await host.require(CallerA).registerUser()
+			await host.require(CallerB).registerUser()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			expect(await hasTable(mikro, 'CallerA_users')).toBe(true)
 			expect(await hasTable(mikro, 'CallerB_users')).toBe(true)
 		})
 	})
 
-	it('avoids caller prefix collisions after sanitization', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerDash)
-			host.register(CallerUnderscore)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('avoids caller prefix collisions after sanitization', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerDash)
+				host.add(CallerUnderscore)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			const dash = await host.getOrThrow(CallerDash).registerUser()
-			const under = await host.getOrThrow(CallerUnderscore).registerUser()
+			const dash = await host.require(CallerDash).registerUser()
+			const under = await host.require(CallerUnderscore).registerUser()
 
 			expect(dash.tableName).toMatch(/^a_b_[0-9a-f]{6}_users$/)
 			expect(under.tableName).toBe('a_b_users')
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			expect(await hasTable(mikro, dash.tableName)).toBe(true)
 			expect(await hasTable(mikro, under.tableName)).toBe(true)
 		})
 	})
 
-	it('isolates data across caller-prefixed tables', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.register(CallerB)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('isolates data across caller-prefixed tables', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.add(CallerB)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			await host.getOrThrow(CallerA).registerUser()
-			await host.getOrThrow(CallerB).registerUser()
+			await host.require(CallerA).registerUser()
+			await host.require(CallerB).registerUser()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			await insertUserRow(mikro, 'CallerA_users', 1, 'a')
 			await insertUserRow(mikro, 'CallerB_users', 2, 'b')
 
@@ -257,16 +270,17 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 		})
 	})
 
-	it('supports ensureSchema=false and manual ensureSchema()', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:', ensureSchemaOnInit: false } })
-			await host.commitStrict()
+		it('supports ensureSchema=false and manual ensureSchema()', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:', ensureSchemaOnInit: false } })
+				await host.commit()
 
-			await host.getOrThrow(CallerA).registerUser({ ensureSchema: false })
+			await host.require(CallerA).registerUser({ ensureSchema: false })
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			expect(await hasTable(mikro, 'CallerA_users')).toBe(false)
 
 			await mikro.ensureSchema()
@@ -274,47 +288,50 @@ describe('pluxel-plugin-mikro-orm (libsql)', () => {
 		})
 	})
 
-	it('uses immediate caller id in layered plugin calls', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(Wrapper)
-			host.register(Outer)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('uses immediate caller id in layered plugin calls', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(Wrapper)
+				host.add(Outer)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
-			await host.getOrThrow(Outer).registerUserViaWrapper()
+			await host.require(Outer).registerUserViaWrapper()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			expect(await hasTable(mikro, 'Wrapper_users')).toBe(true)
 			expect(await hasTable(mikro, 'Outer_users')).toBe(false)
 		})
 	})
 
-	it('supports libsql in-memory url: file::memory:', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.register(CallerA)
-			host.setConfig('MikroOrm', { config: { dbName: 'file::memory:', ensureSchemaOnInit: false } })
-			await host.commitStrict()
+		it('supports libsql in-memory url: file::memory:', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.add(CallerA)
+				host.cfg('MikroOrm').set({ config: { dbName: 'file::memory:', ensureSchemaOnInit: false } })
+				await host.commit()
 
-			await host.getOrThrow(CallerA).registerUser()
+			await host.require(CallerA).registerUser()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			const tables = (await listTables(mikro)).map((r) => r.name)
 			expect(tables).toContain('CallerA_users')
 		})
 	})
 
-	it('can restart the service (initPromise resets)', async () => {
-		await withTestHost(async (host) => {
-			host.register(MikroOrmLibsql)
-			host.setConfig('MikroOrm', { config: { dbName: ':memory:' } })
-			await host.commitStrict()
+		it('can restart the service (initPromise resets)', async () => {
+			await withHost(async (host) => {
+				await ensureConfigReady(host)
+				host.add(MikroOrmLibsql)
+				host.cfg('MikroOrm').set({ config: { dbName: ':memory:' } })
+				await host.commit()
 
 			host.restart(MikroOrm)
-			await host.commitStrict()
+			await host.commit()
 
-			const mikro = host.getOrThrow(MikroOrm)
+			const mikro = host.require(MikroOrm)
 			const rows = await (await mikro.orm()).em.getConnection().execute('select 1 as ok')
 			expect(Array.isArray(rows) && rows[0]?.ok).toBe(1)
 		})

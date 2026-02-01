@@ -1,6 +1,6 @@
 import '@pluxel/hmr/services'
-import { describe, expect, it } from 'bun:test'
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 
 import { Ax, AxHub } from '../src'
 
@@ -17,44 +17,44 @@ class ToolOwner extends BasePlugin {
 
 describe('pluxel-plugin-ax: profiles + vault + default selection', () => {
 	it('creates profiles, sets apiKey, and resolves ai()', async () => {
-		await withTestHost(async (host) => {
-			host.register(AxHub)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add(AxHub)
+			await host.commit()
 
-			const hub = host.getOrThrow(AxHub)
+			const hub = host.require(AxHub)
 			const p = await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test', makeDefault: true })
 
 			expect(p.isDefault).toBe(true)
 			expect(p.hasApiKey).toBe(true)
 
-			const ai = await host.getOrThrow(Ax).ai()
+			const ai = await host.require(Ax).ai()
 			expect(ai.getName().toLowerCase()).toBe('openai')
 		})
 	})
 
 	it('allows creating a profile without apiKey and fails ai() until apiKey is set', async () => {
-		await withTestHost(async (host) => {
-			host.register(AxHub)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add(AxHub)
+			await host.commit()
 
-			const hub = host.getOrThrow(AxHub)
+			const hub = host.require(AxHub)
 			const p = await hub.createProfile({ provider: 'openai', makeDefault: true })
 			expect(p.hasApiKey).toBe(false)
 
-			await expect(host.getOrThrow(Ax).ai()).rejects.toThrow(/missing apiKey/i)
+			await expect(host.require(Ax).ai()).rejects.toThrow(/missing apiKey/i)
 
 			await hub.setApiKey(p.id, 'sk-test')
-			const ai = await host.getOrThrow(Ax).ai()
+			const ai = await host.require(Ax).ai()
 			expect(ai.getName().toLowerCase()).toBe('openai')
 		})
 	})
 
 	it('moves default away when the default profile is disabled', async () => {
-		await withTestHost(async (host) => {
-			host.register(AxHub)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add(AxHub)
+			await host.commit()
 
-			const hub = host.getOrThrow(AxHub)
+			const hub = host.require(AxHub)
 			const a = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true })
 			const b = await hub.createProfile({ provider: 'openai', apiKey: 'sk-b', makeDefault: false })
 
@@ -71,17 +71,17 @@ describe('pluxel-plugin-ax: profiles + vault + default selection', () => {
 	})
 
 	it('tooling() rejects extra function name conflicts', async () => {
-		await withTestHost(async (host) => {
-			host.registerAll(AxHub, ToolOwner)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add([AxHub, ToolOwner])
+			await host.commit()
 
-			const hub = host.getOrThrow(AxHub)
+			const hub = host.require(AxHub)
 			await hub.createProfile({ provider: 'openai', apiKey: 'sk-test', makeDefault: true })
 
-			host.getOrThrow(ToolOwner).registerTool('dup')
+			host.require(ToolOwner).registerTool('dup')
 
 			await expect(
-				host.getOrThrow(Ax).tooling({
+				host.require(Ax).tooling({
 					functions: [{ name: 'dup', description: 'dup', parameters: { type: 'object' }, func: async () => 'x' } as any],
 				}),
 			).rejects.toThrow(/name conflict/i)

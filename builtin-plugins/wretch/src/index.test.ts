@@ -1,13 +1,6 @@
-import '@pluxel/core/test/setup'
-
-import { describe, expect, it } from 'bun:test'
-import { __registerConfigSchema__ } from '@pluxel/core'
-import { withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { withHost } from '@pluxel/test'
 import { WretchPlugin } from './index'
-import { WretchConfig } from './schema'
-
-// In production this is injected by configSourcePlugin.
-__registerConfigSchema__(WretchPlugin, 'wretch', WretchConfig)
 
 type FetchCapture = {
 	url: string | null
@@ -51,11 +44,12 @@ async function withWretchPlugin<T>(
 	config: Record<string, unknown>,
 	run: (instance: WretchPlugin) => Promise<T>,
 ): Promise<T> {
-	return withTestHost(async (host) => {
+	return withHost(async (host) => {
 		await host.ctx.configService.ready
-		host.setConfig(WretchPlugin, { wretch: config })
-		await host.start(WretchPlugin)
-		return run(host.getOrThrow(WretchPlugin) as WretchPlugin)
+		host.cfg(WretchPlugin).set({ wretch: config })
+		host.add(WretchPlugin)
+		await host.commit()
+		return run(host.require(WretchPlugin) as WretchPlugin)
 	})
 }
 

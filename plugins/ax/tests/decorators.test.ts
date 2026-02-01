@@ -1,6 +1,6 @@
 import '@pluxel/hmr/services'
-import { describe, expect, it } from 'bun:test'
-import { BasePlugin, Plugin, withTestHost } from '@pluxel/core/test'
+import { describe, expect, it } from 'vitest'
+import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 
 import type { AxAI } from '@ax-llm/ax'
 
@@ -27,14 +27,14 @@ class DecoratorsDemo extends BasePlugin {
 
 describe('pluxel-plugin-ax: decorators', () => {
 	it('injects AxAI / tooling without ctor dependency', async () => {
-		await withTestHost(async (host) => {
-			host.registerAll(AxHub, DecoratorsDemo)
-			await host.commitStrict()
+		await withHost(async (host) => {
+			host.add([AxHub, DecoratorsDemo])
+			await host.commit()
 
-			const hub = host.getOrThrow(AxHub)
+			const hub = host.require(AxHub)
 			await hub.createProfile({ provider: 'openai', apiKey: 'sk-test', makeDefault: true })
 
-			const demo = host.getOrThrow(DecoratorsDemo)
+			const demo = host.require(DecoratorsDemo)
 			expect(await demo.provider()).toBe('openai')
 
 			const out = await demo.tooling()

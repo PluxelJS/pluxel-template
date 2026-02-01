@@ -8,6 +8,7 @@
 		"bootstrap": "sh ./scripts/bootstrap.sh",
 		"dev": "pnpm --filter @pluxel/graphql --filter @pluxel/wretch build && node src/index.ts",
 		"build": "turbo build",
+		"test": "node scripts/test-vitest.mjs",
 		"publish": "turbo publish",
 		"new": "pluxel new plugin",
 		"feat": "pluxel new plugin features"
@@ -27,6 +28,7 @@
 		"@mantine/modals": "^8.3.13",
 		"@pluxel/cmd": "workspace:*",
 		"@pluxel/graphql": "workspace:*",
+		"@pluxel/test": "link:../pluxel/packages/test",
 		"@pluxel/wretch": "workspace:*",
 		"@repobuddy/biome": "^2.3.1",
 		"@tabler/icons-react": "^3.36.1",
@@ -40,7 +42,8 @@
 		"tsdown": "0.20.1",
 		"turbo": "^2.8.0",
 		"typescript": "^5.9.3",
-		"unplugin-macros": "^0.18.7"
+		"unplugin-macros": "^0.18.7",
+		"vitest": "3.2.4"
 	},
 	"pnpm": {
 		"peerDependencyRules": {
