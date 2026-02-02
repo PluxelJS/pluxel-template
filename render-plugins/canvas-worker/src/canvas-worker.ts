@@ -233,14 +233,9 @@ export class CanvasWorker extends BasePlugin {
       let filename = this.workerEntrypoint
       if (!filename) {
         try {
-          const bundler: any = (this.ctx as any).bundlerService
-          if (bundler && typeof bundler.compileTinypoolWorker === 'function') {
-            filename = await bundler.compileTinypoolWorker('src/worker.ts', {
-              external: ['@leafer-ui/node', 'pluxel-plugin-napi-rs/canvas', 'echarts'],
-            })
-          } else {
-            filename = this.workerEntrypointFallback
-          }
+          filename = await this.ctx.bundlerService.compileTinypoolWorker('src/worker.ts', {
+            external: ['@leafer-ui/node', 'pluxel-plugin-napi-rs/canvas', 'echarts'],
+          })
         } catch {
           filename = this.workerEntrypointFallback
         }

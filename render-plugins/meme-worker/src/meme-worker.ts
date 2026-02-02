@@ -268,14 +268,9 @@ export class MemeWorker extends BasePlugin {
 				let filename = this.workerEntrypoint
 				if (!filename) {
 					try {
-						const bundler: any = (this.ctx as any).bundlerService
-						if (bundler && typeof bundler.compileTinypoolWorker === 'function') {
-							filename = await bundler.compileTinypoolWorker('src/worker.ts', {
-								external: ['pluxel-plugin-napi-rs/meme-generator'],
-							})
-						} else {
-							filename = this.workerEntrypointFallback ?? (this.workerEntrypointFallback = resolveWorkerEntrypoint())
-						}
+						filename = await this.ctx.bundlerService.compileTinypoolWorker('src/worker.ts', {
+							external: ['pluxel-plugin-napi-rs/meme-generator'],
+						})
 					} catch {
 						filename = this.workerEntrypointFallback ?? (this.workerEntrypointFallback = resolveWorkerEntrypoint())
 					}

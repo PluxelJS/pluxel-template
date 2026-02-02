@@ -1,6 +1,7 @@
 packages:
   - packages/**
   - plugins/*
+  - univer/*
   - builtin-plugins/*
   # vendored/bundled packages (not real workspaces)
   - '!plugins/napi-rs/*__*'

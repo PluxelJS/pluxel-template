@@ -39,22 +39,8 @@ export class AxHub extends Ax {
 		})
 		this.readyPromise = this.profiles.isReady()
 
-		const ext = (this.ctx as any).ext
-		// UI/RPC are optional in the host runtime (tests often don't mount them).
-		if (ext?.ui?.register) {
-			try {
-				ext.ui.register({ entryPath: './src/ui/index.tsx' })
-			} catch (error) {
-				this.ctx.logger.warn('Ax UI extension register skipped', { error })
-			}
-		}
-		if (ext?.rpc?.registerExtension) {
-			try {
-				ext.rpc.registerExtension(() => new AxHubRpc(this))
-			} catch (error) {
-				this.ctx.logger.warn('Ax RPC extension register skipped', { error })
-			}
-		}
+		this.ctx.ext.ui.register({ entryPath: './src/ui/index.tsx' })
+		this.ctx.ext.rpc.registerExtension(() => new AxHubRpc(this))
 	}
 
 	private async whenReady() {

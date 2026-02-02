@@ -12,7 +12,13 @@ const { ctx } = await startHmrHost({
 	store: {
 		seedConfig: 'default.json',
 	},
-	builtins: [GraphQL, Wretch, WebSocket],
+	// NOTE: provide moduleId so the host can automatically dedupe workspace-profile startup entries
+	// that point at the same builtin plugin sources (prevents "plugin name conflict").
+	builtins: [
+		{ plugin: GraphQL, moduleId: '@pluxel/graphql', exportKey: 'default' },
+		{ plugin: Wretch, moduleId: '@pluxel/wretch', exportKey: 'default' },
+		{ plugin: WebSocket, moduleId: '@pluxel/websocket', exportKey: 'default' },
+	],
 	vitePlugins: [Macro() as any, partsTransformVitePlugin()],
 	// Builtins are already compiled for Node, so keep the runner on the same dist entry to avoid ctor drift.
 	deps: { ssrExternal: ['@pluxel/graphql', '@pluxel/wretch', '@pluxel/websocket'] },

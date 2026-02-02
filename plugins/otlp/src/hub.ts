@@ -33,17 +33,17 @@ export const OtlpHubSignalsCfgSchema = v.object({
 	logs: v.pipe(
 		v.optional(v.boolean(), true),
 		f.formMeta({ label: '启用 Logs', description: 'OTLP /v1/logs' }),
-		f.booleanMeta({ variant: 'switch' }),
+		f.booleanMeta({}),
 	),
 	traces: v.pipe(
 		v.optional(v.boolean(), false),
 		f.formMeta({ label: '启用 Traces', description: 'OTLP /v1/traces' }),
-		f.booleanMeta({ variant: 'switch' }),
+		f.booleanMeta({}),
 	),
 	metrics: v.pipe(
 		v.optional(v.boolean(), false),
 		f.formMeta({ label: '启用 Metrics', description: 'OTLP /v1/metrics' }),
-		f.booleanMeta({ variant: 'switch' }),
+		f.booleanMeta({}),
 	),
 })
 
@@ -85,14 +85,6 @@ export const OtlpHubConfigSchemas = {
 	batch: OtlpHubBatchCfgSchema,
 	queueCfg: OtlpHubQueueCfgSchema,
 } as const
-
-function parseCfg<T>(key: string, schema: unknown, candidate: unknown): T {
-	const res = v.safeParse(schema as any, candidate ?? {})
-	if (res.success) return res.output as T
-	const issue = res.issues?.[0]
-	const where = issue?.path?.map((p: any) => p.key ?? p.index).join('.') || key
-	throw new Error(`[otlp] invalid config: ${where} -> ${issue?.message ?? 'unknown'}`)
-}
 
 function normalizeEndpoint(raw: string): string {
 	const s = String(raw ?? '').trim()
@@ -633,19 +625,13 @@ export class OtlpHub extends Otlp {
 	private metricsQ: OtlpHttpJsonQueue | null = null
 
 	override async init(_abort: AbortSignal): Promise<void> {
-		const svcAny = this.ctx.configService as any
-		await svcAny.ready?.catch(() => undefined)
-
-		const id = String(this.ctx.pluginInfo?.id ?? 'OtlpHub')
-		const record = this.ctx.configService.getRawConfig(id) as any
-
 		this.cfg = {
-			core: parseCfg('core', OtlpHubCoreCfgSchema, record?.core ?? this.core),
-			signals: parseCfg('signals', OtlpHubSignalsCfgSchema, record?.signals ?? this.signals),
-			resource: parseCfg('resourceCfg', OtlpHubResourceCfgSchema, record?.resourceCfg ?? this.resourceCfg),
-			scope: parseCfg('scopeCfg', OtlpHubScopeCfgSchema, record?.scopeCfg ?? this.scopeCfg),
-			batch: parseCfg('batch', OtlpHubBatchCfgSchema, record?.batch ?? this.batch),
-			queue: parseCfg('queueCfg', OtlpHubQueueCfgSchema, record?.queueCfg ?? this.queueCfg),
+			core: this.core,
+			signals: this.signals,
+			resource: this.resourceCfg,
+			scope: this.scopeCfg,
+			batch: this.batch,
+			queue: this.queueCfg,
 		}
 
 		this.ctx.scope.collectEffect(() => {
@@ -696,10 +682,7 @@ export class OtlpHub extends Otlp {
 		this.prefix.metrics = `{"resourceMetrics":[{"resource":${resourceJson},"scopeMetrics":[{"scope":${scopeJson},"metrics":[`
 		this.suffix.metrics = `]}]}]}`
 
-		this.baseAttrs = {
-			'pluxel.provider.id': String(this.ctx.pluginInfo?.id ?? ''),
-			'pluxel.provider.name': String(this.ctx.pluginInfo?.displayName ?? ''),
-		}
+		this.baseAttrs = { 'pluxel.provider.id': this.ctx.pluginInfo.id, 'pluxel.provider.name': this.ctx.pluginInfo.displayName }
 
 		this.buildExporters({ enabled: true })
 
