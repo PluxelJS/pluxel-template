@@ -9,6 +9,10 @@
 			"@pluxel/hmr": "./src/index.ts",
 			"default": "./dist/index.mjs"
 		},
+		"./ui-kit": {
+			"@pluxel/hmr": "./src/ui/kit.ts",
+			"default": "./dist/ui-kit.mjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.mjs",
@@ -47,6 +51,7 @@
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
+			"./ui-kit": "./dist/ui-kit.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

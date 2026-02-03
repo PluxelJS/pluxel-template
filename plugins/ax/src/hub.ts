@@ -1,6 +1,5 @@
 import { ai as axAi, type AxAI } from '@ax-llm/ax'
 import { Plugin } from '@pluxel/hmr'
-import { RpcTarget } from '@pluxel/hmr/capnweb'
 import { Collection, createIndex } from '@pluxel/hmr/signaldb'
 
 import type { ExecCtx } from '@pluxel/cmd'
@@ -8,21 +7,8 @@ import type { ExecCtx } from '@pluxel/cmd'
 import { Ax } from './core'
 import type { AxProfileDoc, AxProfileId, AxProfilePublic } from './profiles'
 import { AX_COLLECTION_PROFILES, axVaultKeyForProfile, createProfileId, maskToken, toPublicProfile } from './profiles'
-
-type CreateProfileInput = {
-	title?: string
-	provider: string
-	model?: string
-	apiURL?: string
-	config?: Record<string, unknown>
-	options?: Record<string, unknown>
-	apiKey?: string
-	makeDefault?: boolean
-}
-
-type UpdateProfileInput = Partial<Omit<CreateProfileInput, 'apiKey'>> & {
-	enabled?: boolean
-}
+import { registerAxHubExtensions } from './extensions'
+import type { CreateProfileInput, UpdateProfileInput } from './rpc'
 
 @Plugin(Ax, { name: 'AxHub', type: 'service' })
 export class AxHub extends Ax {
@@ -38,9 +24,7 @@ export class AxHub extends Ax {
 			indices: [createIndex('enabled'), createIndex('isDefault'), createIndex('updatedAt')],
 		})
 		this.readyPromise = this.profiles.isReady()
-
-		this.ctx.ext.ui.register({ entryPath: './src/ui/index.tsx' })
-		this.ctx.ext.rpc.registerExtension(() => new AxHubRpc(this))
+		registerAxHubExtensions({ ctx: this.ctx, hub: this })
 	}
 
 	private async whenReady() {
@@ -282,47 +266,5 @@ export class AxHub extends Ax {
 
 		const updated = this.profiles.findOne({ id })!
 		return toPublicProfile(updated, false)
-	}
-}
-
-class AxHubRpc extends RpcTarget {
-	constructor(private readonly plugin: AxHub) {
-		super()
-	}
-
-	profiles() {
-		return this.plugin.listProfiles()
-	}
-
-	createProfile(input: CreateProfileInput) {
-		return this.plugin.createProfile(input)
-	}
-
-	updateProfile(id: string, input: UpdateProfileInput) {
-		return this.plugin.updateProfile(id, input)
-	}
-
-	setDefaultProfile(id: string) {
-		return this.plugin.setDefaultProfile(id)
-	}
-
-	deleteProfile(id: string) {
-		return this.plugin.deleteProfile(id)
-	}
-
-	setApiKey(id: string, apiKey: string) {
-		return this.plugin.setApiKey(id, apiKey)
-	}
-
-	clearApiKey(id: string) {
-		return this.plugin.clearApiKey(id)
-	}
-}
-
-declare module '@pluxel/hmr/services' {
-	namespace UI {
-		interface rpc {
-			Ax: AxHubRpc
-		}
 	}
 }

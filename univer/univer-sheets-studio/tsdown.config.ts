@@ -3,7 +3,6 @@ import { defineConfig } from 'tsdown'
 export default defineConfig({
 	entry: {
 		index: './src/index.ts',
-		'ui-kit': './src/ui/kit.ts',
 	},
 	dts: {
 		sourcemap: true,
@@ -17,3 +16,4 @@ export default defineConfig({
 	// 供 pluxel-cli build 覆盖
 	external: [],
 })
+

@@ -79,3 +79,40 @@ for await (const chunk of gen.streamingForward(ai, { msg: 'hello' })) {
 	if (chunk.delta.out) process.stdout.write(chunk.delta.out)
 }
 ```
+
+## TOON (optional structured context encoder)
+
+If you need to feed large structured context (tables/lists) into an LLM efficiently, use:
+
+```ts
+import { formatStructured } from 'pluxel-plugin-ax/toon'
+
+const ctx = formatStructured(rows, { format: 'toon' })
+// ctx.text -> put into prompt
+// ctx.contentType -> "text/toon; charset=utf-8"
+```
+
+## Debugging (timeout-safe Host snippet)
+
+When running ad-hoc Node debug scripts, the process may stay alive due to open handles from runtime services.
+Use a hard timeout (and log `startError`/`resolveError`) so you never get stuck:
+
+```ts
+import { withHost } from '@pluxel/test'
+import { AxHub } from './plugins/ax/dist/index.mjs'
+
+const kill = setTimeout(() => process.exit(124), 15_000)
+kill.unref()
+
+await withHost(async (host) => {
+	host.ctx.on('startError', (pluginCtx, err) => {
+		console.error('[startError]', pluginCtx.pluginInfo.id, err.stack || err.message)
+	})
+	host.ctx.on('resolveError', (id, err) => {
+		console.error('[resolveError]', String(id), err.stack || err.message)
+	})
+
+	host.add(AxHub)
+	await host.commitAllowFail()
+})
+```

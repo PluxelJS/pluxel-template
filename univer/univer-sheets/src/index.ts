@@ -1,5 +1,17 @@
-export * from './types'
-export * from './hub'
+export type { SheetsPatchAction, SheetsPatchSpec, UniverContribution, UniverContributionInput } from './types'
+
+export { UniverSheetsHub } from './hub'
+export type {
+	SheetsHubPersistenceSettings,
+	SheetsHubSettings,
+	SheetsPatchEvent,
+	SheetsPatchReadyEvent,
+	StoredSnapshotFile,
+	UniverSheetsDocInfo,
+	UniverSheetsFolderInfo,
+	UniverSheetsSnapshotStore,
+	UniverSheetsTree,
+} from './hub'
 
 import { UniverSheetsHub } from './hub'
 

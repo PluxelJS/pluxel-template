@@ -1,77 +1,9 @@
 import { useExtensionContext } from '@pluxel/hmr/web'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import '@univerjs/design/lib/index.css'
-import '@univerjs/preset-sheets-core/lib/index.css'
-import '@univerjs/preset-sheets-conditional-formatting/lib/index.css'
-import '@univerjs/preset-sheets-data-validation/lib/index.css'
-import '@univerjs/preset-sheets-filter/lib/index.css'
-import '@univerjs/preset-sheets-find-replace/lib/index.css'
-import '@univerjs/preset-sheets-hyper-link/lib/index.css'
-import '@univerjs/preset-sheets-note/lib/index.css'
-import '@univerjs/preset-sheets-sort/lib/index.css'
-import '@univerjs/preset-sheets-table/lib/index.css'
-import '@univerjs/preset-sheets-drawing/lib/index.css'
-import '@univerjs/preset-sheets-thread-comment/lib/index.css'
-import '@univerjs/sheets-crosshair-highlight/lib/index.css'
-import '@univerjs/sheets-zen-editor/lib/index.css'
-import '@univerjs/uniscript/lib/index.css'
+import { applyTextWatermark, createSheetsUniver, type SheetsUniverApi } from './kit'
 
-import { createUniver, defaultTheme, LocaleType, mergeLocales } from '@univerjs/presets'
-import { UniverSheetsConditionalFormattingPreset } from '@univerjs/preset-sheets-conditional-formatting'
-import { UniverSheetsCorePreset } from '@univerjs/preset-sheets-core'
-import { UniverSheetsDataValidationPreset } from '@univerjs/preset-sheets-data-validation'
-import { UniverSheetsFilterPreset } from '@univerjs/preset-sheets-filter'
-import { UniverSheetsFindReplacePreset } from '@univerjs/preset-sheets-find-replace'
-import { UniverSheetsHyperLinkPreset } from '@univerjs/preset-sheets-hyper-link'
-import { UniverSheetsNotePreset } from '@univerjs/preset-sheets-note'
-import { UniverSheetsSortPreset } from '@univerjs/preset-sheets-sort'
-import { UniverSheetsTablePreset } from '@univerjs/preset-sheets-table'
-import { UniverSheetsDrawingPreset } from '@univerjs/preset-sheets-drawing'
-import { UniverSheetsThreadCommentPreset } from '@univerjs/preset-sheets-thread-comment'
-import sheetsEnUS from '@univerjs/preset-sheets-core/locales/en-US'
-import sheetsZhCN from '@univerjs/preset-sheets-core/locales/zh-CN'
-import conditionalFormattingEnUS from '@univerjs/preset-sheets-conditional-formatting/locales/en-US'
-import conditionalFormattingZhCN from '@univerjs/preset-sheets-conditional-formatting/locales/zh-CN'
-import dataValidationEnUS from '@univerjs/preset-sheets-data-validation/locales/en-US'
-import dataValidationZhCN from '@univerjs/preset-sheets-data-validation/locales/zh-CN'
-import filterEnUS from '@univerjs/preset-sheets-filter/locales/en-US'
-import filterZhCN from '@univerjs/preset-sheets-filter/locales/zh-CN'
-import findReplaceEnUS from '@univerjs/preset-sheets-find-replace/locales/en-US'
-import findReplaceZhCN from '@univerjs/preset-sheets-find-replace/locales/zh-CN'
-import hyperLinkEnUS from '@univerjs/preset-sheets-hyper-link/locales/en-US'
-import hyperLinkZhCN from '@univerjs/preset-sheets-hyper-link/locales/zh-CN'
-import noteEnUS from '@univerjs/preset-sheets-note/locales/en-US'
-import noteZhCN from '@univerjs/preset-sheets-note/locales/zh-CN'
-import sortEnUS from '@univerjs/preset-sheets-sort/locales/en-US'
-import sortZhCN from '@univerjs/preset-sheets-sort/locales/zh-CN'
-import tableEnUS from '@univerjs/preset-sheets-table/locales/en-US'
-import tableZhCN from '@univerjs/preset-sheets-table/locales/zh-CN'
-import drawingEnUS from '@univerjs/preset-sheets-drawing/locales/en-US'
-import drawingZhCN from '@univerjs/preset-sheets-drawing/locales/zh-CN'
-import threadCommentEnUS from '@univerjs/preset-sheets-thread-comment/locales/en-US'
-import threadCommentZhCN from '@univerjs/preset-sheets-thread-comment/locales/zh-CN'
-import designEnUS from '@univerjs/design/locale/en-US'
-import designZhCN from '@univerjs/design/locale/zh-CN'
-
-import sheetsCrosshairHighlightEnUS from '@univerjs/sheets-crosshair-highlight/locale/en-US'
-import sheetsCrosshairHighlightZhCN from '@univerjs/sheets-crosshair-highlight/locale/zh-CN'
-import { UniverSheetsCrosshairHighlightPlugin } from '@univerjs/sheets-crosshair-highlight'
-import '@univerjs/sheets-crosshair-highlight/facade'
-
-import { UniverWatermarkPlugin } from '@univerjs/watermark'
-import '@univerjs/watermark/facade'
-
-import sheetsZenEditorEnUS from '@univerjs/sheets-zen-editor/locale/en-US'
-import sheetsZenEditorZhCN from '@univerjs/sheets-zen-editor/locale/zh-CN'
-import { UniverSheetsZenEditorPlugin } from '@univerjs/sheets-zen-editor'
-import '@univerjs/sheets-zen-editor/facade'
-
-import uniscriptEnUS from '@univerjs/uniscript/locale/en-US'
-import uniscriptZhCN from '@univerjs/uniscript/locale/zh-CN'
-import { UniverUniscriptPlugin } from '@univerjs/uniscript'
-
-import type { SheetsHubSettings } from '../hub'
+import type { SheetsHubSettings, UniverSheetsDocInfo } from '../hub'
 import type { TextWatermarkSettings, UniverContribution } from '../types'
 
 type ContributionItem = {
@@ -80,8 +12,8 @@ type ContributionItem = {
 	registeredAt: number
 }
 
-type SnapshotMeta = { docId: string; savedAt: number }
-type SnapshotFile = { docId: string; savedAt: number; snapshot: unknown }
+type WorkbookSnapshot = import('@univerjs/core').IWorkbookData
+type SnapshotFile = { docId: string; savedAt: number; snapshot: WorkbookSnapshot }
 
 function pickTextWatermark(items: ContributionItem[]): TextWatermarkSettings | null {
 	const list = items
@@ -95,28 +27,31 @@ export default function SheetsRoute() {
 	const ctx = useExtensionContext('plugin')
 	const ui = ctx.services.hmr.ui.UniverSheetsHub
 
-	type UniverApi = ReturnType<typeof createUniver>['univerAPI']
-	type UniverInstance = { api: UniverApi; settingsKey: string }
+	type UniverInstance = { api: SheetsUniverApi; settingsKey: string }
 	const univerRef = useRef<UniverInstance | null>(null)
-	const [univerApi, setUniverApi] = useState<UniverApi | null>(null)
+	const [univerApi, setUniverApi] = useState<SheetsUniverApi | null>(null)
 
 	const [container, setContainer] = useState<HTMLDivElement | null>(null)
 	const [items, setItems] = useState<ContributionItem[] | null>(null)
 	const [settings, setSettings] = useState<SheetsHubSettings | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [loading, setLoading] = useState(false)
-	const [snapshotMeta, setSnapshotMeta] = useState<SnapshotMeta | null>(null)
+	const [snapshotMeta, setSnapshotMeta] = useState<{ docId: string; savedAt: number } | null>(null)
 	const [snapshotBusy, setSnapshotBusy] = useState(false)
 	const savingRef = useRef(false)
 	const applyingRef = useRef(false)
 	const lastAutoLoadKeyRef = useRef<string | null>(null)
+	const didInitDocIdRef = useRef(false)
+
+	const [activeDocId, setActiveDocId] = useState('default')
+	const [knownDocs, setKnownDocs] = useState<UniverSheetsDocInfo[]>([])
 
 	const load = useCallback(async () => {
 		setLoading(true)
 		try {
-			const [nextSettings, next] = await Promise.all([ui.settings(), ui.contributions()])
-			setSettings(nextSettings)
-			setItems(next)
+			const boot = await ui.bootstrap()
+			setSettings(boot.settings)
+			setItems(boot.contributions)
 			setError(null)
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e))
@@ -136,8 +71,29 @@ export default function SheetsRoute() {
 	const persistenceEnabled = !!persistence?.enabled
 	const persistenceDocId = persistence?.docId ?? 'default'
 
+	useEffect(() => {
+		if (!persistenceEnabled) return
+		if (didInitDocIdRef.current) return
+		didInitDocIdRef.current = true
+		setActiveDocId(persistenceDocId)
+	}, [persistenceDocId, persistenceEnabled])
+
+	const refreshDocs = useCallback(async () => {
+		try {
+			const list = await ui.docs()
+			setKnownDocs(list)
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e))
+		}
+	}, [ui])
+
+	useEffect(() => {
+		void refreshDocs()
+	}, [refreshDocs])
+
 	const saveSnapshot = useCallback(async (): Promise<void> => {
 		if (!persistenceEnabled) return
+		const docId = activeDocId.trim() || 'default'
 		const api = univerApi
 		if (!api) return
 		if (savingRef.current) return
@@ -148,25 +104,27 @@ export default function SheetsRoute() {
 		setSnapshotBusy(true)
 		try {
 			const snapshot = workbook.save()
-			const res = await ui.saveSnapshot(persistenceDocId, snapshot as any)
-			setSnapshotMeta({ docId: persistenceDocId, savedAt: res.savedAt })
+			const res = await ui.saveSnapshot(docId, snapshot as WorkbookSnapshot)
+			setSnapshotMeta({ docId, savedAt: res.savedAt })
 			setError(null)
+			void refreshDocs()
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e))
 		} finally {
 			savingRef.current = false
 			setSnapshotBusy(false)
 		}
-	}, [persistenceDocId, persistenceEnabled, ui, univerApi])
+	}, [activeDocId, persistenceEnabled, refreshDocs, ui, univerApi])
 
 	const loadSnapshot = useCallback(async (): Promise<void> => {
 		if (!persistenceEnabled) return
+		const docId = activeDocId.trim() || 'default'
 		const api = univerApi
 		if (!api) return
 
 		setSnapshotBusy(true)
 		try {
-			const file = (await ui.loadSnapshot(persistenceDocId)) as SnapshotFile | null
+			const file = (await ui.loadSnapshot(docId)) as SnapshotFile | null
 			if (!file?.snapshot) return
 
 			applyingRef.current = true
@@ -174,7 +132,7 @@ export default function SheetsRoute() {
 			const unitId = current?.getId()
 			if (unitId) api.disposeUnit(unitId)
 
-			api.createWorkbook(file.snapshot as any)
+			api.createWorkbook(file.snapshot)
 			setSnapshotMeta({ docId: file.docId, savedAt: file.savedAt })
 			setError(null)
 		} catch (e) {
@@ -186,7 +144,36 @@ export default function SheetsRoute() {
 			}, 0)
 			setSnapshotBusy(false)
 		}
-	}, [persistenceDocId, persistenceEnabled, ui, univerApi])
+	}, [activeDocId, persistenceEnabled, ui, univerApi])
+
+	const deleteSnapshot = useCallback(async (): Promise<void> => {
+		if (!persistenceEnabled) return
+		const docId = activeDocId.trim() || 'default'
+		if (!window.confirm(`删除快照？\n\ndocId: ${docId}`)) return
+		setSnapshotBusy(true)
+		try {
+			await ui.deleteSnapshot(docId)
+			setSnapshotMeta(null)
+			setError(null)
+			void refreshDocs()
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e))
+		} finally {
+			setSnapshotBusy(false)
+		}
+	}, [activeDocId, persistenceEnabled, refreshDocs, ui])
+
+	const newDocId = useCallback(() => {
+		const id = `book-${Date.now().toString(36)}`
+		setActiveDocId(id)
+		setSnapshotMeta(null)
+		const api = univerApi
+		if (!api) return
+		const current = api.getActiveWorkbook()
+		const unitId = current?.getId()
+		if (unitId) api.disposeUnit(unitId)
+		api.createWorkbook({})
+	}, [univerApi])
 
 	useEffect(() => {
 		if (!container) return
@@ -205,63 +192,7 @@ export default function SheetsRoute() {
 			setUniverApi(null)
 		}
 
-		const localeType = settings.locale === 'en-US' ? LocaleType.EN_US : LocaleType.ZH_CN
-		const pickLocale = <T,>(en: T, zh: T) => (settings.locale === 'en-US' ? en : zh)
-
-		const localePacks: any[] = [pickLocale(designEnUS, designZhCN), pickLocale(sheetsEnUS, sheetsZhCN)]
-		const presets: any[] = [UniverSheetsCorePreset({ container })]
-		const plugins: any[] = [UniverWatermarkPlugin]
-
-		const enablePreset = (enabled: boolean, preset: any, localeEn: any, localeZh: any) => {
-			if (!enabled) return
-			localePacks.push(pickLocale(localeEn, localeZh))
-			presets.push(preset)
-		}
-		const enablePlugin = (enabled: boolean, plugin: any, localeEn: any, localeZh: any) => {
-			if (!enabled) return
-			localePacks.push(pickLocale(localeEn, localeZh))
-			plugins.push(plugin)
-		}
-
-		enablePreset(settings.enableFilter, UniverSheetsFilterPreset(), filterEnUS, filterZhCN)
-		enablePreset(settings.enableSort, UniverSheetsSortPreset(), sortEnUS, sortZhCN)
-		enablePreset(settings.enableFindReplace, UniverSheetsFindReplacePreset(), findReplaceEnUS, findReplaceZhCN)
-		enablePreset(settings.enableNote, UniverSheetsNotePreset(), noteEnUS, noteZhCN)
-		enablePreset(settings.enableHyperLink, UniverSheetsHyperLinkPreset(), hyperLinkEnUS, hyperLinkZhCN)
-		enablePreset(settings.enableDataValidation, UniverSheetsDataValidationPreset(), dataValidationEnUS, dataValidationZhCN)
-		enablePreset(settings.enableTable, UniverSheetsTablePreset(), tableEnUS, tableZhCN)
-		enablePreset(settings.enableDrawing, UniverSheetsDrawingPreset(), drawingEnUS, drawingZhCN)
-		enablePreset(
-			settings.enableThreadComment,
-			UniverSheetsThreadCommentPreset(),
-			threadCommentEnUS,
-			threadCommentZhCN,
-		)
-		enablePreset(
-			settings.enableConditionalFormatting,
-			UniverSheetsConditionalFormattingPreset(),
-			conditionalFormattingEnUS,
-			conditionalFormattingZhCN,
-		)
-
-		enablePlugin(
-			settings.enableCrosshairHighlight,
-			UniverSheetsCrosshairHighlightPlugin,
-			sheetsCrosshairHighlightEnUS,
-			sheetsCrosshairHighlightZhCN,
-		)
-		enablePlugin(settings.enableZenEditor, UniverSheetsZenEditorPlugin, sheetsZenEditorEnUS, sheetsZenEditorZhCN)
-		enablePlugin(settings.enableUniscript, UniverUniscriptPlugin, uniscriptEnUS, uniscriptZhCN)
-
-		const { univerAPI } = createUniver({
-			locale: localeType,
-			locales: { [localeType]: mergeLocales(...localePacks) },
-			theme: defaultTheme,
-			presets,
-			plugins,
-		})
-
-		univerAPI.createWorkbook({})
+		const univerAPI = createSheetsUniver({ container, settings })
 		univerRef.current = { api: univerAPI, settingsKey: currentSettingsKey }
 		setUniverApi(univerAPI)
 
@@ -275,27 +206,7 @@ export default function SheetsRoute() {
 	useEffect(() => {
 		const api = univerApi
 		if (!api) return
-
-		if (!watermark) {
-			api.deleteWatermark()
-			return
-		}
-
-		api.addWatermark(api.Enum.IWatermarkTypeEnum.Text, {
-			content: watermark.content,
-			repeat: watermark.repeat ?? true,
-			x: 80,
-			y: 60,
-			spacingX: 260,
-			spacingY: 190,
-			rotate: watermark.rotate ?? -15,
-			opacity: watermark.opacity ?? 0.2,
-			fontSize: watermark.fontSize ?? 28,
-			color: watermark.color ?? 'rgba(120, 120, 120, 0.28)',
-			bold: false,
-			italic: false,
-			direction: 'ltr',
-		})
+		applyTextWatermark(api, watermark)
 	}, [univerApi, watermark])
 
 	useEffect(() => {
@@ -303,11 +214,12 @@ export default function SheetsRoute() {
 		if (!persistenceEnabled) return
 		if (!persistence?.autoLoadOnStart) return
 
-		const key = `${settingsKey ?? ''}:${persistenceDocId}:${univerApi ? '1' : '0'}`
+		const docId = activeDocId.trim() || 'default'
+		const key = `${settingsKey ?? ''}:${docId}:${univerApi ? '1' : '0'}`
 		if (lastAutoLoadKeyRef.current === key) return
 		lastAutoLoadKeyRef.current = key
 		void loadSnapshot()
-	}, [loadSnapshot, persistence?.autoLoadOnStart, persistenceDocId, persistenceEnabled, settingsKey, univerApi])
+	}, [activeDocId, loadSnapshot, persistence?.autoLoadOnStart, persistenceEnabled, settingsKey, univerApi])
 
 	useEffect(() => {
 		if (!univerApi) return
@@ -399,6 +311,43 @@ export default function SheetsRoute() {
 
 				{persistenceEnabled ? (
 					<>
+						<input
+							value={activeDocId}
+							onChange={(e) => setActiveDocId(e.currentTarget.value)}
+							list="univer-doc-ids"
+							placeholder="docId"
+							style={{
+								width: 180,
+								border: 'none',
+								color: 'rgba(255,255,255,0.92)',
+								padding: '6px 10px',
+								borderRadius: 8,
+								background: 'rgba(255,255,255,0.12)',
+								outline: 'none',
+							}}
+						/>
+						<datalist id="univer-doc-ids">
+							{knownDocs.map((d) => (
+								<option key={d.docId} value={d.docId} />
+							))}
+						</datalist>
+
+						<button
+							type="button"
+							onClick={() => newDocId()}
+							disabled={snapshotBusy}
+							style={{
+								cursor: snapshotBusy ? 'progress' : 'pointer',
+								border: 'none',
+								color: 'rgba(255,255,255,0.92)',
+								padding: '6px 10px',
+								borderRadius: 8,
+								background: snapshotBusy ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.16)',
+							}}
+						>
+							新建
+						</button>
+
 						<button
 							type="button"
 							onClick={() => void loadSnapshot()}
@@ -412,7 +361,7 @@ export default function SheetsRoute() {
 								background: snapshotBusy ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.16)',
 							}}
 						>
-							加载 ({persistenceDocId})
+							加载
 						</button>
 						<button
 							type="button"
@@ -427,7 +376,22 @@ export default function SheetsRoute() {
 								background: snapshotBusy ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.16)',
 							}}
 						>
-							保存 ({persistenceDocId})
+							保存
+						</button>
+						<button
+							type="button"
+							onClick={() => void deleteSnapshot()}
+							disabled={snapshotBusy}
+							style={{
+								cursor: snapshotBusy ? 'progress' : 'pointer',
+								border: 'none',
+								color: 'rgba(255,255,255,0.92)',
+								padding: '6px 10px',
+								borderRadius: 8,
+								background: snapshotBusy ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.16)',
+							}}
+						>
+							删除
 						</button>
 						{snapshotMeta ? (
 							<span style={{ opacity: 0.9 }}>
@@ -436,6 +400,7 @@ export default function SheetsRoute() {
 						) : (
 							<span style={{ opacity: 0.9 }}>快照：无</span>
 						)}
+						<span style={{ opacity: 0.85 }}>共 {knownDocs.length} 个</span>
 					</>
 				) : null}
 

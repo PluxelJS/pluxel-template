@@ -21,6 +21,10 @@
 			"@pluxel/hmr": "./src/sdk.ts",
 			"default": "./dist/sdk.mjs"
 		},
+		"./toon": {
+			"@pluxel/hmr": "./src/toon.ts",
+			"default": "./dist/toon.mjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.mjs",
@@ -34,11 +38,12 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "pnpm run typecheck && bun test"
+		"test": "pnpm run typecheck && pnpm exec vitest run -c ../../vitest.config.ts --project pluxel-plugin-ax"
 	},
 	"dependencies": {
 		"@ax-llm/ax": "^15.0.0",
-		"@pluxel/cmd": "workspace:^"
+		"@pluxel/cmd": "workspace:^",
+		"@toon-format/toon": "^2.1.0"
 	},
 	"devDependencies": {
 		"valibot": "^1.2.0"
@@ -49,6 +54,7 @@
 			"./cmdkit": "./dist/cmdkit.mjs",
 			"./decorators": "./dist/decorators.mjs",
 			"./sdk": "./dist/sdk.mjs",
+			"./toon": "./dist/toon.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

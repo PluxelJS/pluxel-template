@@ -6,6 +6,7 @@ export default defineConfig({
 		cmdkit: './src/cmdkit.ts',
 		decorators: './src/decorators.ts',
 		sdk: './src/sdk.ts',
+		toon: './src/toon.ts',
 	},
 	dts: {
 		sourcemap: true,

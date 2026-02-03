@@ -19,7 +19,7 @@ function isMcpExecutableLike(v: unknown): v is McpExecutable<any, any> {
 	return isExecutableLike(v) && !!(v as any).mcp && typeof (v as any).mcp === 'object'
 }
 
-export class AxToolRegistry {
+class AxToolRegistry {
 	private readonly byName = new Map<string, ToolRecord>()
 	private readonly namesByOwner = new Map<string, Set<string>>()
 
@@ -62,6 +62,14 @@ export class AxToolRegistry {
 	}
 }
 
+/**
+ * Minimal Ax service surface for other plugins.
+ *
+ * Design goals:
+ * - Stable DI token: other plugins depend on `Ax` (this class) and do not care about the provider.
+ * - Small API: build on top of `ai()` + tool registry + cmdkit bridge.
+ * - Explicit behavior: this plugin never "silently" converts your payload formats; helpers live in `pluxel-plugin-ax/toon`.
+ */
 export abstract class Ax extends BasePlugin {
 	private readonly tools = new AxToolRegistry()
 	private readonly ownerCtxById = new Map<string, Context>()
@@ -79,10 +87,20 @@ export abstract class Ax extends BasePlugin {
 		return id
 	}
 
-	/** Resolve (or create) an Ax AI instance. Default is the provider plugin's active profile. */
+	/**
+	 * Resolve (or create) an Ax AI instance.
+	 *
+	 * Provider selection is data-driven by the provider plugin (e.g. `AxHub` profiles).
+	 */
 	abstract ai(opts?: { profileId?: string; ctx?: ExecCtx }): Promise<AxAI>
 
-	/** Register a raw Ax function tool (owned by the caller plugin). */
+	/**
+	 * Register a raw Ax function tool (owned by the caller plugin).
+	 *
+	 * Notes:
+	 * - Tool names must be globally unique across plugins.
+	 * - Ownership is bound to the caller plugin context; tools are auto-unregistered on plugin dispose/restart.
+	 */
 	tool(fn: AxFunction): void {
 		const caller = this.requireCaller('tool')
 		const ownerKey = this.ownerKeyForCaller(caller)
@@ -131,7 +149,11 @@ export abstract class Ax extends BasePlugin {
 		}
 	}
 
-	/** Register a cmdkit executable as an Ax tool, using its `.mcp` metadata (owned by the caller plugin). */
+	/**
+	 * Register a cmdkit executable as an Ax tool, using its `.mcp` metadata (owned by the caller plugin).
+	 *
+	 * This is the recommended integration path: cmdkit remains the "single source of truth" for tool schemas.
+	 */
 	cmd(
 		exec: McpExecutable<any, any> | Executable<any, any>,
 		opts?: { docCtx?: DocContext; execCtx?: ExecCtx | ((args: unknown, extra: unknown) => ExecCtx | undefined) },
@@ -147,7 +169,11 @@ export abstract class Ax extends BasePlugin {
 		return this.tools.list()
 	}
 
-	/** Convenience for Ax consumers: get `{ ai, functions }` ready to pass into `ax(...)/agent(...)`. */
+	/**
+	 * Convenience for Ax consumers: get `{ ai, functions }` ready to pass into `ax(...)/agent(...)`.
+	 *
+	 * `functions` is the current registry snapshot; callers may add extra functions explicitly.
+	 */
 	async tooling(opts?: { profileId?: string; ctx?: ExecCtx; functions?: AxFunction[] }): Promise<{ ai: AxAI; functions: AxFunction[] }> {
 		const ai = await this.ai({ profileId: opts?.profileId, ctx: opts?.ctx })
 		const base = this.functions()

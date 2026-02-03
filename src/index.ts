@@ -24,7 +24,6 @@ const { ctx } = await startHmrHost({
 	deps: { ssrExternal: ['@pluxel/graphql', '@pluxel/wretch', '@pluxel/websocket'] },
 	cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
 	registry: {
-		pluginCTXIsolate: [LogtapeLoggerService],
 	},
 })
 

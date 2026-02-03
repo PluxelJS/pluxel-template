@@ -1,3 +1,5 @@
+import type { CellValue, ICellData, IObjectMatrixPrimitiveType } from '@univerjs/core'
+
 export type TextWatermarkSettings = {
 	content: string
 	fontSize?: number
@@ -17,3 +19,26 @@ export type UniverTextWatermarkContribution = {
 export type UniverContribution = UniverTextWatermarkContribution
 
 export type UniverContributionInput = Omit<UniverContribution, 'id'>
+
+export type SheetsPatchAction =
+	| {
+			op: 'set'
+			sheetName?: string
+			range: string
+			value: CellValue | ICellData
+	  }
+	| {
+			op: 'setValues'
+			sheetName?: string
+			range: string
+			values:
+				| CellValue[][]
+				| IObjectMatrixPrimitiveType<CellValue>
+				| ICellData[][]
+				| IObjectMatrixPrimitiveType<ICellData>
+	  }
+	| { op: 'clear'; sheetName?: string; range: string }
+
+export type SheetsPatchSpec = {
+	actions: SheetsPatchAction[]
+}
