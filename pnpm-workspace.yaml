@@ -1,10 +1,10 @@
 packages:
   - packages/**
-  - plugins/*
+  - plugins/*/*
   - univer/*
   - builtin-plugins/*
   # vendored/bundled packages (not real workspaces)
-  - '!plugins/napi-rs/*__*'
+  - '!plugins/native/napi-rs/*__*'
   - render-plugins/*
   - chatbots/**
 

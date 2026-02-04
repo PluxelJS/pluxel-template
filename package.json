@@ -7,7 +7,7 @@
 	"scripts": {
 		"bootstrap": "sh ./scripts/bootstrap.sh",
 		"dev": "turbo build:builtin --filter=./builtin-plugins/* && node src/index.ts",
-		"hmr:prompt": "PLUXEL_CLI_SOURCE=1 PLUXEL_HMR_CLI_SOURCE=1 PLUXEL_HMR_SKIP_PACKAGES=@pluxel/graphql,@pluxel/wretch,@pluxel/websocket pnpm exec pluxel hmr --start-cmd \"pnpm hmr\"",
+		"hmr:prompt": "PLUXEL_CLI_SOURCE=1 PLUXEL_HMR_CLI_SOURCE=1 pnpm exec pluxel hmr --start-cmd \"pnpm hmr\"",
 		"hmr": "node src/index.ts",
 		"hmr:doctor": "PLUXEL_CLI_SOURCE=1 PLUXEL_HMR_CLI_SOURCE=1 pnpm exec pluxel hmr doctor",
 		"build": "turbo build",

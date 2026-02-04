@@ -1,6 +1,5 @@
-import type { AnyStdSchema, BeforeResult, ExecCtx, Interceptor } from './core'
+import type { AnyStdSchema, BeforeResult, CmdErrorCode, ExecCtx, Interceptor } from './core'
 import { CmdError, normalizeError, nowMs, throwIfStopped, validateSchema, withSpan } from './core'
-import type { CmdErrorCode } from './core'
 import { CMD_EVENT } from './events'
 import type { Result } from './result'
 import { createErr, createOk } from './result'
@@ -22,11 +21,17 @@ type CompiledInterceptors = {
 	before: Array<{ idx: number; fn: NonNullable<Interceptor<any>['before']> }>
 	afterInput: Array<{ idx: number; fn: NonNullable<Interceptor<any>['afterInput']> }>
 	afterOutputRev: Array<{ idx: number; fn: NonNullable<Interceptor<any>['afterOutput']> }>
-	onErrorRev: Array<{ idx: number; fn: NonNullable<Interceptor<any>['onError']>; canRecover: boolean }>
+	onErrorRev: Array<{
+		idx: number
+		fn: NonNullable<Interceptor<any>['onError']>
+		canRecover: boolean
+	}>
 	finallyRev: Array<{ idx: number; fn: NonNullable<Interceptor<any>['finally']> }>
 }
 
-export const compileInterceptors = (interceptors: ReadonlyArray<Interceptor<any>>): CompiledInterceptors => {
+export const compileInterceptors = (
+	interceptors: ReadonlyArray<Interceptor<any>>,
+): CompiledInterceptors => {
 	const before: CompiledInterceptors['before'] = []
 	const afterInput: CompiledInterceptors['afterInput'] = []
 	const afterOutputRev: CompiledInterceptors['afterOutputRev'] = []
@@ -65,7 +70,7 @@ const runInterceptorsFinally = async (
 	}
 }
 
-const asBeforeResult = <S,>(res: unknown): BeforeResult<S> => (res ?? { kind: 'continue' }) as any
+const asBeforeResult = <S>(res: unknown): BeforeResult<S> => (res ?? { kind: 'continue' }) as any
 
 const reportFaultOnce = async (
 	ctx: ExecCtx,
@@ -78,10 +83,20 @@ const reportFaultOnce = async (
 	if (fault.kind !== 'fault') return
 	state.reported = true
 
-	ctx.emit?.(CMD_EVENT.EXEC_FAULT, { id, code: fault.code, durationMs: attrs.durationMs, recovered: attrs.recovered })
+	ctx.emit?.(CMD_EVENT.EXEC_FAULT, {
+		id,
+		code: fault.code,
+		durationMs: attrs.durationMs,
+		recovered: attrs.recovered,
+	})
 
 	try {
-		await ctx.onFault?.({ id, err: fault, durationMs: attrs.durationMs, recovered: attrs.recovered })
+		await ctx.onFault?.({
+			id,
+			err: fault,
+			durationMs: attrs.durationMs,
+			recovered: attrs.recovered,
+		})
 	} catch {
 		// Swallow onFault errors.
 	}
@@ -174,8 +189,14 @@ export const execPlan = async <I, O>(
 		if (shortCircuit) {
 			outputCandidate = shortCircuit.outputCandidate
 		} else {
-			if (!spec.handle) throw new CmdError('E_INTERNAL', 'Internal error', { message: 'Missing handler' })
-			outputCandidate = await withSpan(c, 'cmd.handle', { id }, async () => await spec.handle!(inputValue, c))
+			if (!spec.handle)
+				throw new CmdError('E_INTERNAL', 'Internal error', { message: 'Missing handler' })
+			outputCandidate = await withSpan(
+				c,
+				'cmd.handle',
+				{ id },
+				async () => await spec.handle!(inputValue, c),
+			)
 		}
 
 		await withSpan(c, 'cmd.afterOutput', { id }, async () => {
@@ -188,7 +209,9 @@ export const execPlan = async <I, O>(
 			}
 		})
 
-		const finalOutput = outputSchema ? await validateWithEvents(id, outputSchema, outputCandidate, 'output', c) : (outputCandidate as O)
+		const finalOutput = outputSchema
+			? await validateWithEvents(id, outputSchema, outputCandidate, 'output', c)
+			: (outputCandidate as O)
 
 		ok = true
 		return finalOutput as O
@@ -214,7 +237,9 @@ export const execPlan = async <I, O>(
 						}
 					}
 
-					const finalOutput = spec.output ? await validateWithEvents(id, spec.output, outputCandidate, 'output', c) : (outputCandidate as any)
+					const finalOutput = spec.output
+						? await validateWithEvents(id, spec.output, outputCandidate, 'output', c)
+						: (outputCandidate as any)
 
 					ok = true
 					finalErr = undefined
@@ -225,7 +250,13 @@ export const execPlan = async <I, O>(
 			})
 
 			if (recovered.recovered) {
-				await reportFaultOnce(c, id, err, { durationMs: nowMs(c) - start, recovered: true }, faultState)
+				await reportFaultOnce(
+					c,
+					id,
+					err,
+					{ durationMs: nowMs(c) - start, recovered: true },
+					faultState,
+				)
 				return recovered.value as O
 			}
 
@@ -243,8 +274,18 @@ export const execPlan = async <I, O>(
 		}
 	} finally {
 		const durationMs = nowMs(c) - start
-		c.emit?.(CMD_EVENT.EXEC_END, { id, durationMs, ok: ok, ...(finalErr ? { code: finalErr.code } : {}) })
-		await runInterceptorsFinally(compiled, states, { ok, durationMs, ...(finalErr ? { err: finalErr } : {}) }, c)
+		c.emit?.(CMD_EVENT.EXEC_END, {
+			id,
+			durationMs,
+			ok: ok,
+			...(finalErr ? { code: finalErr.code } : {}),
+		})
+		await runInterceptorsFinally(
+			compiled,
+			states,
+			{ ok, durationMs, ...(finalErr ? { err: finalErr } : {}) },
+			c,
+		)
 	}
 }
 

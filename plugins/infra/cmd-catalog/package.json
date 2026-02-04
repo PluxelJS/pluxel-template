@@ -1,10 +1,9 @@
 {
 	"$schema": "https://market.pluxel.dev/schema/package.json",
-	"name": "@pluxel/graphql",
+	"name": "pluxel-plugin-cmd-catalog",
 	"version": "0.1.0",
-	"description": "Pluxel builtin plugin: GraphQL runtime + codegen",
+	"description": "Tiny catalog/registry helpers for cmdkit executables (discover + compose + optional permission strings).",
 	"type": "module",
-	"types": "./dist/index.d.mts",
 	"exports": {
 		".": {
 			"@pluxel/hmr": "./src/index.ts",
@@ -12,27 +11,25 @@
 		},
 		"./package.json": "./package.json"
 	},
+	"types": "./dist/index.d.mts",
 	"files": [
-		"!**/*.map",
-		"dist"
+		"dist",
+		"!**/*.map"
 	],
 	"scripts": {
 		"build": "pluxel build",
-		"build:builtin": "pluxel build",
-		"test": "bun test"
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "pnpm run typecheck && bun test --conditions=@pluxel/hmr"
 	},
 	"dependencies": {
-		"@gqloom/core": "^0.15.0",
-		"@gqloom/valibot": "^0.15.0",
-		"@gqty/cli": "^5.0.0",
-		"graphql": "^16.12.0",
-		"graphql-yoga": "^5.18.0",
-		"valibot": "^1.2.0"
+		"@pluxel/cmd": "workspace:*"
 	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
 			"./package.json": "./package.json"
-		}
+		},
+		"access": "public",
+		"provenance": true
 	}
 }

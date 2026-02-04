@@ -19,7 +19,6 @@
     },
     "./package.json": "./package.json"
   },
-  "main": "./src/meme-worker.ts",
   "files": [
     "dist",
     "!**/*.map"

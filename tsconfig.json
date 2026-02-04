@@ -56,8 +56,8 @@
 		"render-plugins/*/src/**/*.tsx",
 		"packages/*/src/**/*.ts",
 		"packages/*/src/**/*.tsx",
-		"plugins/*/src/**/*.ts",
-		"plugins/*/src/**/*.tsx",
+		"plugins/*/*/src/**/*.ts",
+		"plugins/*/*/src/**/*.tsx",
 		"builtin-plugins/*/src/**/*.ts",
 		"builtin-plugins/*/src/**/*.tsx"
 	]

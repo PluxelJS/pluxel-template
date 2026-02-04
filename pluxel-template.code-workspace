@@ -5,6 +5,30 @@
 			"path": "."
 		},
 		{
+			"name": "plugins:data",
+			"path": "plugins/data"
+		},
+		{
+			"name": "plugins:infra",
+			"path": "plugins/infra"
+		},
+		{
+			"name": "plugins:ai",
+			"path": "plugins/ai"
+		},
+		{
+			"name": "plugins:native",
+			"path": "plugins/native"
+		},
+		{
+			"name": "render-plugins",
+			"path": "render-plugins"
+		},
+		{
+			"name": "builtin-plugins",
+			"path": "builtin-plugins"
+		},
+		{
 			"name": "chatbots",
 			"path": "chatbots"
 		}
@@ -17,6 +41,48 @@
 				"label": "🌱  pluxel-template",
 				"foreground": "#ffffff",
 				"background": "#3846bf"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/plugins/data",
+				"packageName": "plugins:data",
+				"label": "plugins:data",
+				"foreground": "#ffffff",
+				"background": "#0f766e"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/plugins/infra",
+				"packageName": "plugins:infra",
+				"label": "plugins:infra",
+				"foreground": "#ffffff",
+				"background": "#1d4ed8"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/plugins/ai",
+				"packageName": "plugins:ai",
+				"label": "plugins:ai",
+				"foreground": "#ffffff",
+				"background": "#7c3aed"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/plugins/native",
+				"packageName": "plugins:native",
+				"label": "plugins:native",
+				"foreground": "#ffffff",
+				"background": "#374151"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/render-plugins",
+				"packageName": "render-plugins",
+				"label": "render-plugins",
+				"foreground": "#ffffff",
+				"background": "#b45309"
+			},
+			{
+				"path": "/home/ahdg/code/pluxel-template/builtin-plugins",
+				"packageName": "builtin-plugins",
+				"label": "builtin-plugins",
+				"foreground": "#ffffff",
+				"background": "#0f172a"
 			},
 			{
 				"path": "/home/ahdg/code/pluxel-template/chatbots",

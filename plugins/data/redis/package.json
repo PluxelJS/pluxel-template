@@ -1,0 +1,44 @@
+{
+  "$schema": "https://market.pluxel.dev/schema/package.json",
+  "name": "pluxel-plugin-redis",
+  "version": "0.1.0",
+  "description": "Redis client service plugin (ioredis) + Lua script utilities and demos.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@pluxel/hmr": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "scripts": {
+    "build": "pluxel build"
+  },
+  "dependencies": {
+    "ioredis": "^5.7.0"
+  },
+  "peerDependencies": {
+    "pluxel-plugin-kv": "workspace:*"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json"
+    },
+    "access": "public",
+    "provenance": true
+  },
+  "pluxel": {
+    "dependOn": {
+      "required": [],
+      "optional": [
+        "pluxel-plugin-kv"
+      ]
+    }
+  }
+}

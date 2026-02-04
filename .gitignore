@@ -4,6 +4,7 @@ gqty
 
 # workspace
 .pluxel
+.trash/
 napi-rs
 napi-rs-cache
 
@@ -292,3 +293,7 @@ build/
 
 # Build cache manifests
 *.tsbuildinfo
+
+# Pluxel HMR generated files
+pluxel.hmr.discovered.jsonc
+pluxel.hmr.jsonc.bak.*
