@@ -317,8 +317,8 @@ export abstract class DrizzleOrmProvider<C> extends DrizzleOrm {
 			shared.db = await this.createDb(shared.client, shared.config)
 
 			const client = shared.client
-			const cancel = this.ctx.scope.collectEffect(() => void client?.close())
-			if (typeof cancel === 'function') shared.closeCancels.add(cancel)
+			const guard = this.ctx.effects.defer(() => void client?.close())
+			shared.closeCancels.add(() => guard.cancel())
 
 			this.ctx.logger.info('ready')
 		})
@@ -427,8 +427,14 @@ export abstract class DrizzleOrmProvider<C> extends DrizzleOrm {
 
 				shared.tables.set(tableName, rec)
 
-				const scope = this.ctx.caller?.scope ?? this.ctx.scope
-				scope.collectEffect(() => handle.disposeSafe())
+				const callerEffects = this.ctx.caller?.effects
+				if (callerEffects) {
+					const guard = callerEffects.defer(() => handle.disposeSafe(), { tag: 'drizzle:table:caller' })
+					// If this provider unloads first, detach from caller effects to avoid cross-plugin retention.
+					this.ctx.effects.defer(() => guard.cancel(), { tag: 'drizzle:table:provider-detach' })
+				} else {
+					this.ctx.effects.defer(() => handle.disposeSafe(), { tag: 'drizzle:table:self' })
+				}
 
 				if (ensureSchema) await this.ensureTable(table)
 				return handle as unknown as DrizzleOrmTableHandle<TTable>

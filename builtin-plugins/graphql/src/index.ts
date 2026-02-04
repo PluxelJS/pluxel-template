@@ -115,7 +115,7 @@ export class GraphQLPlugin extends BasePlugin {
 	 * Register a GraphQL module (resolvers + optional middlewares).
 	 *
 	 * If called through `features.dep(GraphQLPlugin, ...)`, the disposer is auto-collected into
-	 * the caller plugin scope via `dep.ctx.caller`.
+	 * the caller plugin effects via `dep.ctx.caller`.
 	 */
 	useModule(mod: GraphQLModuleInput, key: string | symbol = Symbol('gql-mod')): () => void {
 		this.modules.set(key, normalizeModule(mod))
@@ -125,9 +125,16 @@ export class GraphQLPlugin extends BasePlugin {
 			if (this.modules.delete(key)) this.scheduleRebuild()
 		}
 
-		const collect =
-			this.ctx.caller?.scope?.collectEffect ?? this.ctx.scope.collectEffect.bind(this.ctx.scope)
-		return collect(dispose)
+		const callerEffects = this.ctx.caller?.effects
+		if (callerEffects) {
+			const guard = callerEffects.defer(dispose, { tag: 'graphql:module:caller' })
+			// If this provider unloads first, detach from caller effects to avoid cross-plugin retention.
+			this.ctx.effects.defer(() => guard.cancel(), { tag: 'graphql:module:provider-detach' })
+			return () => void guard.dispose()
+		}
+
+		const guard = this.ctx.effects.defer(dispose, { tag: 'graphql:module:self' })
+		return () => void guard.dispose()
 	}
 
 	useGlobal(mw: GraphQLMiddleware): () => void {
@@ -138,9 +145,16 @@ export class GraphQLPlugin extends BasePlugin {
 			if (this.globals.delete(mw)) this.scheduleRebuild()
 		}
 
-		const collect =
-			this.ctx.caller?.scope?.collectEffect ?? this.ctx.scope.collectEffect.bind(this.ctx.scope)
-		return collect(dispose)
+		const callerEffects = this.ctx.caller?.effects
+		if (callerEffects) {
+			const guard = callerEffects.defer(dispose, { tag: 'graphql:global:caller' })
+			// If this provider unloads first, detach from caller effects to avoid cross-plugin retention.
+			this.ctx.effects.defer(() => guard.cancel(), { tag: 'graphql:global:provider-detach' })
+			return () => void guard.dispose()
+		}
+
+		const guard = this.ctx.effects.defer(dispose, { tag: 'graphql:global:self' })
+		return () => void guard.dispose()
 	}
 
 	private config: GraphQLPluginConfig = {}

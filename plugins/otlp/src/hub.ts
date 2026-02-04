@@ -634,7 +634,7 @@ export class OtlpHub extends Otlp {
 			queue: this.queueCfg,
 		}
 
-		this.ctx.scope.collectEffect(() => {
+		this.ctx.effects.defer(() => {
 			try {
 				this.logsQ?.clearTimers()
 				this.tracesQ?.clearTimers()

@@ -326,8 +326,8 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 			)
 
 			const instance = shared.ormInstance
-			const cancel = this.ctx.scope.collectEffect(() => void instance?.close(true))
-			if (typeof cancel === 'function') shared.ormCloseCancels.add(cancel)
+			const guard = this.ctx.effects.defer(() => void instance?.close(true))
+			shared.ormCloseCancels.add(() => guard.cancel())
 
 			if (shared.pendingDropTables.size > 0) {
 				const pending = [...shared.pendingDropTables]
@@ -458,8 +458,14 @@ export abstract class MikroOrmProvider<C> extends MikroOrm {
 				shared.entities.set(entityName, rec)
 				shared.tableToEntityName.set(tableName, entityName)
 
-				const scope = this.ctx.caller?.scope ?? this.ctx.scope
-				scope.collectEffect(() => handle.disposeSafe())
+				const callerEffects = this.ctx.caller?.effects
+				if (callerEffects) {
+					const guard = callerEffects.defer(() => handle.disposeSafe(), { tag: 'mikro:entity:caller' })
+					// If this provider unloads first, detach from caller effects to avoid cross-plugin retention.
+					this.ctx.effects.defer(() => guard.cancel(), { tag: 'mikro:entity:provider-detach' })
+				} else {
+					this.ctx.effects.defer(() => handle.disposeSafe(), { tag: 'mikro:entity:self' })
+				}
 
 				orm.discoverEntity(effective)
 				if (ensureSchema) await orm.schema.updateSchema({ safe: true })

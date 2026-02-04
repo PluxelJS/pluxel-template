@@ -40,7 +40,7 @@ export interface ConnectOptions {
 	protocols?: string | string[]
 	clientOptions?: WSClientOptions
 	description?: string
-	/** 默认 true：注册到 caller scope，卸载时自动释放 */
+	/** 默认 true：注册到 caller effects，卸载时自动释放 */
 	trackToCaller?: boolean
 	/** 默认 true：插件停止时会关闭该连接 */
 	closeOnStop?: boolean
@@ -89,36 +89,62 @@ export class WebSocketPlugin extends BasePlugin {
 		return this.adopt(socket, { ...options, description: options.description ?? url })
 	}
 
-	adopt(socket: WebSocketLike, options: ConnectOptions = {}): ManagedWebSocket {
-		const record: ManagedRecord = {
-			socket,
-			description: options.description ?? socket.url ?? 'ws',
-			closed: false,
-		}
-		const cleanup = () => this.safeClose(record)
-		const trackCaller = options.trackToCaller ?? true
+		adopt(socket: WebSocketLike, options: ConnectOptions = {}): ManagedWebSocket {
+			const record: ManagedRecord = {
+				socket,
+				description: options.description ?? socket.url ?? 'ws',
+				closed: false,
+			}
+			const trackCaller = options.trackToCaller ?? true
 
-		// 收集到 caller scope，方便依赖方卸载时自动清理
-		if (trackCaller) {
-			this.ctx.caller?.scope?.collectEffect?.(cleanup)
-		}
-		// 也收集到自身 scope，插件停止时兜底清理
-		this.ctx.scope.collectEffect(cleanup)
+			// 收集到 caller effects，方便依赖方卸载时自动清理
+			const callerEffects = this.ctx.caller?.effects
+			let selfGuard!: ReturnType<typeof this.ctx.effects.defer>
+			let callerGuard: ReturnType<typeof this.ctx.effects.defer> | null = null
 
-		if (options.closeOnStop ?? true) {
-			this.managed.add(record)
-		}
+			const close = (code?: number, reason?: string) => this.safeClose(record, code, reason)
 
-		if (typeof (socket as any).once === 'function') {
-			;(socket as any).once('close', () => cleanup())
-		} else if (typeof (socket as any).addEventListener === 'function') {
-			;(socket as any).addEventListener('close', () => cleanup(), { once: true } as any)
-		}
+			const closeFromCaller = () => {
+				close()
+				// Provider may outlive caller; cancel provider cleanup to avoid duplicate work.
+				selfGuard.cancel()
+			}
 
-		const cleanupWithReason = (code?: number, reason?: string) => {
-			if (record.closed) return
-			this.safeClose(record, code, reason)
-		}
+			const closeFromSelf = () => {
+				close()
+				// Provider is going away; detach from caller effects to avoid cross-plugin retention.
+				callerGuard?.cancel()
+			}
+
+			// 兜底：插件停止时清理连接
+			selfGuard = this.ctx.effects.defer(closeFromSelf, { tag: 'ws:self' })
+			if (trackCaller && callerEffects) {
+				callerGuard = callerEffects.defer(closeFromCaller, { tag: 'ws:caller' })
+			}
+
+			if (options.closeOnStop ?? true) {
+				this.managed.add(record)
+			}
+
+			const cancelGuards = () => {
+				selfGuard.cancel()
+				callerGuard?.cancel()
+			}
+			const closeOnce = (code?: number, reason?: string) => {
+				if (record.closed) return
+				close(code, reason)
+				cancelGuards()
+			}
+
+			if (typeof (socket as any).once === 'function') {
+				;(socket as any).once('close', () => closeOnce())
+			} else if (typeof (socket as any).addEventListener === 'function') {
+				;(socket as any).addEventListener('close', () => closeOnce(), { once: true } as any)
+			}
+
+			const cleanupWithReason = (code?: number, reason?: string) => {
+				closeOnce(code, reason)
+			}
 
 		const handle: ManagedWebSocket = {
 			socket,
@@ -216,4 +242,3 @@ function createBrowserSocketAdapter(socket: any, desc?: string): BrowserWebSocke
 
 	return adapter
 }
-

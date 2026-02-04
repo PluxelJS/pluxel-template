@@ -114,7 +114,7 @@ export abstract class Ax extends BasePlugin {
 
 		if (!this.cleanupAttached.has(caller)) {
 			this.cleanupAttached.set(caller, true)
-			caller.scope.collectEffect(() => {
+			const guard = caller.effects.defer(() => {
 				try {
 					this.tools.unregisterOwner(ownerKey)
 				} catch {
@@ -122,7 +122,9 @@ export abstract class Ax extends BasePlugin {
 				} finally {
 					if (this.ownerCtxById.get(ownerKey) === caller) this.ownerCtxById.delete(ownerKey)
 				}
-			})
+			}, { tag: `ax:tools:owner:${ownerKey}` })
+			// If the provider unloads first, detach from caller effects to avoid cross-plugin retention.
+			this.ctx.effects.defer(() => guard.cancel(), { tag: `ax:tools:provider-detach:${ownerKey}` })
 		}
 
 		this.tools.register(ownerKey, fn)

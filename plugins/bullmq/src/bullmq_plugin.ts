@@ -4,6 +4,7 @@ import { createBullBoard } from '@bull-board/api'
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter'
 import { HonoAdapter } from '@bull-board/hono'
 import { serveStatic } from '@hono/node-server/serve-static'
+import type { EffectGuard, Effects } from '@pluxel/core/services'
 import {
 	FlowProducer,
 	Queue,
@@ -35,10 +36,23 @@ export type BullMQConfig = Config<typeof BullMQConfigSchema>
 export type TrackOptions = {
 	/** Default: true. Auto-dispose when caller plugin unloads. */
 	trackToCaller?: boolean
-	/** Default: true. Close resource when BullMQ plugin stops. */
+	/**
+	 * Default: true. Close resource when BullMQ plugin unloads.
+	 *
+	 * Notes:
+	 * - Caller-bound cleanup always closes (that's usually the point of caller tracking).
+	 * - This flag mainly controls provider-bound cleanup (i.e. BullMQ plugin unload).
+	 */
 	closeOnStop?: boolean
 	/** Optional label for logs when auto-closing. */
 	label?: string
+	/**
+	 * Optional explicit effects scope to bind caller-cleanup to.
+	 *
+	 * Useful in scripts/tests where there is no `ctx.caller`.
+	 * Only used when `trackToCaller !== false`.
+	 */
+	effects?: Effects
 }
 
 export type BullBoardMountOptions = {
@@ -75,12 +89,16 @@ export type ConnectionMonitorOptions = {
 	label?: string
 	/** Default: true. Auto-dispose when caller plugin unloads. */
 	trackToCaller?: boolean
+	/** Optional explicit effects scope for scripts/tests (no caller). */
+	effects?: Effects
 }
 
 type ManagedResource<T> = {
 	resource: T
 	closeOnStop: boolean
 	label: string
+	selfGuard: EffectGuard
+	callerGuard: EffectGuard | null
 }
 
 @Plugin({ name: 'BullMQ', type: 'service' })
@@ -214,10 +232,22 @@ export class BullMQPlugin extends BasePlugin {
 
 	/** Stop tracking a resource (does not close it). */
 	untrack(resource: Queue | Worker | QueueEvents | FlowProducer): boolean {
-		if (resource instanceof Queue && this.queues.delete(resource)) return true
-		if (resource instanceof Worker && this.workers.delete(resource)) return true
-		if (resource instanceof QueueEvents && this.events.delete(resource)) return true
-		if (resource instanceof FlowProducer && this.flows.delete(resource)) return true
+		const stop = <T extends Queue | Worker | QueueEvents | FlowProducer>(
+			map: Map<T, ManagedResource<T>>,
+			r: T,
+		) => {
+			const rec = map.get(r)
+			if (!rec) return false
+			map.delete(r)
+			rec.selfGuard.cancel()
+			rec.callerGuard?.cancel()
+			return true
+		}
+
+		if (resource instanceof Queue) return stop(this.queues, resource)
+		if (resource instanceof Worker) return stop(this.workers, resource)
+		if (resource instanceof QueueEvents) return stop(this.events, resource)
+		if (resource instanceof FlowProducer) return stop(this.flows, resource)
 		return false
 	}
 
@@ -280,9 +310,33 @@ export class BullMQPlugin extends BasePlugin {
 
 		void attach()
 
-		if (options.trackToCaller ?? true) this.ctx.caller?.scope?.collectEffect?.(dispose)
-		this.ctx.scope.collectEffect(dispose)
-		return dispose
+		const trackToCaller = options.trackToCaller ?? true
+		const ownerEffects: Effects | null =
+			trackToCaller ? (options.effects ?? this.ctx.caller?.effects ?? null) : null
+
+		let selfGuard!: EffectGuard
+		let callerGuard: EffectGuard | null = null
+
+		const disposeFromCaller = () => {
+			dispose()
+			// Provider may outlive caller; cancel provider cleanup to avoid duplicate work.
+			selfGuard.cancel()
+		}
+
+		const disposeFromSelf = () => {
+			dispose()
+			// Provider is going away; detach from caller effects to avoid cross-plugin retention.
+			callerGuard?.cancel()
+		}
+
+		selfGuard = this.ctx.effects.defer(disposeFromSelf, { tag: `bullmq:monitor:self:${label}` })
+		if (ownerEffects) callerGuard = ownerEffects.defer(disposeFromCaller, { tag: `bullmq:monitor:caller:${label}` })
+
+		return () => {
+			dispose()
+			selfGuard.cancel()
+			callerGuard?.cancel()
+		}
 	}
 
 	/**
@@ -306,42 +360,10 @@ export class BullMQPlugin extends BasePlugin {
 		return { api, adapter, basePath, dispose }
 	}
 
-	protected override async stop(_abort: AbortSignal): Promise<void> {
-		const tasks: Array<Promise<unknown>> = [
-			...this.closeTracked(this.workers),
-			...this.closeTracked(this.events),
-			...this.closeTracked(this.flows),
-			...this.closeTracked(this.queues),
-		]
-
-		this.workers.clear()
-		this.events.clear()
-		this.flows.clear()
-		this.queues.clear()
-
-		if (tasks.length) await Promise.allSettled(tasks)
-		await super.stop(_abort)
-	}
-
 	private mergeDefaultJobOptions(next?: JobsOptions): JobsOptions | undefined {
 		const base = this.config.defaultJobOptions ?? {}
 		const merged = { ...base, ...(next ?? {}) }
 		return Object.keys(merged).length ? (merged as JobsOptions) : undefined
-	}
-
-	private closeTracked<T extends { close: () => Promise<void> }>(
-		map: Map<T, ManagedResource<T>>,
-	): Array<Promise<void>> {
-		const tasks: Array<Promise<void>> = []
-		for (const record of map.values()) {
-			if (!record.closeOnStop) continue
-			tasks.push(
-				record.resource.close().catch((error) => {
-					this.ctx.logger.debug('close failed ({label})', { label: record.label, error })
-				}) as Promise<void>,
-			)
-		}
-		return tasks
 	}
 
 	private trackManaged<T extends { close: () => Promise<void> }>(
@@ -354,23 +376,42 @@ export class BullMQPlugin extends BasePlugin {
 		if (track === false) return resource
 
 		const label = track?.label?.trim() || fallbackLabel
+		const closeOnStop = track?.closeOnStop ?? true
+		const trackToCaller = track?.trackToCaller ?? true
+		const ownerEffects: Effects | null =
+			trackToCaller ? (track?.effects ?? this.ctx.caller?.effects ?? null) : null
+
 		const record: ManagedResource<T> = {
 			resource,
-			closeOnStop: track?.closeOnStop ?? true,
+			closeOnStop,
 			label,
+			selfGuard: undefined as any,
+			callerGuard: null,
 		}
 		map.set(resource, record)
 
-		const cleanup = () => {
-			if (!map.delete(resource)) return
-			if (!record.closeOnStop) return
-			void record.resource.close().catch((error) => {
+		const close = () =>
+			record.resource.close().catch((error) => {
 				this.ctx.logger.debug('close failed ({label})', { label, error })
 			})
+
+		const cleanupFromCaller = () => {
+			if (!map.delete(resource)) return
+			// Caller tracking implies "owned by caller": always close on caller unload.
+			void close()
+			// Provider may outlive the caller; cancel provider cleanup to avoid duplicate work.
+			record.selfGuard.cancel()
 		}
 
-		if (track?.trackToCaller ?? true) this.ctx.caller?.scope?.collectEffect?.(cleanup)
-		this.ctx.scope.collectEffect(cleanup)
+		const cleanupFromSelf = () => {
+			if (!map.delete(resource)) return
+			if (record.closeOnStop) void close()
+			// Provider is going away; detach from caller effects to avoid cross-plugin retention.
+			record.callerGuard?.cancel()
+		}
+
+		record.selfGuard = this.ctx.effects.defer(cleanupFromSelf, { tag: `bullmq:track:self:${label}` })
+		if (ownerEffects) record.callerGuard = ownerEffects.defer(cleanupFromCaller, { tag: `bullmq:track:caller:${label}` })
 		return resource
 	}
 }
