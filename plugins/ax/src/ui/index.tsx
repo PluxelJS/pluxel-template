@@ -27,6 +27,8 @@ import {
 } from '@tabler/icons-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import type { AxProfilePublic } from '../profiles'
+
 type RuntimeApi = Readonly<{
 	pluginName: string
 	ui: ReturnType<typeof useExtensionContext>['services']['hmr']['ui']['Ax']
@@ -39,7 +41,7 @@ function useRuntime(): RuntimeApi {
 
 function AxProfilesPanel() {
 	const { pluginName, ui } = useRuntime()
-	type Profile = Awaited<ReturnType<typeof ui.profiles>>[number]
+	type Profile = AxProfilePublic
 
 	const [profiles, setProfiles] = useState<Profile[]>([])
 	const [loading, setLoading] = useState(true)
@@ -68,7 +70,7 @@ function AxProfilesPanel() {
 	const refresh = useCallback(async () => {
 		setLoading(true)
 		try {
-			const list = await ui.profiles()
+			const list = await ui.request({ type: 'profiles:list' })
 			setProfiles(list)
 			setError(null)
 		} catch (e) {
@@ -87,16 +89,19 @@ function AxProfilesPanel() {
 			const config = createConfigJson.trim() ? JSON.parse(createConfigJson) : {}
 			const options = createOptionsJson.trim() ? JSON.parse(createOptionsJson) : {}
 
-			await ui.createProfile({
-				title: createTitle.trim() || undefined,
-				provider: createProvider,
-				model: createModel.trim() || undefined,
-				apiURL: createApiURL.trim() || undefined,
-				config: config && typeof config === 'object' ? config : {},
-				options: options && typeof options === 'object' ? options : {},
-				apiKey: createApiKey.trim() || undefined,
-				makeDefault: createMakeDefault,
-			} as any)
+			await ui.request({
+				type: 'profiles:create',
+				input: {
+					title: createTitle.trim() || undefined,
+					provider: createProvider,
+					model: createModel.trim() || undefined,
+					apiURL: createApiURL.trim() || undefined,
+					config: config && typeof config === 'object' ? config : {},
+					options: options && typeof options === 'object' ? options : {},
+					apiKey: createApiKey.trim() || undefined,
+					makeDefault: createMakeDefault,
+				} as any,
+			})
 			setCreateApiKey('')
 			setCreateOpen(false)
 			await refresh()
@@ -123,15 +128,19 @@ function AxProfilesPanel() {
 			const config = editConfigJson.trim() ? JSON.parse(editConfigJson) : {}
 			const options = editOptionsJson.trim() ? JSON.parse(editOptionsJson) : {}
 
-			await ui.updateProfile(editId, {
-				enabled: editEnabled,
-				title: editTitle.trim() || undefined,
-				provider: editProvider,
-				model: editModel.trim() || undefined,
-				apiURL: editApiURL.trim() || undefined,
-				config: config && typeof config === 'object' ? config : {},
-				options: options && typeof options === 'object' ? options : {},
-			} as any)
+			await ui.request({
+				type: 'profiles:update',
+				id: editId,
+				input: {
+					enabled: editEnabled,
+					title: editTitle.trim() || undefined,
+					provider: editProvider,
+					model: editModel.trim() || undefined,
+					apiURL: editApiURL.trim() || undefined,
+					config: config && typeof config === 'object' ? config : {},
+					options: options && typeof options === 'object' ? options : {},
+				} as any,
+			})
 
 			setEditOpen(false)
 			await refresh()
@@ -215,7 +224,7 @@ function AxProfilesPanel() {
 								aria-label={p.enabled ? '禁用' : '启用'}
 								onClick={() =>
 									ui
-										.updateProfile(p.id, { enabled: !p.enabled } as any)
+										.request({ type: 'profiles:update', id: p.id, input: { enabled: !p.enabled } as any })
 										.then(() => refresh())
 										.catch((e: unknown) => setError(rpcErrorMessage(e, '无法更新 enabled')))
 								}
@@ -227,7 +236,7 @@ function AxProfilesPanel() {
 								aria-label="设为默认"
 								onClick={() =>
 									ui
-										.setDefaultProfile(p.id)
+										.request({ type: 'profiles:setDefault', id: p.id })
 										.then(() => refresh())
 										.catch((e: unknown) => setError(rpcErrorMessage(e, '无法设为默认')))
 								}
@@ -241,7 +250,7 @@ function AxProfilesPanel() {
 									const next = window.prompt('API key（将安全写入 Vault）', '')
 									if (!next) return
 									ui
-										.setApiKey(p.id, next)
+										.request({ type: 'profiles:setApiKey', id: p.id, apiKey: next })
 										.then(() => refresh())
 										.catch((e: unknown) => setError(rpcErrorMessage(e, '无法设置 API key')))
 								}}
@@ -253,7 +262,7 @@ function AxProfilesPanel() {
 								aria-label="清除 API key"
 								onClick={() =>
 									ui
-										.clearApiKey(p.id)
+										.request({ type: 'profiles:clearApiKey', id: p.id })
 										.then(() => refresh())
 										.catch((e: unknown) => setError(rpcErrorMessage(e, '无法清除 API key')))
 								}
@@ -268,7 +277,7 @@ function AxProfilesPanel() {
 									const ok = window.confirm(`Delete profile "${p.title ?? p.provider}"?`)
 									if (!ok) return
 									ui
-										.deleteProfile(p.id)
+										.request({ type: 'profiles:delete', id: p.id })
 										.then(() => refresh())
 										.catch((e: unknown) => setError(rpcErrorMessage(e, '无法删除 profile')))
 								}}

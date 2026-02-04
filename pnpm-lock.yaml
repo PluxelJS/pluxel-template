@@ -506,6 +506,15 @@ importers:
         specifier: ^7.8.1
         version: 7.8.2
 
+  univer/univer-sheets-ax:
+    dependencies:
+      pluxel-plugin-ax:
+        specifier: workspace:*
+        version: link:../../plugins/ax
+      pluxel-plugin-univer-sheets:
+        specifier: workspace:*
+        version: link:../univer-sheets
+
   univer/univer-sheets-studio:
     dependencies:
       '@univerjs/core':
