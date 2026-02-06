@@ -1,0 +1,25 @@
+.univer-standalone {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	width: 100%;
+	background: var(--mantine-color-body);
+	color: var(--mantine-color-text);
+}
+
+.univer-standalone__header {
+	padding: 12px 14px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+	background: var(--mantine-color-body);
+}
+
+.univer-standalone__body {
+	flex: 1;
+	min-height: 0;
+}
+
+.univer-standalone__mount {
+	height: 100%;
+	width: 100%;
+}
+

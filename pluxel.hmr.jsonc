@@ -29,17 +29,17 @@
 		"dev": {
 			"enabled": []
 		},
-		"default": {
-			"enabled": [
-				"@pluxel/cmd",
-				"@pluxel/toolkit",
-				"pluxel-plugin-ax",
-				"pluxel-plugin-bullmq",
-				"pluxel-plugin-cmd-catalog",
-				"pluxel-plugin-drizzle-orm",
-				"pluxel-plugin-echarts",
-				"pluxel-plugin-font-manager",
-				"pluxel-plugin-kv",
+			"default": {
+				"enabled": [
+					"@pluxel/cmd",
+					"@pluxel/toolkit",
+					"pluxel-plugin-llm-hub",
+					"pluxel-plugin-bullmq",
+					"pluxel-plugin-cmd-catalog",
+					"pluxel-plugin-drizzle-orm",
+					"pluxel-plugin-echarts",
+					"pluxel-plugin-font-manager",
+					"pluxel-plugin-kv",
 				"pluxel-plugin-ledger",
 				"pluxel-plugin-ledger-mikro-orm",
 				"pluxel-plugin-mikro-orm",

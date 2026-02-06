@@ -1,0 +1,32 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-univer-workbooks",
+	"version": "0.1.0",
+	"description": "Univer workbook data/control plane (RPC + HTTP) for snapshots and save workflow.",
+	"type": "module",
+	"exports": {
+		".": {
+			"@pluxel/hmr": "./src/index.ts",
+			"default": "./dist/index.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"types": "./dist/index.d.mts",
+	"files": [
+		"dist",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build",
+		"typecheck": "tsc -p tsconfig.json"
+	},
+	"dependencies": {
+		"@pluxel/hmr": "link:../../../pluxel/packages/hmr"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.mjs",
+			"./package.json": "./package.json"
+		}
+	}
+}
