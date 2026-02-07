@@ -91,7 +91,7 @@ export class LLMHubRpc extends RpcTarget {
 declare module '@pluxel/hmr/services' {
 	namespace UI {
 		interface rpc {
-			LLM: LLMHubRpc
+			LLMHub: LLMHubRpc
 		}
 	}
 }

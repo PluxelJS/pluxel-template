@@ -42,19 +42,21 @@ type RuntimeApi = Readonly<{
 
 function useRuntime(): RuntimeApi {
 	const ctx = useExtensionContext('plugin')
-	const hmr = (ctx.services as any)?.hmr
-	const ui = (hmr?.ui as any)?.LLM ?? null
-	const request = useCallback(
-		async <T extends LLMHubRequest>(req: T) => {
-			const fn = ui && typeof (ui as any).request === 'function' ? ((ui as any).request as (req: T) => unknown) : null
-			if (!fn) {
+	// Root cause note:
+	// - RPC extension namespaces are keyed by `ctx.pluginInfo.id` on the host (`RpcService.registerExtension`).
+	// - So the UI must call `ctx.services.hmr.ui[ctx.pluginName].*`, not a hardcoded name.
+	const namespace = ctx.pluginName
+	const ui = (ctx.services.hmr.ui as any)?.[namespace] as { request?: RequestFn } | undefined
+	const request = useCallback<RequestFn>(
+		async (req) => {
+			if (!ui || typeof ui.request !== 'function') {
 				throw new Error(
-					`LLMHub RPC not available: ctx.services.hmr.ui.LLM.request is missing. Is "pluxel-plugin-llm-hub" enabled?`,
+					`LLMHub RPC not available: ctx.services.hmr.ui["${namespace}"].request is missing. Is "${namespace}" running and did it register ext.rpc?`,
 				)
 			}
-			return (await fn(req)) as LLMHubResponse<T>
+			return (await ui.request(req as any)) as any
 		},
-		[ui],
+		[namespace, ui],
 	)
 	return useMemo(() => ({ pluginName: ctx.pluginName, request }), [ctx.pluginName, request])
 }

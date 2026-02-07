@@ -126,7 +126,7 @@ The default provider plugin `LLMHub` registers a simple host UI tab for managing
 
 To avoid endless surface growth, the UI RPC is designed to converge on a single entry:
 
-- `ctx.services.hmr.ui.LLM.request({ type: ... })`
+- `ctx.services.hmr.ui.LLMHub.request({ type: ... })`（RPC namespace = plugin id）
 
 Current request types are profile-focused:
 - `profiles:list | profiles:create | profiles:update | profiles:setDefault | profiles:delete | profiles:resetHealth | profiles:setApiKey | profiles:clearApiKey`
