@@ -42,8 +42,20 @@ type RuntimeApi = Readonly<{
 
 function useRuntime(): RuntimeApi {
 	const ctx = useExtensionContext('plugin')
-	const ui = ctx.services.hmr.ui.LLM
-	const request = useCallback(<T extends LLMHubRequest>(req: T) => ui.request(req) as Promise<LLMHubResponse<T>>, [ui])
+	const hmr = (ctx.services as any)?.hmr
+	const ui = (hmr?.ui as any)?.LLM ?? null
+	const request = useCallback(
+		async <T extends LLMHubRequest>(req: T) => {
+			const fn = ui && typeof (ui as any).request === 'function' ? ((ui as any).request as (req: T) => unknown) : null
+			if (!fn) {
+				throw new Error(
+					`LLMHub RPC not available: ctx.services.hmr.ui.LLM.request is missing. Is "pluxel-plugin-llm-hub" enabled?`,
+				)
+			}
+			return (await fn(req)) as LLMHubResponse<T>
+		},
+		[ui],
+	)
 	return useMemo(() => ({ pluginName: ctx.pluginName, request }), [ctx.pluginName, request])
 }
 
@@ -668,4 +680,3 @@ export default definePluginUIModule({
 		console.log(`[${pluginName}] LLM UI loaded`)
 	},
 })
-
