@@ -25,6 +25,8 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.13",
 		"@chatui/core": "^3.6.0",
+		"@gqloom/core": "^0.15.0",
+		"@gqloom/valibot": "^0.15.0",
 		"@mantine/core": "^8.3.13",
 		"@mantine/hooks": "^8.3.13",
 		"@mantine/modals": "^8.3.13",
