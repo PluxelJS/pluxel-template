@@ -10,6 +10,22 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      '@gqloom/core':
+        specifier: ^0.15.0
+        version: 0.15.1(graphql@16.12.0)
+      '@gqloom/valibot':
+        specifier: ^0.15.0
+        version: 0.15.1(@gqloom/core@0.15.1(graphql@16.12.0))(graphql@16.12.0)(valibot@1.2.0(typescript@5.9.3))
+      '@pluxel/cli':
+        specifier: link:../pluxel/packages/cli
+        version: link:../pluxel/packages/cli
+      '@pluxel/core':
+        specifier: link:../pluxel/packages/core
+        version: link:../pluxel/packages/core
+      '@pluxel/hmr':
+        specifier: link:../pluxel/packages/hmr
+        version: link:../pluxel/packages/hmr
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.3.13
@@ -17,12 +33,6 @@ importers:
       '@chatui/core':
         specifier: ^3.6.0
         version: 3.6.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@gqloom/core':
-        specifier: ^0.15.0
-        version: 0.15.1(graphql@16.12.0)
-      '@gqloom/valibot':
-        specifier: ^0.15.0
-        version: 0.15.1(@gqloom/core@0.15.1(graphql@16.12.0))(graphql@16.12.0)(valibot@1.2.0(typescript@5.9.3))
       '@mantine/core':
         specifier: ^8.3.13
         version: 8.3.13(@mantine/hooks@8.3.13(react@19.2.4))(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -32,21 +42,12 @@ importers:
       '@mantine/modals':
         specifier: ^8.3.13
         version: 8.3.13(@mantine/core@8.3.13(@mantine/hooks@8.3.13(react@19.2.4))(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@mantine/hooks@8.3.13(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@pluxel/cli':
-        specifier: link:../pluxel/packages/cli
-        version: link:../pluxel/packages/cli
       '@pluxel/cmd':
         specifier: workspace:*
         version: link:packages/cmd
-      '@pluxel/core':
-        specifier: link:../pluxel/packages/core
-        version: link:../pluxel/packages/core
       '@pluxel/graphql':
         specifier: workspace:*
         version: link:plugins/builtin/graphql
-      '@pluxel/hmr':
-        specifier: link:../pluxel/packages/hmr
-        version: link:../pluxel/packages/hmr
       '@pluxel/test':
         specifier: link:../pluxel/packages/test
         version: link:../pluxel/packages/test
