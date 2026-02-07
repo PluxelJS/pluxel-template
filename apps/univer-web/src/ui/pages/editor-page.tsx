@@ -20,8 +20,27 @@ type SaveState = 'idle' | 'saving' | 'conflict' | 'error'
 type SaveReason = 'manual' | 'auto' | 'init'
 
 export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
-	const rpc = ctx.services.hmr.ui.UniverWorkbooks
+	const rpc = (ctx.services.hmr.ui as any)?.UniverWorkbooks as
+		| {
+				openWorkbook: (id: string) => Promise<UniverOpenWorkbookResult>
+				beginSave: (input: { id: string; baseRev: number; sha256: string; byteSize: number }) => Promise<unknown>
+				commitSave: (input: { id: string; uploadId: string; commitToken: string }) => Promise<unknown>
+		  }
+		| null
 	const sse = ctx.services.hmr.sse
+
+	if (!rpc) {
+		return (
+			<Alert color="yellow" title="UniverWorkbooks 未启用">
+				<Text size="sm">
+					当前后端没有提供 <Code>UniverWorkbooks</Code> RPC，无法打开工作簿。
+				</Text>
+				<Text size="sm" mt="xs">
+					请启用 <Code>pluxel-plugin-univer-workbooks</Code>（profile: <Code>pluxel.hmr.jsonc</Code>），然后刷新页面。
+				</Text>
+			</Alert>
+		)
+	}
 
 	const workbookId = parseWorkbookId(ctx.pathname) ?? ''
 	const mountRef = useRef<HTMLDivElement | null>(null)

@@ -21,7 +21,32 @@ import { toEditorUrl } from '../shared'
 
 export function DocsTab() {
 	const ctx = useExtensionContext('plugin')
-	const rpc = ctx.services.hmr.ui.UniverWorkbooks
+	const rpc = (ctx.services.hmr.ui as any)?.UniverWorkbooks as
+		| {
+				browseFolder: (folderId: string | null) => Promise<UniverBrowseFolderResult>
+				createFolder: (input: { name: string; parentId: string | null }) => Promise<unknown>
+				createWorkbook: (input: { name: string; folderId: string | null }) => Promise<unknown>
+				renameFolder: (id: string, name: string) => Promise<unknown>
+				renameWorkbook: (id: string, name: string) => Promise<unknown>
+				deleteWorkbook: (id: string) => Promise<unknown>
+				deleteFolder: (id: string, opts?: { recursive?: boolean }) => Promise<unknown>
+				listFolders: () => Promise<UniverFolderMeta[]>
+				moveWorkbook: (id: string, folderId: string | null) => Promise<unknown>
+		  }
+		| null
+
+	if (!rpc) {
+		return (
+			<Alert color="yellow" title="UniverWorkbooks 未启用">
+				<Text size="sm">
+					当前后端没有提供 <Code>UniverWorkbooks</Code> RPC，无法浏览/创建工作簿。
+				</Text>
+				<Text size="sm" mt="xs">
+					请在 <Code>pluxel.hmr.jsonc</Code> 的 profile 中启用 <Code>pluxel-plugin-univer-workbooks</Code>，然后刷新页面。
+				</Text>
+			</Alert>
+		)
+	}
 
 	const [cwdId, setCwdId] = useState<string | null>(null)
 	const [browse, setBrowse] = useState<UniverBrowseFolderResult | null>(null)
@@ -63,6 +88,7 @@ export function DocsTab() {
 	)
 
 	useEffect(() => {
+		if (!rpc) return
 		void refresh(cwdId)
 	}, [cwdId, refresh])
 
@@ -469,4 +495,3 @@ export function DocsTab() {
 		</Stack>
 	)
 }
-
