@@ -12,9 +12,10 @@ import { parseWorkbookId } from '../shared'
 import { AiPanel } from '../ai/ai-panel'
 import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '../univer/plugins-sse'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
-import { UNIVER_PLUGINS_SSE_NS } from '../../shared'
+import { UNIVER_PLUGINS_SSE_NS, type UniverPluginSpec } from '@pluxel/univer-protocol'
 
 type SaveState = 'idle' | 'saving' | 'conflict' | 'error'
+type SaveReason = 'manual' | 'auto' | 'init'
 
 export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	const rpc = ctx.services.hmr.ui.UniverWorkbooks
@@ -23,6 +24,14 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	const workbookId = parseWorkbookId(ctx.pathname) ?? ''
 	const mountRef = useRef<HTMLDivElement | null>(null)
 	const rtRef = useRef<UniverRuntime | null>(null)
+	const commandOffRef = useRef<{ dispose(): void } | null>(null)
+	const workbookNameRef = useRef<string>('Univer')
+
+	// Backend-driven Univer frontend plugins (SSE).
+	const pluginsByIdRef = useRef(new Map<string, UniverPluginSpec>())
+	const pluginSeqByIdRef = useRef(new Map<string, number>())
+	const pluginSeqRef = useRef(0)
+	const effectivePluginsByKeyRef = useRef(new Map<string, UniverPluginSpec>())
 
 	const autosaveRef = useRef<UniverAutosavePolicy | null>(null)
 	const baseRevRef = useRef(0)
@@ -33,9 +42,6 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	const lastEditAtRef = useRef<number | null>(null)
 	const lastSaveAtRef = useRef<number | null>(null)
 	const saveTimerRef = useRef<number | null>(null)
-
-	const watermarkSpecIdRef = useRef<string | null>(null)
-	const watermarkConfigRef = useRef<unknown>(null)
 
 	const [title, setTitle] = useState('Univer')
 	const [ready, setReady] = useState(false)
@@ -50,6 +56,8 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	useEffect(() => {
 		saveStateRef.current = saveState
 	}, [saveState])
+
+	const doSaveRef = useRef<((reason: SaveReason) => Promise<void> | void) | null>(null)
 
 	const scheduleAutosave = useCallback(() => {
 		const policy = autosaveRef.current
@@ -68,23 +76,95 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 		saveTimerRef.current = window.setTimeout(() => {
 			saveTimerRef.current = null
-			void doSave('auto')
+			void doSaveRef.current?.('auto')
 		}, wait)
 	}, [])
 
-	const applyWatermark = useCallback(() => {
-		const rt = rtRef.current
-		if (!rt) return
-		const cfg = watermarkConfigRef.current
-		if (!cfg) {
-			rt.clearWatermark()
-			return
+	const recomputeEffectivePlugins = useCallback(() => {
+		const byId = pluginsByIdRef.current
+		const seqById = pluginSeqByIdRef.current
+
+		const best = new Map<string, { spec: UniverPluginSpec; seq: number }>()
+		for (const [id, spec] of byId) {
+			const seq = seqById.get(id) ?? 0
+			const prev = best.get(spec.plugin)
+			if (!prev || seq > prev.seq) best.set(spec.plugin, { spec, seq })
 		}
-		rt.applyWatermark(cfg)
+
+		const effective = new Map<string, UniverPluginSpec>()
+		for (const [key, value] of best) effective.set(key, value.spec)
+		effectivePluginsByKeyRef.current = effective
 	}, [])
 
+	const desiredInstalledPluginKeys = useCallback((): string[] => {
+		const keys = [...effectivePluginsByKeyRef.current.keys()]
+		keys.sort((a, b) => a.localeCompare(b))
+		return keys
+	}, [])
+
+	const applyFrontendPlugins = useCallback((rt: UniverRuntime) => {
+		const wm = effectivePluginsByKeyRef.current.get('watermark')?.config ?? null
+		if (wm) rt.applyWatermark(wm)
+		else rt.clearWatermark()
+	}, [])
+
+	const attachDirtyListener = useCallback(() => {
+		const rt = rtRef.current
+		commandOffRef.current?.dispose()
+		commandOffRef.current = null
+		if (!rt) return
+
+		commandOffRef.current = rt.api.addEvent(rt.api.Event.CommandExecuted, () => {
+			dirtyRef.current = true
+			lastEditAtRef.current = Date.now()
+			setDirty(true)
+			if (saveStateRef.current !== 'conflict') scheduleAutosave()
+		})
+	}, [scheduleAutosave])
+
+	const ensureRuntimePlugins = useCallback(() => {
+		const mountEl = mountRef.current
+		const rt = rtRef.current
+		if (!mountEl || !rt) return
+
+		const desired = desiredInstalledPluginKeys()
+		const current = [...rt.installedPlugins].sort((a, b) => a.localeCompare(b))
+		const desiredSig = desired.join('|')
+		const currentSig = current.join('|')
+		if (desiredSig === currentSig) {
+			applyFrontendPlugins(rt)
+			return
+		}
+
+		let snapshot: unknown | undefined
+		try {
+			snapshot = JSON.parse(rt.saveSnapshotJson()) as unknown
+		} catch {
+			snapshot = undefined
+		}
+
+		rt.dispose()
+		rtRef.current = null
+		commandOffRef.current?.dispose()
+		commandOffRef.current = null
+
+		// Best-effort clear: UniverUIPlugin may leave DOM behind on fast toggles.
+		mountEl.innerHTML = ''
+
+		const next = createUniverRuntime({
+			mountEl,
+			workbookId,
+			workbookName: workbookNameRef.current,
+			snapshot,
+			installedPlugins: desired,
+		})
+		rtRef.current = next
+		attachDirtyListener()
+		applyFrontendPlugins(next)
+	}, [applyFrontendPlugins, attachDirtyListener, desiredInstalledPluginKeys, workbookId])
+
 	const doSave = useCallback(
-		async (reason: 'manual' | 'auto' | 'init') => {
+		async (reason: SaveReason) => {
 			if (!dirtyRef.current && reason !== 'init') return
 			if (saveStateRef.current === 'saving') return
 			if (!workbookId) return
@@ -174,6 +254,10 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		[workbookId, rpc],
 	)
 
+	useEffect(() => {
+		doSaveRef.current = doSave
+	}, [doSave])
+
 	const reloadLatest = useCallback(async () => {
 		if (!workbookId) return
 		setSaveState('saving')
@@ -194,8 +278,23 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		const mountEl = mountRef.current
 		if (!mountEl) return
 
+		commandOffRef.current?.dispose()
+		commandOffRef.current = null
 		rtRef.current?.dispose()
-		rtRef.current = createUniverRuntime({ mountEl, workbookId: info.id, workbookName: info.name, snapshot })
+		rtRef.current = null
+		mountEl.innerHTML = ''
+
+		workbookNameRef.current = info.name
+		const desired = desiredInstalledPluginKeys()
+		rtRef.current = createUniverRuntime({
+			mountEl,
+			workbookId: info.id,
+			workbookName: info.name,
+			snapshot,
+			installedPlugins: desired,
+		})
+		attachDirtyListener()
+		ensureRuntimePlugins()
 
 		baseRevRef.current = info.latestRev
 		latestRevRef.current = info.latestRev
@@ -206,7 +305,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		setSaveState('idle')
 		setSaveError(null)
 		setConflictRev(null)
-	}, [rpc, workbookId])
+	}, [attachDirtyListener, desiredInstalledPluginKeys, ensureRuntimePlugins, rpc, workbookId])
 
 	const getRuntime = useCallback(() => rtRef.current, [])
 
@@ -220,7 +319,6 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		if (!workbookId) return
 
 		let disposed = false
-		let commandOff: { dispose(): void } | null = null
 		;(async () => {
 			try {
 				const info: UniverOpenWorkbookResult = await rpc.openWorkbook(workbookId)
@@ -228,6 +326,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				baseRevRef.current = info.latestRev
 				latestRevRef.current = info.latestRev
 				latestEtagRef.current = info.latestEtag
+				workbookNameRef.current = info.name
 
 				setTitle(`${info.name} — Univer`)
 
@@ -238,23 +337,17 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				}
 
 				if (disposed) return
+				const desired = desiredInstalledPluginKeys()
 				rtRef.current = createUniverRuntime({
 					mountEl,
 					workbookId: info.id,
 					workbookName: info.name,
 					snapshot,
+					installedPlugins: desired,
 				})
 
-				const rt = rtRef.current
-				const off = rt.api.addEvent(rt.api.Event.CommandExecuted, () => {
-					dirtyRef.current = true
-					lastEditAtRef.current = Date.now()
-					setDirty(true)
-					if (saveStateRef.current !== 'conflict') scheduleAutosave()
-				})
-				commandOff = off
-
-				applyWatermark()
+				attachDirtyListener()
+				ensureRuntimePlugins()
 
 				setReady(true)
 				setSaveState('idle')
@@ -274,8 +367,8 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 		return () => {
 			disposed = true
-			commandOff?.dispose()
-			commandOff = null
+			commandOffRef.current?.dispose()
+			commandOffRef.current = null
 			if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
 			saveTimerRef.current = null
 			rtRef.current?.dispose()
@@ -283,29 +376,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			setReady(false)
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [applyWatermark, doSave, rpc, scheduleAutosave, workbookId])
-
-	const handlers = useMemo(() => {
-		const onUpsert = (spec: any) => {
-			if (spec.plugin !== 'watermark') return
-			watermarkSpecIdRef.current = spec.id
-			watermarkConfigRef.current = spec.config ?? null
-			applyWatermark()
-		}
-		const onRemove = (id: string) => {
-			if (watermarkSpecIdRef.current !== id) return
-			watermarkSpecIdRef.current = null
-			watermarkConfigRef.current = null
-			applyWatermark()
-		}
-		const onSnapshot = (plugins: readonly any[]) => {
-			const wm = plugins.find((p) => p.plugin === 'watermark') ?? null
-			watermarkSpecIdRef.current = wm?.id ?? null
-			watermarkConfigRef.current = wm?.config ?? null
-			applyWatermark()
-		}
-		return { onUpsert, onRemove, onSnapshot }
-	}, [applyWatermark])
+	}, [attachDirtyListener, doSave, desiredInstalledPluginKeys, ensureRuntimePlugins, rpc, scheduleAutosave, workbookId])
 
 	useEffect(() => {
 		const off = sse.ns(UNIVER_PLUGINS_SSE_NS).on(
@@ -316,27 +387,40 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				if (event === 'snapshot') {
 					const p = parsePluginsSnapshot(payload)
 					if (!p) return
-					handlers.onSnapshot(p.plugins)
+					pluginsByIdRef.current.clear()
+					pluginSeqByIdRef.current.clear()
+					for (const spec of p.plugins) {
+						pluginsByIdRef.current.set(spec.id, spec)
+						pluginSeqByIdRef.current.set(spec.id, ++pluginSeqRef.current)
+					}
+					recomputeEffectivePlugins()
+					ensureRuntimePlugins()
 					return
 				}
 
 				if (event === 'upsert') {
 					const p = parsePluginsUpsert(payload)
 					if (!p) return
-					handlers.onUpsert(p.plugin)
+					pluginsByIdRef.current.set(p.plugin.id, p.plugin)
+					pluginSeqByIdRef.current.set(p.plugin.id, ++pluginSeqRef.current)
+					recomputeEffectivePlugins()
+					ensureRuntimePlugins()
 					return
 				}
 
 				if (event === 'remove') {
 					const p = parsePluginsRemove(payload)
 					if (!p) return
-					handlers.onRemove(p.id)
+					pluginsByIdRef.current.delete(p.id)
+					pluginSeqByIdRef.current.delete(p.id)
+					recomputeEffectivePlugins()
+					ensureRuntimePlugins()
 				}
 			},
 			['snapshot', 'upsert', 'remove'],
 		)
 		return () => off()
-	}, [handlers, sse])
+	}, [ensureRuntimePlugins, recomputeEffectivePlugins, sse])
 
 	return (
 		<div className="univer-standalone">
@@ -356,7 +440,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 							size="sm"
 							variant="subtle"
 							leftSection={<IconSparkles size={16} />}
-							disabled={!ready}
+							disabled={!ready || !aiRpc}
 							onClick={() => setAiOpen(true)}
 						>
 							AI
@@ -400,9 +484,8 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			</div>
 
 			<Drawer opened={aiOpen} onClose={() => setAiOpen(false)} position="right" size={520} title="AI" overlayProps={{ opacity: 0.15 }}>
-				<AiPanel ready={ready} workbookId={workbookId} getRuntime={getRuntime} rpc={aiRpc} />
+				<AiPanel ready={ready && !!aiRpc} workbookId={workbookId} getRuntime={getRuntime} rpc={aiRpc} />
 			</Drawer>
 		</div>
 	)
 }
-

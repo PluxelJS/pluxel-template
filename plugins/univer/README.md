@@ -2,6 +2,12 @@
 
 这份设计的核心点（按你最新意向收敛）：**Univer 前端由核心前端包一次性打包好“所有可能用到的 Univer 前端插件能力”，运行时只做开关与配置**。其它“univer 相关插件”只做后端/服务侧能力，不再承载任何前端实现。
 
+当前模板实现：
+
+- 前端（Vite）：`apps/univer-web`（通过 `@pluxel/hmr/web` 连接 Host 的 `/api/*`）
+- 后端（Pluxel 插件）：`plugins/univer/*`（只提供 RPC/SSE/存储，不再注册 `ext.ui`）
+- 前端 Univer 插件开关（后端控制）：用“独立后端插件”表达（例如 `pluxel-plugin-univer-watermark`）
+
 ## 目标与约束（必须）
 
 1. **严格前后端分离**：Univer 前端未来要能独立构建/部署；Host/Service 插件不包含任何浏览器实现细节。

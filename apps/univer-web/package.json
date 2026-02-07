@@ -1,0 +1,38 @@
+{
+	"name": "pluxel-univer-web",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@mantine/core": "^8.3.13",
+		"@tabler/icons-react": "^3.36.1",
+		"@pluxel/hmr": "link:../../../pluxel/packages/hmr",
+		"@pluxel/promptkit": "workspace:^",
+		"@pluxel/univer-protocol": "workspace:^",
+		"@univerjs/core": "^0.15.4",
+		"@univerjs/design": "^0.15.4",
+		"@univerjs/engine-formula": "^0.15.4",
+		"@univerjs/engine-render": "^0.15.4",
+		"@univerjs/sheets": "^0.15.4",
+		"@univerjs/sheets-ui": "^0.15.4",
+		"@univerjs/ui": "^0.15.4",
+		"@univerjs/watermark": "^0.15.4",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4"
+	},
+	"devDependencies": {
+		"pluxel-plugin-univer-ai": "workspace:*",
+		"pluxel-plugin-univer-workbooks": "workspace:*",
+		"@types/react": "^19.2.10",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^5.0.2",
+		"typescript": "^5.9.3",
+		"vite": "8.0.0-beta.5"
+	}
+}

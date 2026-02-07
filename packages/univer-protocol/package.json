@@ -1,9 +1,10 @@
 {
 	"$schema": "https://market.pluxel.dev/schema/package.json",
-	"name": "pluxel-plugin-univer",
+	"name": "@pluxel/univer-protocol",
 	"version": "0.1.0",
-	"description": "Core Univer service plugin: manages Univer plugin specs + SSE for the Univer frontend.",
+	"description": "Shared Univer <-> Pluxel protocol types (RPC/SSE payloads).",
 	"type": "module",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"@pluxel/hmr": "./src/index.ts",
@@ -18,15 +19,14 @@
 	],
 	"scripts": {
 		"build": "pluxel build",
-		"typecheck": "tsc -p tsconfig.json"
-	},
-	"dependencies": {
-		"@pluxel/univer-protocol": "workspace:^"
+		"typecheck": "tsc -p tsconfig.typecheck.json"
 	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
 			"./package.json": "./package.json"
-		}
+		},
+		"access": "public",
+		"provenance": true
 	}
 }

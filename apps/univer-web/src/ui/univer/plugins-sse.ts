@@ -1,4 +1,4 @@
-import type { UniverPluginSpec } from '../../shared'
+import type { UniverPluginSpec } from '@pluxel/univer-protocol'
 import { isRecord } from '../shared'
 
 function isPluginSpec(value: unknown): value is UniverPluginSpec {
@@ -34,4 +34,3 @@ export function parsePluginsRemove(payload: unknown): { id: string } | null {
 	if (typeof id !== 'string') return null
 	return { id }
 }
-

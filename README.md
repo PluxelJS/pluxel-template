@@ -26,6 +26,11 @@
 
 - `pnpm dev`
 
+默认会同时启动：
+
+- 后端 HMR Host：`http://localhost:3000`（API 在 `/api/*`）
+- Univer 前端（Vite）：`http://localhost:5173`（通过代理访问 `/api/*`）
+
 ### 约定
 
 - `plugins/chatbots/` 是 submodule：用 `git submodule status` 查看固定版本；更新时请显式 `git -C plugins/chatbots pull` + 在主仓库提交 gitlink 变更。

@@ -34,6 +34,7 @@ export type UniverRuntime = {
 	api: FUniver
 	workbookId: string
 	workbookName: string
+	installedPlugins: ReadonlySet<string>
 	dispose(): void
 	applyWatermark(config: unknown): void
 	clearWatermark(): void
@@ -53,8 +54,10 @@ export function createUniverRuntime(input: {
 	workbookId: string
 	workbookName: string
 	snapshot?: unknown
+	installedPlugins?: readonly string[]
 }): UniverRuntime {
 	const univer = new UniverCtor({})
+	const installedPlugins = new Set(input.installedPlugins ?? [])
 
 	// Minimal Sheets composition.
 	univer.registerPlugin(UniverRenderEnginePlugin)
@@ -62,18 +65,26 @@ export function createUniverRuntime(input: {
 	univer.registerPlugin(UniverUIPlugin, { container: input.mountEl })
 	univer.registerPlugin(UniverSheetsPlugin)
 	univer.registerPlugin(UniverSheetsUIPlugin)
+
+	// Optional Univer plugins (pure-frontend, enabled by backend SSE).
+	const watermarkInstalled = installedPlugins.has('watermark')
+	if (watermarkInstalled) {
+		// Register only if enabled; we recreate runtime to "unregister".
+		univer.registerPlugin(UniverWatermarkPlugin)
+	}
+
 	const api = FUniver.newAPI(univer)
 	api.createWorkbook(
 		isRecord(input.snapshot) ? (input.snapshot as any) : { id: input.workbookId, name: input.workbookName },
 	)
 
-	let watermarkInstalled = false
 	let watermarkCleanup: (() => void) | null = null
 
 	let overlayDispose: IDisposable | null = null
 	let overlayTimer: number | null = null
 
 	const clearWatermark = () => {
+		if (!watermarkInstalled) return
 		watermarkCleanup?.()
 		watermarkCleanup = null
 	}
@@ -86,15 +97,11 @@ export function createUniverRuntime(input: {
 	}
 
 	const applyWatermark = (config: unknown) => {
+		if (!watermarkInstalled) return
 		const text = parseWatermarkConfig(config)
 		if (!text) {
 			clearWatermark()
 			return
-		}
-
-		if (!watermarkInstalled) {
-			univer.registerPlugin(UniverWatermarkPlugin, { textWatermarkSettings: text })
-			watermarkInstalled = true
 		}
 
 		clearWatermark()
@@ -187,6 +194,7 @@ export function createUniverRuntime(input: {
 		api,
 		workbookId: input.workbookId,
 		workbookName: input.workbookName,
+		installedPlugins,
 		dispose,
 		applyWatermark,
 		clearWatermark,
@@ -196,4 +204,3 @@ export function createUniverRuntime(input: {
 		saveSnapshotJson,
 	}
 }
-

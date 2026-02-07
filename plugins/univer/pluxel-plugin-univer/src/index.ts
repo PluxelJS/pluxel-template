@@ -1,52 +1,22 @@
-import { BasePlugin, Config, Plugin, type Config as PluxelConfig } from '@pluxel/hmr'
-import { v } from '@pluxel/hmr/config'
-
-import { registerUniverExtensions } from './extensions'
-
+import { BasePlugin, Plugin } from '@pluxel/hmr'
 import type {
 	UniverConfiguredPlugin,
 	UniverPluginSpec,
 	UniverPluginsRemovePayload,
 	UniverPluginsSnapshotPayload,
 	UniverPluginsUpsertPayload,
-} from './shared'
-import { UNIVER_PLUGINS_SSE_NS } from './shared'
-
-export const UniverCoreConfigSchema = v.object({
-	watermark: v.object({
-		enabled: v.optional(v.boolean(), true),
-		content: v.optional(v.string(), 'Pluxel × Univer'),
-		fontSize: v.optional(v.number(), 36),
-	}),
-})
-
-type UniverCoreConfig = PluxelConfig<typeof UniverCoreConfigSchema>
+} from '@pluxel/univer-protocol'
+import { UNIVER_PLUGINS_SSE_NS } from '@pluxel/univer-protocol'
 
 type PluginEvent = 'upsert' | 'remove'
 
 @Plugin({ name: 'Univer', type: 'service' })
 export class UniverPlugin extends BasePlugin {
-	@Config(UniverCoreConfigSchema)
-	private config!: UniverCoreConfig
-
 	private readonly specs = new Map<string, UniverPluginSpec>()
 	private readonly ssePushers = new Set<(event: PluginEvent, payload: unknown) => void>()
 
 	override async init(_abort: AbortSignal): Promise<void> {
-		registerUniverExtensions(this.ctx)
 		this.registerPluginsSse()
-
-		// Built-in: watermark from core config (optional).
-		const wm = this.config.watermark
-		if (wm.enabled) {
-			this.use({
-				id: 'watermark',
-				plugin: 'watermark',
-				config: {
-					textWatermarkSettings: { content: wm.content, fontSize: wm.fontSize },
-				},
-			})
-		}
 	}
 
 	/**
@@ -119,4 +89,4 @@ export class UniverPlugin extends BasePlugin {
 
 export default UniverPlugin
 
-export type { UniverConfiguredPlugin } from './shared'
+export type { UniverConfiguredPlugin } from '@pluxel/univer-protocol'

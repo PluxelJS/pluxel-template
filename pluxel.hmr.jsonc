@@ -4,7 +4,7 @@
 // Manual edits are allowed but may be overwritten by the generator.
 {
 	"version": 1,
-	"profile": "default",
+	"profile": "univer",
 	"defaults": {
 		"roots": [
 			"packages",
@@ -75,6 +75,7 @@
 				"pluxel-plugin-redis",
 				"pluxel-plugin-s3mini",
 				"pluxel-plugin-univer",
+				"pluxel-plugin-univer-watermark",
 				"pluxel-plugin-univer-ai",
 				"pluxel-plugin-univer-workbooks"
 			],
