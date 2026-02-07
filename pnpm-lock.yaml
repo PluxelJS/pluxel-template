@@ -453,9 +453,6 @@ importers:
 
   plugins/univer/pluxel-plugin-univer:
     dependencies:
-      '@pluxel/hmr':
-        specifier: link:../../../../pluxel/packages/hmr
-        version: link:../../../../pluxel/packages/hmr
       '@pluxel/promptkit':
         specifier: workspace:^
         version: link:../../../packages/promptkit
@@ -495,9 +492,6 @@ importers:
       '@ax-llm/ax':
         specifier: ^15.0.0
         version: 15.1.1
-      '@pluxel/hmr':
-        specifier: link:../../../../pluxel/packages/hmr
-        version: link:../../../../pluxel/packages/hmr
       '@pluxel/promptkit':
         specifier: workspace:^
         version: link:../../../packages/promptkit
@@ -505,11 +499,7 @@ importers:
         specifier: workspace:^
         version: link:../../ai/llm-hub
 
-  plugins/univer/pluxel-plugin-univer-workbooks:
-    dependencies:
-      '@pluxel/hmr':
-        specifier: link:../../../../pluxel/packages/hmr
-        version: link:../../../../pluxel/packages/hmr
+  plugins/univer/pluxel-plugin-univer-workbooks: {}
 
 packages:
 

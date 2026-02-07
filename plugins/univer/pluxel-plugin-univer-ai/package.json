@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@ax-llm/ax": "^15.0.0",
-    "@pluxel/hmr": "link:../../../../pluxel/packages/hmr",
     "@pluxel/promptkit": "workspace:^"
   },
   "peerDependencies": {

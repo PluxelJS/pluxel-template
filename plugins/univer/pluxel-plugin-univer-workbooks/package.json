@@ -20,9 +20,6 @@
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json"
 	},
-	"dependencies": {
-		"@pluxel/hmr": "link:../../../../pluxel/packages/hmr"
-	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
