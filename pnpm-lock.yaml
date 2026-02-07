@@ -535,12 +535,6 @@ importers:
         specifier: workspace:^
         version: link:../../ai/llm-hub
 
-  plugins/univer/pluxel-plugin-univer-watermark:
-    dependencies:
-      pluxel-plugin-univer:
-        specifier: workspace:*
-        version: link:../pluxel-plugin-univer
-
   plugins/univer/pluxel-plugin-univer-workbooks: {}
 
 packages:

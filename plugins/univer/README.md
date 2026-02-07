@@ -6,7 +6,7 @@
 
 - 前端（Vite）：`apps/univer-web`（通过 `@pluxel/hmr/web` 连接 Host 的 `/api/*`）
 - 后端（Pluxel 插件）：`plugins/univer/*`（只提供 RPC/SSE/存储，不再注册 `ext.ui`）
-- 前端 Univer 插件开关（后端控制）：用“独立后端插件”表达（例如 `pluxel-plugin-univer-watermark`）
+- 前端 Univer 插件开关（后端控制）：统一由核心后端插件 `pluxel-plugin-univer` 管理 spec + SSE；“基础能力”走核心配置（如 watermark），复杂能力再拆成独立后端插件（如 AI）
 
 ## 目标与约束（必须）
 
@@ -102,7 +102,7 @@ Univer 插件一般是“增量注册（register）”模型；卸载是否可�
 - `import '@univerjs/watermark/facade'`
 - `univer.registerPlugin(UniverWatermarkPlugin, config)`
 
-在本设计里，watermark 的 Pluxel 插件只需要注册一个“安装描述”：
+在本设计里，watermark 只需要注册一个“安装描述”（可由核心插件基于自身配置生成）：
 
 ```ts
 import type { IUniverWatermarkConfig } from '@univerjs/watermark'
@@ -117,7 +117,7 @@ this.univer.use({
 
 卸载语义：
 
-- watermark Pluxel 插件卸载 -> `ctx.caller.effects` 自动触发 remove -> UI 收到 remove -> 触发重建 Univer -> watermark 不再被 register。
+- 关闭 `pluxel-plugin-univer` 的 `watermark.enabled`（或卸载/重载核心插件） -> core effects dispose -> UI 收到 remove -> 触发重建 Univer -> watermark 不再被 register。
 
 ## 安全边界（只允许前端类）
 

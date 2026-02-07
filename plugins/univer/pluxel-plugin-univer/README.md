@@ -15,3 +15,11 @@ Univer 的核心后端/服务插件：管理“前端需要启用的 Univer 插�
 ## Protocol
 
 共享 payload/type 定义在：`packages/univer-protocol`（`@pluxel/univer-protocol`）。
+
+## Config
+
+基础能力建议直接收敛到核心配置里（避免拆成过多小插件）。当前内置：
+
+- `watermark.enabled`（默认 `true`）
+- `watermark.content`（默认 `Pluxel × Univer`）
+- `watermark.fontSize`（默认 `36`）
