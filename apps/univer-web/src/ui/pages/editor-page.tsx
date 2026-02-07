@@ -13,6 +13,8 @@ import { AiPanel } from '../ai/ai-panel'
 import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '../univer/plugins-sse'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
 import { UNIVER_PLUGINS_SSE_NS, type UniverPluginSpec } from '@pluxel/univer-protocol'
+import { isSupportedUniverPluginKey } from '../univer/catalog'
+import { DebugDrawer } from '../debug/debug-drawer'
 
 type SaveState = 'idle' | 'saving' | 'conflict' | 'error'
 type SaveReason = 'manual' | 'auto' | 'init'
@@ -51,6 +53,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	const [conflictRev, setConflictRev] = useState<number | null>(null)
 
 	const [aiOpen, setAiOpen] = useState(false)
+	const [debugOpen, setDebugOpen] = useState(false)
 
 	const saveStateRef = useRef<SaveState>('idle')
 	useEffect(() => {
@@ -97,7 +100,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	}, [])
 
 	const desiredInstalledPluginKeys = useCallback((): string[] => {
-		const keys = [...effectivePluginsByKeyRef.current.keys()]
+		const keys = [...effectivePluginsByKeyRef.current.keys()].filter((k) => isSupportedUniverPluginKey(k))
 		keys.sort((a, b) => a.localeCompare(b))
 		return keys
 	}, [])
@@ -446,6 +449,10 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 							AI
 						</Button>
 
+						<Button size="sm" variant="subtle" disabled={!ready} onClick={() => setDebugOpen(true)}>
+							Debug
+						</Button>
+
 						<Button
 							size="sm"
 							variant="light"
@@ -486,6 +493,20 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			<Drawer opened={aiOpen} onClose={() => setAiOpen(false)} position="right" size={520} title="AI" overlayProps={{ opacity: 0.15 }}>
 				<AiPanel ready={ready && !!aiRpc} workbookId={workbookId} getRuntime={getRuntime} rpc={aiRpc} />
 			</Drawer>
+
+			<DebugDrawer
+				opened={debugOpen}
+				onClose={() => setDebugOpen(false)}
+				ready={ready}
+				workbookId={workbookId}
+				getRuntime={getRuntime}
+				effectivePlugins={() => [...effectivePluginsByKeyRef.current.values()]}
+				rawPlugins={() => [...pluginsByIdRef.current.values()]}
+				services={{
+					workbooks: Boolean((ctx.services.hmr.ui as any).UniverWorkbooks),
+					ai: Boolean(aiRpc),
+				}}
+			/>
 		</div>
 	)
 }
