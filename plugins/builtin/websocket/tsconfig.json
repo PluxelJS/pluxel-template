@@ -7,7 +7,6 @@
 		"declarationMap": true,
 		"noEmitOnError": true
 	},
-	"extends": "../../../tsconfig.json",
+	"extends": "../../../tsconfig.base.json",
 	"include": ["src/**/*.ts", "tests/**/*.ts"]
 }
-
