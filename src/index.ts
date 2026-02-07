@@ -5,6 +5,8 @@ import { partsTransformVitePlugin } from 'pluxel-plugin-bot-core/parts/rolldown'
 // Builtin plugins are configured in `pluxel.hmr.jsonc` (profile.builtin) and loaded from dist (.mjs).
 const { ctx } = await startHmrHost({
 	debug: ['pluxel:hmr:*'],
+	profile: process.env.PLUXEL_HMR_PROFILE,
+	configPath: process.env.PLUXEL_HMR_CONFIG,
 	// Keep runtime state out of git-tracked `data/`.
 	store: {
 		seedConfig: 'default.json',

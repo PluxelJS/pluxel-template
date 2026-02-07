@@ -47,16 +47,16 @@ importers:
         version: link:packages/cmd
       '@pluxel/graphql':
         specifier: workspace:*
-        version: link:builtin-plugins/graphql
+        version: link:plugins/builtin/graphql
       '@pluxel/test':
         specifier: link:../pluxel/packages/test
         version: link:../pluxel/packages/test
       '@pluxel/websocket':
         specifier: workspace:*
-        version: link:builtin-plugins/websocket
+        version: link:plugins/builtin/websocket
       '@pluxel/wretch':
         specifier: workspace:*
-        version: link:builtin-plugins/wretch
+        version: link:plugins/builtin/wretch
       '@repobuddy/biome':
         specifier: ^2.3.1
         version: 2.3.1(@biomejs/biome@2.3.13)
@@ -74,7 +74,7 @@ importers:
         version: 19.2.3(@types/react@19.2.10)
       pluxel-plugin-bot-core:
         specifier: workspace:*
-        version: link:chatbots/bot-core
+        version: link:plugins/chatbots/bot-core
       pluxel-plugin-kv:
         specifier: workspace:*
         version: link:plugins/data/kv
@@ -99,139 +99,6 @@ importers:
       vitest:
         specifier: 3.2.4
         version: 3.2.4(@types/node@25.1.0)
-
-  builtin-plugins/graphql:
-    dependencies:
-      '@gqloom/core':
-        specifier: ^0.15.0
-        version: 0.15.1(graphql@16.12.0)
-      '@gqloom/valibot':
-        specifier: ^0.15.0
-        version: 0.15.1(@gqloom/core@0.15.1(graphql@16.12.0))(graphql@16.12.0)(valibot@1.2.0(typescript@5.9.3))
-      '@gqty/cli':
-        specifier: ^5.0.0
-        version: 5.0.0(@types/node@25.1.0)(typescript@5.9.3)
-      graphql:
-        specifier: ^16.12.0
-        version: 16.12.0
-      graphql-yoga:
-        specifier: ^5.18.0
-        version: 5.18.0(graphql@16.12.0)
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
-
-  builtin-plugins/websocket:
-    dependencies:
-      ws:
-        specifier: ^8.18.3
-        version: 8.19.0
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-
-  builtin-plugins/wretch:
-    dependencies:
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
-      wretch:
-        specifier: ^3.0.6
-        version: 3.0.6
-
-  chatbots/bot-core:
-    dependencies:
-      '@pluxel/cmd':
-        specifier: workspace:^
-        version: link:../../packages/cmd
-      pluxel-plugin-kook:
-        specifier: workspace:^
-        version: link:../kook
-      pluxel-plugin-milky:
-        specifier: workspace:^
-        version: link:../milky
-      pluxel-plugin-telegram:
-        specifier: workspace:^
-        version: link:../telegram
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
-
-  chatbots/bot-suite:
-    dependencies:
-      '@mikro-orm/libsql':
-        specifier: ^6.6.3
-        version: 6.6.3(@mikro-orm/core@6.6.3)
-      '@pluxel/cmd':
-        specifier: workspace:*
-        version: link:../../packages/cmd
-      pluxel-plugin-bot-core:
-        specifier: workspace:*
-        version: link:../bot-core
-      pluxel-plugin-kook:
-        specifier: workspace:^
-        version: link:../kook
-      pluxel-plugin-kv:
-        specifier: workspace:^
-        version: link:../../plugins/data/kv
-      pluxel-plugin-mikro-orm:
-        specifier: workspace:^
-        version: link:../../plugins/data/mikro-orm
-      pluxel-plugin-telegram:
-        specifier: workspace:^
-        version: link:../telegram
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
-
-  chatbots/kook:
-    dependencies:
-      '@pluxel/websocket':
-        specifier: workspace:*
-        version: link:../../builtin-plugins/websocket
-      '@pluxel/wretch':
-        specifier: workspace:*
-        version: link:../../builtin-plugins/wretch
-
-  chatbots/milky:
-    dependencies:
-      '@pluxel/wretch':
-        specifier: workspace:*
-        version: link:../../builtin-plugins/wretch
-      '@saltify/milky-types':
-        specifier: latest
-        version: 1.1.0
-      zod:
-        specifier: ^4.1.5
-        version: 4.3.5
-
-  chatbots/plugins/meme-test:
-    dependencies:
-      '@pluxel/cmd':
-        specifier: workspace:*
-        version: link:../../../packages/cmd
-      pluxel-plugin-bot-core:
-        specifier: workspace:*
-        version: link:../../bot-core
-      pluxel-plugin-bot-suite:
-        specifier: workspace:*
-        version: link:../../bot-suite
-      pluxel-plugin-meme-worker:
-        specifier: workspace:*
-        version: link:../../../render-plugins/meme-worker
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
-
-  chatbots/telegram:
-    dependencies:
-      '@grammyjs/types':
-        specifier: ^3.6.1
-        version: 3.23.0
-      '@pluxel/wretch':
-        specifier: workspace:*
-        version: link:../../builtin-plugins/wretch
 
   packages/cmd:
     dependencies:
@@ -286,17 +153,143 @@ importers:
         version: 3.0.0
 
   plugins/ai/llm-hub:
-    dependencies:
-      '@pluxel/cmd':
-        specifier: workspace:^
-        version: link:../../../packages/cmd
     devDependencies:
       '@ax-llm/ax':
         specifier: ^15.0.0
         version: 15.1.1
+
+  plugins/builtin/graphql:
+    dependencies:
+      '@gqloom/core':
+        specifier: ^0.15.0
+        version: 0.15.1(graphql@16.12.0)
+      '@gqloom/valibot':
+        specifier: ^0.15.0
+        version: 0.15.1(@gqloom/core@0.15.1(graphql@16.12.0))(graphql@16.12.0)(valibot@1.2.0(typescript@5.9.3))
+      '@gqty/cli':
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@25.1.0)(typescript@5.9.3)
+      graphql:
+        specifier: ^16.12.0
+        version: 16.12.0
+      graphql-yoga:
+        specifier: ^5.18.0
+        version: 5.18.0(graphql@16.12.0)
       valibot:
         specifier: ^1.2.0
         version: 1.2.0(typescript@5.9.3)
+
+  plugins/builtin/websocket:
+    dependencies:
+      ws:
+        specifier: ^8.18.3
+        version: 8.19.0
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+
+  plugins/builtin/wretch:
+    dependencies:
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
+      wretch:
+        specifier: ^3.0.6
+        version: 3.0.6
+
+  plugins/chatbots/bot-core:
+    dependencies:
+      '@pluxel/cmd':
+        specifier: workspace:^
+        version: link:../../../packages/cmd
+      pluxel-plugin-kook:
+        specifier: workspace:^
+        version: link:../kook
+      pluxel-plugin-milky:
+        specifier: workspace:^
+        version: link:../milky
+      pluxel-plugin-telegram:
+        specifier: workspace:^
+        version: link:../telegram
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
+
+  plugins/chatbots/bot-suite:
+    dependencies:
+      '@mikro-orm/libsql':
+        specifier: ^6.6.3
+        version: 6.6.3(@mikro-orm/core@6.6.3)
+      '@pluxel/cmd':
+        specifier: workspace:*
+        version: link:../../../packages/cmd
+      pluxel-plugin-bot-core:
+        specifier: workspace:*
+        version: link:../bot-core
+      pluxel-plugin-kook:
+        specifier: workspace:^
+        version: link:../kook
+      pluxel-plugin-kv:
+        specifier: workspace:^
+        version: link:../../data/kv
+      pluxel-plugin-mikro-orm:
+        specifier: workspace:^
+        version: link:../../data/mikro-orm
+      pluxel-plugin-telegram:
+        specifier: workspace:^
+        version: link:../telegram
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
+
+  plugins/chatbots/kook:
+    dependencies:
+      '@pluxel/websocket':
+        specifier: workspace:*
+        version: link:../../builtin/websocket
+      '@pluxel/wretch':
+        specifier: workspace:*
+        version: link:../../builtin/wretch
+
+  plugins/chatbots/milky:
+    dependencies:
+      '@pluxel/wretch':
+        specifier: workspace:*
+        version: link:../../builtin/wretch
+      '@saltify/milky-types':
+        specifier: latest
+        version: 1.1.0
+      zod:
+        specifier: ^4.1.5
+        version: 4.3.5
+
+  plugins/chatbots/plugins/meme-test:
+    dependencies:
+      '@pluxel/cmd':
+        specifier: workspace:*
+        version: link:../../../../packages/cmd
+      pluxel-plugin-bot-core:
+        specifier: workspace:*
+        version: link:../../bot-core
+      pluxel-plugin-bot-suite:
+        specifier: workspace:*
+        version: link:../../bot-suite
+      pluxel-plugin-meme-worker:
+        specifier: workspace:*
+        version: link:../../../render/meme-worker
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
+
+  plugins/chatbots/telegram:
+    dependencies:
+      '@grammyjs/types':
+        specifier: ^3.6.1
+        version: 3.23.0
+      '@pluxel/wretch':
+        specifier: workspace:*
+        version: link:../../builtin/wretch
 
   plugins/data/drizzle-orm:
     dependencies:
@@ -402,7 +395,7 @@ importers:
         specifier: ^0.7.2
         version: 0.7.3
 
-  render-plugins/canvas-worker:
+  plugins/render/canvas-worker:
     dependencies:
       '@leafer-ui/node':
         specifier: ^1.11.2
@@ -419,9 +412,9 @@ importers:
         version: 6.0.0
       pluxel-plugin-napi-rs:
         specifier: workspace:^
-        version: link:../../plugins/native/napi-rs
+        version: link:../../native/napi-rs
 
-  render-plugins/echarts:
+  plugins/render/echarts:
     dependencies:
       echarts:
         specifier: ^6.0.0
@@ -431,32 +424,35 @@ importers:
         version: link:../font-manager
       pluxel-plugin-napi-rs:
         specifier: workspace:^
-        version: link:../../plugins/native/napi-rs
+        version: link:../../native/napi-rs
     devDependencies:
       pluxel-plugin-canvas-worker:
         specifier: workspace:^
         version: link:../canvas-worker
 
-  render-plugins/font-manager:
+  plugins/render/font-manager:
     dependencies:
       pluxel-plugin-napi-rs:
         specifier: workspace:^
-        version: link:../../plugins/native/napi-rs
+        version: link:../../native/napi-rs
 
-  render-plugins/meme-worker:
+  plugins/render/meme-worker:
     dependencies:
       pluxel-plugin-napi-rs:
         specifier: workspace:^
-        version: link:../../plugins/native/napi-rs
+        version: link:../../native/napi-rs
       tinypool:
         specifier: ^1.0.1
         version: 1.1.1
 
-  univer/pluxel-plugin-univer:
+  plugins/univer/pluxel-plugin-univer:
     dependencies:
       '@pluxel/hmr':
         specifier: link:../../../pluxel/packages/hmr
         version: link:../../../pluxel/packages/hmr
+      '@pluxel/promptkit':
+        specifier: workspace:^
+        version: link:../../../packages/promptkit
       '@univerjs/core':
         specifier: ^0.15.4
         version: 0.15.4(@wendellhu/redi@1.1.1(react@19.2.4))(rxjs@7.8.2)
@@ -488,7 +484,7 @@ importers:
         specifier: workspace:*
         version: link:../pluxel-plugin-univer-workbooks
 
-  univer/pluxel-plugin-univer-ai:
+  plugins/univer/pluxel-plugin-univer-ai:
     dependencies:
       '@ax-llm/ax':
         specifier: ^15.0.0
@@ -498,12 +494,12 @@ importers:
         version: link:../../../pluxel/packages/hmr
       '@pluxel/promptkit':
         specifier: workspace:^
-        version: link:../../packages/promptkit
+        version: link:../../../packages/promptkit
       pluxel-plugin-llm-hub:
         specifier: workspace:^
-        version: link:../../plugins/ai/llm-hub
+        version: link:../../ai/llm-hub
 
-  univer/pluxel-plugin-univer-workbooks:
+  plugins/univer/pluxel-plugin-univer-workbooks:
     dependencies:
       '@pluxel/hmr':
         specifier: link:../../../pluxel/packages/hmr
@@ -548,11 +544,6 @@ packages:
     resolution: {integrity: sha512-6t0IaUEzlinbLmsGIvBZIHEJGjuchx+cMj+FbS78zL17tucYervgbwO07V5/CgBenVraontpmyMCTVyqCfxhFQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@babel/parser@7.28.5':
-    resolution: {integrity: sha512-KKBU1VGYR7ORr3At5HAtUQ+TV3SzRCXmA/8OdDZiLDBIZxVyzXuztPjfLd3BV1PRAQGCMWWSHYhL0F8d5uHBDQ==}
-    engines: {node: '>=6.0.0'}
-    hasBin: true
-
   '@babel/parser@7.28.6':
     resolution: {integrity: sha512-TeR9zWR18BvbfPmGbLampPMW+uW1NZnJlRuuHso8i87QZNq2JRF9i6RgxRqtEq+wQGsS19NNTWr2duhnE49mfQ==}
     engines: {node: '>=6.0.0'}
@@ -567,16 +558,8 @@ packages:
     resolution: {integrity: sha512-kz2fAQ5UzjV7X7D3ySxmj3vRq89dTpqOZWv76Z6pNPztkwb/0Yj1Mtx1xFrYj6mbIHysxtBot8J4o0JLCblcFw==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/runtime@7.28.4':
-    resolution: {integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==}
-    engines: {node: '>=6.9.0'}
-
   '@babel/runtime@7.28.6':
     resolution: {integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==}
-    engines: {node: '>=6.9.0'}
-
-  '@babel/types@7.28.5':
-    resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
 
   '@babel/types@7.28.6':
@@ -1937,9 +1920,6 @@ packages:
 
   '@types/jsesc@2.5.1':
     resolution: {integrity: sha512-9VN+6yxLOPLOav+7PwjZbxiID2bVaeq0ED4qSQmdQTdjnXJSaCVKTR58t15oqH1H5t8Ng2ZX1SabJVoN9Q34bw==}
-
-  '@types/node@25.0.6':
-    resolution: {integrity: sha512-NNu0sjyNxpoiW3YuVFfNz7mxSQ+S4X2G28uqg2s+CzoqoQjLPsWSbsFFyztIAqt2vb8kfEAsJNepMGPTxFDx3Q==}
 
   '@types/node@25.1.0':
     resolution: {integrity: sha512-t7frlewr6+cbx+9Ohpl0NOTKXZNV9xHRmNOvql47BFJKcEG1CxtxlPEEe+gR9uhVWM4DwhnvTF110mIL4yP9RA==}
@@ -3978,8 +3958,8 @@ snapshots:
   '@ardatan/relay-compiler@12.0.3(graphql@16.12.0)':
     dependencies:
       '@babel/generator': 7.28.5
-      '@babel/parser': 7.28.5
-      '@babel/runtime': 7.28.4
+      '@babel/parser': 7.28.6
+      '@babel/runtime': 7.28.6
       chalk: 4.1.2
       fb-watchman: 2.0.2
       graphql: 16.12.0
@@ -4004,8 +3984,8 @@ snapshots:
 
   '@babel/generator@7.28.5':
     dependencies:
-      '@babel/parser': 7.28.5
-      '@babel/types': 7.28.5
+      '@babel/parser': 7.28.6
+      '@babel/types': 7.28.6
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
       jsesc: 3.1.0
@@ -4027,10 +4007,6 @@ snapshots:
 
   '@babel/helper-validator-identifier@8.0.0-beta.4': {}
 
-  '@babel/parser@7.28.5':
-    dependencies:
-      '@babel/types': 7.28.5
-
   '@babel/parser@7.28.6':
     dependencies:
       '@babel/types': 7.28.6
@@ -4043,14 +4019,7 @@ snapshots:
     dependencies:
       core-js-pure: 3.48.0
 
-  '@babel/runtime@7.28.4': {}
-
   '@babel/runtime@7.28.6': {}
-
-  '@babel/types@7.28.5':
-    dependencies:
-      '@babel/helper-string-parser': 7.27.1
-      '@babel/helper-validator-identifier': 7.28.5
 
   '@babel/types@7.28.6':
     dependencies:
@@ -5506,10 +5475,6 @@ snapshots:
 
   '@types/jsesc@2.5.1': {}
 
-  '@types/node@25.0.6':
-    dependencies:
-      undici-types: 7.16.0
-
   '@types/node@25.1.0':
     dependencies:
       undici-types: 7.16.0
@@ -5524,7 +5489,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.1.0
 
   '@univerjs/core@0.15.4(@wendellhu/redi@1.1.1(react@19.2.4))(rxjs@7.8.2)':
     dependencies:
@@ -6861,7 +6826,7 @@ snapshots:
 
   relay-runtime@12.0.0:
     dependencies:
-      '@babel/runtime': 7.28.4
+      '@babel/runtime': 7.28.6
       fbjs: 3.0.5
       invariant: 2.2.4
     transitivePeerDependencies:

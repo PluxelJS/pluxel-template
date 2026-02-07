@@ -1,6 +1,6 @@
 ## pluxel-template（开箱即用、可复现）
 
-这个模板把 `chatbots/` 作为 **git submodule** 固定到一个 commit，确保工作区依赖与 HMR 扫描内容可复现。
+这个模板把 `plugins/chatbots/` 作为 **git submodule** 固定到一个 commit，确保工作区依赖与 HMR 扫描内容可复现。
 
 ### 快速开始
 
@@ -28,6 +28,6 @@
 
 ### 约定
 
-- `chatbots/` 是 submodule：用 `git submodule status` 查看固定版本；更新时请显式 `git -C chatbots pull` + 在主仓库提交 gitlink 变更。
+- `plugins/chatbots/` 是 submodule：用 `git submodule status` 查看固定版本；更新时请显式 `git -C plugins/chatbots pull` + 在主仓库提交 gitlink 变更。
 - 启动入口在 `src/index.ts`。
 - 运行态配置/持久化默认写入 `.pluxel/`（gitignore），避免污染工作区。

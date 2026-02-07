@@ -2,16 +2,17 @@ import { definePluxelVitestWorkspaceConfig } from '@pluxel/test/vitest'
 import { resolve } from 'node:path'
 
 export default definePluxelVitestWorkspaceConfig({
-		roots: [
-			'packages',
-			'plugins/ai',
-			'plugins/infra',
-			'plugins/data',
-			'plugins/native',
-			'builtin-plugins',
-			'render-plugins',
-		'chatbots',
-		'univer',
+	roots: [
+		'packages',
+		'plugins/ai',
+		'plugins/infra',
+		'plugins/data',
+		'plugins/func',
+		'plugins/native',
+		'plugins/builtin',
+		'plugins/render',
+		'plugins/chatbots',
+		'plugins/univer',
 	],
 	// This workspace consumes Pluxel packages via pnpm symlinks to a sibling repo (`../pluxel`).
 	// Vitest/Vite will resolve those symlinks to real paths (outside this repo), so we must allow

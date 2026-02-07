@@ -1,12 +1,8 @@
 packages:
   - packages/**
-  - plugins/*/*
-  - univer/*
-  - builtin-plugins/*
+  - plugins/**
   # vendored/bundled packages (not real workspaces)
   - '!plugins/native/napi-rs/*__*'
-  - render-plugins/*
-  - chatbots/**
 
 onlyBuiltDependencies:
   - esbuild
