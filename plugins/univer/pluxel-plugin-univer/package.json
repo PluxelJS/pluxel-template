@@ -22,7 +22,7 @@
 		"typecheck": "tsc -p tsconfig.json"
 	},
 	"dependencies": {
-		"@pluxel/hmr": "link:../../../pluxel/packages/hmr",
+		"@pluxel/hmr": "link:../../../../pluxel/packages/hmr",
 		"@pluxel/promptkit": "workspace:^",
 		"pluxel-plugin-univer-ai": "workspace:*",
 		"pluxel-plugin-univer-workbooks": "workspace:*",

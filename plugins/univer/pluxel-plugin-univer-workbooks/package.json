@@ -21,7 +21,7 @@
 		"typecheck": "tsc -p tsconfig.json"
 	},
 	"dependencies": {
-		"@pluxel/hmr": "link:../../../pluxel/packages/hmr"
+		"@pluxel/hmr": "link:../../../../pluxel/packages/hmr"
 	},
 	"publishConfig": {
 		"exports": {
