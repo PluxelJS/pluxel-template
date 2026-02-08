@@ -3,42 +3,6 @@
 		{
 			"name": "🌱  pluxel-template",
 			"path": "."
-		},
-		{
-			"name": "plugins:data",
-			"path": "plugins/data"
-		},
-		{
-			"name": "plugins:infra",
-			"path": "plugins/infra"
-		},
-		{
-			"name": "plugins:ai",
-			"path": "plugins/ai"
-		},
-		{
-			"name": "plugins:native",
-			"path": "plugins/native"
-		},
-		{
-			"name": "plugins:func",
-			"path": "plugins/func"
-		},
-		{
-			"name": "plugins:render",
-			"path": "plugins/render"
-		},
-		{
-			"name": "plugins:builtin",
-			"path": "plugins/builtin"
-		},
-		{
-			"name": "plugins:chatbots",
-			"path": "plugins/chatbots"
-		},
-		{
-			"name": "plugins:univer",
-			"path": "plugins/univer"
 		}
 	],
 	"settings": {

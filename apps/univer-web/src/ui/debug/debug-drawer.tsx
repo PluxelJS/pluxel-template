@@ -1,7 +1,8 @@
-import { Badge, Box, Code, Divider, Drawer, Group, ScrollArea, Stack, Table, Text, Title } from '@mantine/core'
+import { Divider, SideSheet, Space, Table, Tag, Typography } from '@douyinfe/semi-ui-19'
 import type { UniverPluginSpec } from '@pluxel/univer-protocol'
 import { useMemo } from 'react'
 
+import { CodeInline, Muted, SectionTitle } from '../kit'
 import type { UniverRuntime } from '../univer/runtime'
 import { isSupportedUniverPluginKey } from '../univer/catalog'
 
@@ -24,7 +25,10 @@ export function DebugDrawer(props: {
 	services: { workbooks: boolean; ai: boolean }
 }) {
 	const rt = props.getRuntime()
-	const installed = useMemo(() => [...(rt?.installedPlugins ?? new Set())].sort((a, b) => a.localeCompare(b)), [rt])
+	const installed = useMemo(
+		() => [...(rt?.installedPlugins ?? new Set())].sort((a, b) => a.localeCompare(b)),
+		[rt],
+	)
 
 	const raw = useMemo(() => {
 		const list = props.rawPlugins().slice()
@@ -41,126 +45,109 @@ export function DebugDrawer(props: {
 	const unsupported = useMemo(() => raw.filter((p) => !isSupportedUniverPluginKey(p.plugin)), [raw])
 
 	return (
-		<Drawer
-			opened={props.opened}
-			onClose={props.onClose}
-			position="right"
-			size={720}
+		<SideSheet
+			visible={props.opened}
+			onCancel={props.onClose}
 			title="Debug"
-			overlayProps={{ opacity: 0.15 }}
+			placement="right"
+			width={720}
 		>
-			<Stack gap="sm">
-				<Group justify="space-between">
-					<Stack gap={2}>
-						<Title order={5}>Runtime</Title>
-						<Text size="sm" c="dimmed">
-							ready: <Code>{String(props.ready)}</Code> · workbook: <Code>{props.workbookId || '(none)'}</Code>
-						</Text>
-					</Stack>
-					<Group gap="xs">
-						<Badge color={props.services.workbooks ? 'green' : 'gray'}>workbooks</Badge>
-						<Badge color={props.services.ai ? 'green' : 'gray'}>ai</Badge>
-					</Group>
-				</Group>
+			<Space vertical align="start" spacing="loose" style={{ width: '100%' }}>
+				<Space align="start" spacing="loose" style={{ width: '100%', justifyContent: 'space-between' }}>
+					<div>
+						<SectionTitle>Runtime</SectionTitle>
+						<Muted>
+							ready: <CodeInline>{String(props.ready)}</CodeInline> · workbook:{' '}
+							<CodeInline>{props.workbookId || '(none)'}</CodeInline>
+						</Muted>
+					</div>
+					<Space>
+						<Tag color={props.services.workbooks ? 'green' : 'grey'}>workbooks</Tag>
+						<Tag color={props.services.ai ? 'green' : 'grey'}>ai</Tag>
+					</Space>
+				</Space>
 
 				<Divider />
 
-				<Box>
-					<Text fw={600} mb={6}>
-						Installed (runtime)
-					</Text>
-					{installed.length ? (
-						<Group gap="xs">
-							{installed.map((k) => (
-								<Badge key={k} variant="light">
+				<div style={{ width: '100%' }}>
+					<SectionTitle>Installed (runtime)</SectionTitle>
+					<Space wrap style={{ marginTop: 8 }}>
+						{installed.length ? (
+							installed.map((k) => (
+								<Tag key={k} color="blue">
 									{k}
-								</Badge>
-							))}
-						</Group>
-					) : (
-						<Text size="sm" c="dimmed">
-							(no installed plugins)
-						</Text>
-					)}
-				</Box>
+								</Tag>
+							))
+						) : (
+							<Muted>(no installed plugins)</Muted>
+						)}
+					</Space>
+				</div>
 
 				<Divider />
 
-				<Box>
-					<Text fw={600} mb={6}>
-						Effective (SSE)
-					</Text>
-					<ScrollArea h={220} type="always">
-						<Table striped highlightOnHover withColumnBorders>
-							<Table.Thead>
-								<Table.Tr>
-									<Table.Th>plugin</Table.Th>
-									<Table.Th>id</Table.Th>
-									<Table.Th>supported</Table.Th>
-								</Table.Tr>
-							</Table.Thead>
-							<Table.Tbody>
-								{effective.map((p) => (
-									<Table.Tr key={p.id}>
-										<Table.Td>
-											<Code>{p.plugin}</Code>
-										</Table.Td>
-										<Table.Td>
-											<Code>{p.id}</Code>
-										</Table.Td>
-										<Table.Td>{isSupportedUniverPluginKey(p.plugin) ? 'yes' : 'no'}</Table.Td>
-									</Table.Tr>
-								))}
-							</Table.Tbody>
-						</Table>
-					</ScrollArea>
-				</Box>
+				<div style={{ width: '100%' }}>
+					<SectionTitle>Effective (SSE)</SectionTitle>
+					<Table
+						dataSource={effective}
+						rowKey="id"
+						pagination={false}
+						columns={[
+							{
+								title: 'plugin',
+								dataIndex: 'plugin',
+								render: (value: string) => <CodeInline>{value}</CodeInline>,
+							},
+							{
+								title: 'id',
+								dataIndex: 'id',
+								render: (value: string) => <CodeInline>{value}</CodeInline>,
+							},
+							{
+								title: 'supported',
+								dataIndex: 'plugin',
+								render: (value: string) => (isSupportedUniverPluginKey(value) ? 'yes' : 'no'),
+							},
+						]}
+					/>
+				</div>
 
-				<Box>
-					<Text fw={600} mb={6}>
-						Raw (SSE)
-					</Text>
-					<ScrollArea h={220} type="always">
-						<Table striped highlightOnHover withColumnBorders>
-							<Table.Thead>
-								<Table.Tr>
-									<Table.Th>plugin</Table.Th>
-									<Table.Th>id</Table.Th>
-								</Table.Tr>
-							</Table.Thead>
-							<Table.Tbody>
-								{raw.map((p) => (
-									<Table.Tr key={p.id}>
-										<Table.Td>
-											<Code>{p.plugin}</Code>
-										</Table.Td>
-										<Table.Td>
-											<Code>{p.id}</Code>
-										</Table.Td>
-									</Table.Tr>
-								))}
-							</Table.Tbody>
-						</Table>
-					</ScrollArea>
-				</Box>
+				<div style={{ width: '100%' }}>
+					<SectionTitle>Raw (SSE)</SectionTitle>
+					<Table
+						dataSource={raw}
+						rowKey="id"
+						pagination={false}
+						columns={[
+							{
+								title: 'plugin',
+								dataIndex: 'plugin',
+								render: (value: string) => <CodeInline>{value}</CodeInline>,
+							},
+							{
+								title: 'id',
+								dataIndex: 'id',
+								render: (value: string) => <CodeInline>{value}</CodeInline>,
+							},
+						]}
+					/>
+				</div>
 
 				{unsupported.length ? (
-					<Box>
-						<Text fw={600} mb={6} c="yellow">
-							Unsupported plugin keys (ignored by runtime)
-						</Text>
-						<Code block>{stableJson(unsupported)}</Code>
-					</Box>
+					<>
+						<Divider />
+						<div style={{ width: '100%' }}>
+							<SectionTitle>Unsupported plugins</SectionTitle>
+							<Typography.Text type="tertiary">
+								{unsupported.length} plugin(s) not supported by Univer frontend.
+							</Typography.Text>
+							<pre className="univer-codeblock" style={{ marginTop: 8 }}>
+								{stableJson(unsupported)}
+							</pre>
+						</div>
+					</>
 				) : null}
-
-				<Box>
-					<Text fw={600} mb={6}>
-						Effective specs (JSON)
-					</Text>
-					<Code block>{stableJson(effective)}</Code>
-				</Box>
-			</Stack>
-		</Drawer>
+			</Space>
+		</SideSheet>
 	)
 }
-

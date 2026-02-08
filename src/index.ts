@@ -12,6 +12,13 @@ const { ctx } = await startHmrHost({
 		seedConfig: 'default.json',
 	},
 	vitePlugins: [Macro() as any, partsTransformVitePlugin()],
+	deps: {
+		// `@gqloom/core` advertises a `"source"` export condition but does not publish `src/*`.
+		// HMR runner enables `"source"` globally for workspace packages, which makes `@gqloom/core`
+		// unresolvable when evaluated via Vite's SSR pipeline. Externalize it so Node resolves
+		// the normal `"import"` entry instead.
+		ssrExternal: ['@gqloom/core'],
+	},
 	cjsExternal: ['pluxel-plugin-napi-rs/*', '@napi-rs/*', '@memecrafters/meme-generator'],
 	registry: {},
 })

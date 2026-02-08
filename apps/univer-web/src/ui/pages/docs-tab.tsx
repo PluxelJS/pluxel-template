@@ -1,4 +1,16 @@
-import { Alert, Button, Code, Group, Loader, Modal, Paper, Stack, Table, Text, TextInput, Title } from '@mantine/core'
+import {
+	Banner,
+	Breadcrumb,
+	Button,
+	Card,
+	Empty,
+	Input,
+	Select,
+	Space,
+	Table,
+	Tag,
+	Typography,
+} from '@douyinfe/semi-ui-19'
 import {
 	IconArrowsExchange,
 	IconChevronRight,
@@ -17,7 +29,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { UniverBrowseFolderResult, UniverFolderMeta, UniverWorkbookMeta } from 'pluxel-plugin-univer-workbooks'
 
+import { AppModal, CodeInline, Muted, PageTitle } from '../kit'
 import { toEditorUrl } from '../shared'
+
+type DocRow = {
+	key: string
+	kind: 'folder' | 'workbook'
+	id: string
+	name: string
+	updatedAt: number
+	latestRev?: number
+	folderId?: string | null
+}
 
 export function DocsTab() {
 	const ctx = useExtensionContext('plugin')
@@ -37,14 +60,22 @@ export function DocsTab() {
 
 	if (!rpc) {
 		return (
-			<Alert color="yellow" title="UniverWorkbooks 未启用">
-				<Text size="sm">
-					当前后端没有提供 <Code>UniverWorkbooks</Code> RPC，无法浏览/创建工作簿。
-				</Text>
-				<Text size="sm" mt="xs">
-					请在 <Code>pluxel.hmr.jsonc</Code> 的 profile 中启用 <Code>pluxel-plugin-univer-workbooks</Code>，然后刷新页面。
-				</Text>
-			</Alert>
+			<Banner
+				fullMode={false}
+				type="warning"
+				description={
+					<Space vertical align="start" spacing="tight">
+						<div>
+							当前后端没有提供 <CodeInline>UniverWorkbooks</CodeInline> RPC，无法浏览/创建工作簿。
+						</div>
+						<div>
+							请在 <CodeInline>pluxel.hmr.jsonc</CodeInline> 的 profile 中启用{' '}
+							<CodeInline>pluxel-plugin-univer-workbooks</CodeInline>，然后刷新页面。
+						</div>
+					</Space>
+				}
+				title="UniverWorkbooks 未启用"
+			/>
 		)
 	}
 
@@ -252,246 +283,308 @@ export function DocsTab() {
 			}
 			return parts.reverse().join(' / ')
 		}
-		const opts = folders.map((f) => ({ id: f.id, label: pathFor(f.id) }))
+		const opts = folders.map((f) => ({ value: f.id, label: pathFor(f.id) }))
 		opts.sort((a, b) => a.label.localeCompare(b.label))
-		return [{ id: '', label: '(Root)' }, ...opts]
+		return [{ value: '', label: '(Root)' }, ...opts]
 	}, [folderIndex])
 
+	const rows: DocRow[] = useMemo(() => {
+		const list: DocRow[] = []
+		for (const f of browse?.folders ?? []) {
+			list.push({
+				key: `folder:${f.id}`,
+				kind: 'folder',
+				id: f.id,
+				name: f.name,
+				updatedAt: f.updatedAt,
+			})
+		}
+		for (const w of browse?.workbooks ?? []) {
+			list.push({
+				key: `workbook:${w.id}`,
+				kind: 'workbook',
+				id: w.id,
+				name: w.name,
+				updatedAt: w.updatedAt,
+				latestRev: w.latestRev,
+				folderId: w.folderId ?? null,
+			})
+		}
+		return list
+	}, [browse])
+
 	return (
-		<Stack gap="md" style={{ minHeight: 420 }}>
-			<Group justify="space-between" align="flex-end">
-				<Stack gap={2}>
-					<Title order={4}>Univer 文档</Title>
-					<Text size="sm" c="dimmed">
-						文件夹 / 工作簿（snapshot@rev）
-					</Text>
-				</Stack>
+		<div className="univer-docs">
+			<div className="univer-header-row">
+				<div>
+					<PageTitle>Univer 文档</PageTitle>
+					<Muted>文件夹 / 工作簿（snapshot@rev）</Muted>
+				</div>
+				<Button
+					theme="borderless"
+					icon={<IconRefresh size={16} />}
+					disabled={loading}
+					onClick={() => void refresh(cwdId)}
+				>
+					刷新
+				</Button>
+			</div>
 
-				<Group>
-					<Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => void refresh(cwdId)} disabled={loading}>
-						刷新
-					</Button>
-				</Group>
-			</Group>
+			{error ? <Banner fullMode={false} type="danger" description={error} title="错误" /> : null}
 
-			{error ? (
-				<Alert color="red" title="错误">
-					{error}
-				</Alert>
-			) : null}
+			<Card className="univer-card" bodyStyle={{ padding: 20 }}>
+				<Space vertical align="start" spacing="loose" style={{ width: '100%' }}>
+					<Space vertical align="start" spacing="tight" style={{ width: '100%' }}>
+						<Breadcrumb
+							routes={[]}
+							separator={<IconChevronRight size={14} />}
+							style={{ marginBottom: 4 }}
+						>
+							<Breadcrumb.Item onClick={goRoot}>Root</Breadcrumb.Item>
+							{crumbs.map((c) => (
+								<Breadcrumb.Item key={c.id} onClick={() => enterFolder(c.id)}>
+									{c.name}
+								</Breadcrumb.Item>
+							))}
+						</Breadcrumb>
+						<Typography.Text type="tertiary">
+							cwd: <CodeInline>{browse?.cwd?.id ?? '(root)'}</CodeInline>
+						</Typography.Text>
+					</Space>
 
-			<Paper withBorder p="md">
-				<Stack gap="sm">
-					<Group justify="space-between" wrap="wrap" align="flex-end">
-						<Stack gap={4}>
-							<Group gap="xs" wrap="nowrap">
-								<Button variant="subtle" size="sm" onClick={goRoot} styles={{ root: { paddingLeft: 0 } }}>
-									Root
-								</Button>
-								{crumbs.map((c) => (
-									<Group key={c.id} gap={4} wrap="nowrap">
-										<IconChevronRight size={14} />
-										<Button variant="subtle" size="sm" onClick={() => enterFolder(c.id)} styles={{ root: { paddingLeft: 0 } }}>
-											{c.name}
-										</Button>
-									</Group>
-								))}
-							</Group>
-							<Text size="xs" c="dimmed">
-								cwd: <Code>{browse?.cwd?.id ?? '(root)'}</Code>
-							</Text>
-						</Stack>
+					<div className="univer-action-row">
+						<div className="univer-input-row">
+							<Input
+								value={newFolderName}
+								onChange={(value: string) => setNewFolderName(value)}
+								placeholder="Folder name"
+								style={{ width: 180 }}
+							/>
+							<Button
+								type="secondary"
+								icon={<IconFolderPlus size={16} />}
+								disabled={creatingFolder}
+								onClick={() => void createFolder()}
+							>
+								建文件夹
+							</Button>
+						</div>
 
-						<Group gap="sm" wrap="wrap">
-							<Group gap="xs">
-								<TextInput value={newFolderName} onChange={(e) => setNewFolderName(e.currentTarget.value)} />
-								<Button
-									leftSection={<IconFolderPlus size={16} />}
-									loading={creatingFolder}
-									onClick={() => void createFolder()}
-								>
-									建文件夹
-								</Button>
-							</Group>
-							<Group gap="xs">
-								<TextInput value={newWorkbookName} onChange={(e) => setNewWorkbookName(e.currentTarget.value)} />
-								<Button leftSection={<IconPlus size={16} />} loading={creatingWorkbook} onClick={() => void createWorkbook()}>
-									新建
-								</Button>
-							</Group>
-						</Group>
-					</Group>
+						<div className="univer-input-row">
+							<Input
+								value={newWorkbookName}
+								onChange={(value: string) => setNewWorkbookName(value)}
+								placeholder="Workbook name"
+								style={{ width: 180 }}
+							/>
+							<Button
+								type="primary"
+								icon={<IconPlus size={16} />}
+								disabled={creatingWorkbook}
+								onClick={() => void createWorkbook()}
+							>
+								新建
+							</Button>
+						</div>
+					</div>
 
-					{loading ? (
-						<Group justify="center" py="md">
-							<Loader />
-						</Group>
-					) : (
-						<Table withTableBorder>
-							<Table.Thead>
-								<Table.Tr>
-									<Table.Th>名称</Table.Th>
-									<Table.Th>类型</Table.Th>
-									<Table.Th>更新时间</Table.Th>
-									<Table.Th>操作</Table.Th>
-								</Table.Tr>
-							</Table.Thead>
-							<Table.Tbody>
-								{(browse?.folders ?? []).map((f) => (
-									<Table.Tr key={`folder:${f.id}`}>
-										<Table.Td>
-											<Group gap="xs" wrap="nowrap">
+					<Table
+						dataSource={rows}
+						rowKey="key"
+						pagination={false}
+						loading={loading}
+						empty={<Empty description="暂无内容" />}
+						columns={[
+							{
+								title: '名称',
+								dataIndex: 'name',
+								render: (_text: string, record: DocRow) => {
+									if (record.kind === 'folder') {
+										return (
+											<Space align="center">
 												<IconFolder size={16} />
 												<Button
-													variant="subtle"
-													size="sm"
-													onClick={() => enterFolder(f.id)}
-													styles={{ root: { paddingLeft: 0 } }}
+													theme="borderless"
+													onClick={() => enterFolder(record.id)}
 												>
-													{f.name}
+													{record.name}
 												</Button>
-											</Group>
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm" c="dimmed">
-												folder
-											</Text>
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm">{new Date(f.updatedAt).toLocaleString()}</Text>
-										</Table.Td>
-										<Table.Td>
-											<Group gap="xs" wrap="wrap">
-												<Button size="xs" variant="light" leftSection={<IconFolder size={14} />} onClick={() => enterFolder(f.id)}>
-													打开
+											</Space>
+										)
+									}
+									return (
+										<Space vertical align="start" spacing="tight">
+											<Space align="center">
+												<IconFileSpreadsheet size={16} />
+												<Button
+													theme="borderless"
+													onClick={() => openInPlace(record.id)}
+												>
+													{record.name}
 												</Button>
-												<Button size="xs" variant="subtle" leftSection={<IconPencil size={14} />} onClick={() => openRenameFolder(f)}>
-													重命名
-												</Button>
-												<Button size="xs" color="red" variant="subtle" leftSection={<IconTrash size={14} />} onClick={() => void deleteFolder(f)}>
-													删除
-												</Button>
-											</Group>
-										</Table.Td>
-									</Table.Tr>
-								))}
-
-								{(browse?.workbooks ?? []).map((item) => (
-									<Table.Tr key={`workbook:${item.id}`}>
-										<Table.Td>
-											<Stack gap={2}>
-												<Group gap="xs" wrap="nowrap">
-													<IconFileSpreadsheet size={16} />
-													<Button
-														variant="subtle"
-														size="sm"
-														onClick={() => openInPlace(item.id)}
-														styles={{ root: { paddingLeft: 0 } }}
-													>
-														{item.name}
-													</Button>
-												</Group>
-												<Text size="xs" c="dimmed">
-													<Code>{item.id}</Code>
-												</Text>
-											</Stack>
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm" c="dimmed">
-												file · rev <Code>{item.latestRev}</Code>
-											</Text>
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm">{new Date(item.updatedAt).toLocaleString()}</Text>
-										</Table.Td>
-										<Table.Td>
-											<Group gap="xs">
-												<Button size="xs" variant="light" leftSection={<IconWriting size={14} />} onClick={() => openInPlace(item.id)}>
+											</Space>
+											<Typography.Text type="tertiary">
+												<CodeInline>{record.id}</CodeInline>
+											</Typography.Text>
+										</Space>
+									)
+								},
+							},
+							{
+								title: '类型',
+								dataIndex: 'kind',
+								render: (_text: string, record: DocRow) => (
+									<Tag color={record.kind === 'folder' ? 'cyan' : 'violet'}>
+										{record.kind === 'folder'
+											? 'folder'
+											: `file · rev ${record.latestRev ?? ''}`}
+									</Tag>
+								),
+							},
+							{
+								title: '更新时间',
+								dataIndex: 'updatedAt',
+								render: (val: number) => new Date(val).toLocaleString(),
+							},
+							{
+								title: '操作',
+								dataIndex: 'actions',
+								render: (_text: string, record: DocRow) => {
+									if (record.kind === 'folder') {
+										return (
+											<Space wrap>
+												<Button
+													size="small"
+													icon={<IconFolder size={14} />}
+													onClick={() => enterFolder(record.id)}
+												>
 													打开
 												</Button>
 												<Button
-													size="xs"
-													variant="subtle"
-													leftSection={<IconExternalLink size={14} />}
-													onClick={() => openInNewWindow(item.id)}
+													size="small"
+													theme="borderless"
+													icon={<IconPencil size={14} />}
+													onClick={() => openRenameFolder({ id: record.id, name: record.name } as UniverFolderMeta)}
 												>
-													新窗口
-												</Button>
-												<Button size="xs" variant="subtle" leftSection={<IconPencil size={14} />} onClick={() => openRenameWorkbook(item)}>
 													重命名
 												</Button>
-												<Button size="xs" variant="subtle" leftSection={<IconArrowsExchange size={14} />} onClick={() => void openMove(item)}>
-													移动
-												</Button>
-												<Button size="xs" color="red" variant="subtle" leftSection={<IconTrash size={14} />} onClick={() => void deleteWorkbook(item)}>
+												<Button
+													size="small"
+													theme="borderless"
+													type="danger"
+													icon={<IconTrash size={14} />}
+													onClick={() => void deleteFolder({ id: record.id, name: record.name } as UniverFolderMeta)}
+												>
 													删除
 												</Button>
-											</Group>
-										</Table.Td>
-									</Table.Tr>
-								))}
-								{(browse?.folders?.length ?? 0) + (browse?.workbooks?.length ?? 0) === 0 ? (
-									<Table.Tr>
-										<Table.Td colSpan={4}>
-											<Text size="sm" c="dimmed">
-												暂无内容
-											</Text>
-										</Table.Td>
-									</Table.Tr>
-								) : null}
-							</Table.Tbody>
-						</Table>
-					)}
-				</Stack>
-			</Paper>
+											</Space>
+										)
+									}
 
-			<Modal opened={renameOpen} onClose={() => setRenameOpen(false)} title="重命名" centered>
-				<Stack>
-					<TextInput value={renameName} onChange={(e) => setRenameName(e.currentTarget.value)} />
-					<Group justify="flex-end">
-						<Button variant="light" onClick={() => setRenameOpen(false)}>
+									return (
+										<Space wrap>
+											<Button
+												size="small"
+												icon={<IconWriting size={14} />}
+												onClick={() => openInPlace(record.id)}
+											>
+												打开
+											</Button>
+											<Button
+												size="small"
+												theme="borderless"
+												icon={<IconExternalLink size={14} />}
+												onClick={() => openInNewWindow(record.id)}
+											>
+												新窗口
+											</Button>
+											<Button
+												size="small"
+												theme="borderless"
+												icon={<IconPencil size={14} />}
+												onClick={() =>
+													openRenameWorkbook({ id: record.id, name: record.name } as UniverWorkbookMeta)
+												}
+											>
+												重命名
+											</Button>
+											<Button
+												size="small"
+												theme="borderless"
+												icon={<IconArrowsExchange size={14} />}
+												onClick={() => void openMove({
+													id: record.id,
+													folderId: record.folderId ?? null,
+												} as UniverWorkbookMeta)}
+											>
+												移动
+											</Button>
+											<Button
+												size="small"
+												theme="borderless"
+												type="danger"
+												icon={<IconTrash size={14} />}
+												onClick={() =>
+													void deleteWorkbook({ id: record.id, name: record.name } as UniverWorkbookMeta)
+												}
+											>
+												删除
+											</Button>
+										</Space>
+									)
+								},
+							},
+						]}
+					/>
+				</Space>
+			</Card>
+
+			<AppModal
+				open={renameOpen}
+				onOpenChange={setRenameOpen}
+				title="重命名"
+				footer={
+					<Space>
+						<Button theme="borderless" onClick={() => setRenameOpen(false)}>
 							取消
 						</Button>
-						<Button loading={renaming} onClick={() => void confirmRename()}>
+						<Button type="primary" loading={renaming} onClick={() => void confirmRename()}>
 							保存
 						</Button>
-					</Group>
-				</Stack>
-			</Modal>
+					</Space>
+				}
+			>
+				<Input value={renameName} onChange={(value: string) => setRenameName(value)} />
+			</AppModal>
 
-			<Modal opened={moveOpen} onClose={() => setMoveOpen(false)} title="移动到..." centered>
-				<Stack>
-					<Text size="sm" c="dimmed">
-						选择目标文件夹（Root 表示顶层）。
-					</Text>
-					<Table withTableBorder>
-						<Table.Tbody>
-							{folderOptions.map((opt) => (
-								<Table.Tr
-									key={opt.id}
-									style={{
-										cursor: 'pointer',
-										background: (moveTo ?? '') === opt.id ? 'rgba(0,0,0,0.06)' : undefined,
-									}}
-									onClick={() => setMoveTo(opt.id || null)}
-								>
-									<Table.Td>
-										<Text size="sm">{opt.label}</Text>
-									</Table.Td>
-								</Table.Tr>
-							))}
-						</Table.Tbody>
-					</Table>
-					<Group justify="flex-end">
-						<Button variant="light" onClick={() => setMoveOpen(false)}>
+			<AppModal
+				open={moveOpen}
+				onOpenChange={setMoveOpen}
+				title="移动到..."
+				size="lg"
+				footer={
+					<Space>
+						<Button theme="borderless" onClick={() => setMoveOpen(false)}>
 							取消
 						</Button>
-						<Button loading={moving} onClick={() => void confirmMove()}>
+						<Button type="primary" loading={moving} onClick={() => void confirmMove()}>
 							移动
 						</Button>
-					</Group>
-				</Stack>
-			</Modal>
-		</Stack>
+					</Space>
+				}
+			>
+				<Space vertical align="start" spacing="tight" style={{ width: '100%' }}>
+					<Muted>选择目标文件夹（Root 表示顶层）。</Muted>
+				<Select
+					value={moveTo ?? ''}
+					onChange={(value: unknown) => setMoveTo(value ? String(value) : null)}
+						optionList={folderOptions}
+						style={{ width: '100%' }}
+						placeholder="选择目标文件夹"
+						filter
+					/>
+				</Space>
+			</AppModal>
+		</div>
 	)
 }

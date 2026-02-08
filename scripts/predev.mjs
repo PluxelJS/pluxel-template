@@ -140,6 +140,3 @@ const builtinPkgs = Array.isArray(profile.builtin)
 if (builtinPkgs.length > 0) {
 	run('pnpm', ['-s', 'turbo', 'build:builtin', ...builtinPkgs.flatMap((name) => ['--filter', name])])
 }
-
-// Required by `src/index.ts` (imports `pluxel-plugin-bot-core/parts/rolldown` default export => dist output).
-run('pnpm', ['-s', 'turbo', 'build', '--filter', 'pluxel-plugin-bot-core'])

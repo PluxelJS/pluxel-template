@@ -33,8 +33,8 @@ function shutdown(code = 0) {
 process.on('SIGINT', () => shutdown(0))
 process.on('SIGTERM', () => shutdown(0))
 
-// 1) Backend HMR host (serves /api/*)
-run('host', 'node', ['src/index.ts'])
-
-// 2) Univer frontend (proxies /api/* to the host)
-run('univer-web', 'pnpm', ['--filter', 'pluxel-univer-web', 'dev'])
+// Backend HMR host only (serves /api/*).
+//
+// Univer frontend is an independent Vite app:
+// - Start it separately when needed: `pnpm --filter pluxel-univer-web dev`
+run('host', 'node', ['--conditions=@pluxel/hmr', 'src/index.ts'])

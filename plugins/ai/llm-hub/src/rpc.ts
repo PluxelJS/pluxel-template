@@ -5,7 +5,6 @@ import type { LLMCircuitConfig } from './profiles'
 import type { LLMHubSettingsDoc } from './settings'
 
 export type UpdateSettingsInput = {
-	selection?: Partial<LLMHubSettingsDoc['selection']>
 	circuit?: Partial<LLMCircuitConfig>
 }
 
@@ -17,7 +16,6 @@ export type CreateProfileInput = {
 	config?: Record<string, unknown>
 	options?: Record<string, unknown>
 	apiKey?: string
-	makeDefault?: boolean
 	priority?: number
 	circuit?: Partial<LLMCircuitConfig>
 }
@@ -30,7 +28,6 @@ export type LLMHubRequest =
 	| { type: 'profiles:list' }
 	| { type: 'profiles:create'; input: CreateProfileInput }
 	| { type: 'profiles:update'; id: string; input: UpdateProfileInput }
-	| { type: 'profiles:setDefault'; id: string }
 	| { type: 'profiles:delete'; id: string }
 	| { type: 'profiles:resetHealth'; id: string }
 	| { type: 'profiles:setApiKey'; id: string; apiKey: string }
@@ -42,7 +39,6 @@ type LLMHubRequestMap = {
 	'profiles:list': Awaited<ReturnType<LLMHub['listProfilesResult']>>
 	'profiles:create': Awaited<ReturnType<LLMHub['createProfileResult']>>
 	'profiles:update': Awaited<ReturnType<LLMHub['updateProfileResult']>>
-	'profiles:setDefault': Awaited<ReturnType<LLMHub['setDefaultProfileResult']>>
 	'profiles:delete': Awaited<ReturnType<LLMHub['deleteProfileResult']>>
 	'profiles:resetHealth': Awaited<ReturnType<LLMHub['resetProfileHealthResult']>>
 	'profiles:setApiKey': Awaited<ReturnType<LLMHub['setApiKeyResult']>>
@@ -66,8 +62,6 @@ export class LLMHubRpc extends RpcTarget {
 				return this.plugin.createProfileResult(req.input) as Promise<LLMHubResponse<T>>
 			case 'profiles:update':
 				return this.plugin.updateProfileResult(req.id, req.input) as Promise<LLMHubResponse<T>>
-			case 'profiles:setDefault':
-				return this.plugin.setDefaultProfileResult(req.id) as Promise<LLMHubResponse<T>>
 			case 'profiles:delete':
 				return this.plugin.deleteProfileResult(req.id) as Promise<LLMHubResponse<T>>
 			case 'profiles:resetHealth':

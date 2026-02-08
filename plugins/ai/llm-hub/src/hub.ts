@@ -26,12 +26,13 @@ export class LLMHub extends LLM {
 	private profiles!: Collection<LLMProfileDoc>
 	private settings!: Collection<LLMHubSettingsDoc>
 	private readyPromise: Promise<void> | null = null
+	private apiKeyCache = new Map<string, string | null>()
 
 	override async init() {
 		this.profiles = new Collection<LLMProfileDoc>({
 			name: LLM_COLLECTION_PROFILES,
 			persistence: await this.ctx.pluginData.persistenceForCollection<LLMProfileDoc>(LLM_COLLECTION_PROFILES),
-			indices: [createIndex('enabled'), createIndex('isDefault'), createIndex('updatedAt')],
+			indices: [createIndex('enabled'), createIndex('priority'), createIndex('updatedAt')],
 		})
 		this.settings = new Collection<LLMHubSettingsDoc>({
 			name: LLM_COLLECTION_SETTINGS,
@@ -44,6 +45,10 @@ export class LLMHub extends LLM {
 		migrateLegacyProfiles(this.profiles)
 		this.ensureSettingsDoc()
 		registerLLMHubExtensions({ ctx: this.ctx, hub: this })
+	}
+
+	protected override stop(_abort: AbortSignal): void {
+		this.apiKeyCache.clear()
 	}
 
 	private async whenReady() {
@@ -75,19 +80,33 @@ export class LLMHub extends LLM {
 
 	private async readApiKeyResult(profileId: string): Promise<Result<string, LLMError>> {
 		try {
+			if (this.apiKeyCache.has(profileId)) {
+				const cached = this.apiKeyCache.get(profileId) ?? null
+				if (cached) return ok(cached)
+				return llmErr('E_MISSING_API_KEY', 'missing apiKey (set it in LLM UI)', { profileId })
+			}
+
 			const key = llmVaultKeyForProfile(profileId)
 			const token = await this.ctx.vault.open().getToken(key)
-			if (!token || !String(token).trim()) return llmErr('E_MISSING_API_KEY', 'missing apiKey (set it in LLM UI)')
-			return ok(String(token).trim())
+			const trimmed = token ? String(token).trim() : ''
+			if (!trimmed) {
+				this.apiKeyCache.set(profileId, null)
+				return llmErr('E_MISSING_API_KEY', 'missing apiKey (set it in LLM UI)', { profileId })
+			}
+			this.apiKeyCache.set(profileId, trimmed)
+			return ok(trimmed)
 		} catch (e) {
 			return llmErr('E_INTERNAL', asLLMError(e).message)
 		}
 	}
 
 	private async hasApiKey(profileId: string): Promise<boolean> {
+		if (this.apiKeyCache.has(profileId)) return !!this.apiKeyCache.get(profileId)
 		const key = llmVaultKeyForProfile(profileId)
 		const token = await this.ctx.vault.open().getToken(key)
-		return !!(token && String(token).trim())
+		const trimmed = token ? String(token).trim() : ''
+		this.apiKeyCache.set(profileId, trimmed || null)
+		return !!trimmed
 	}
 
 	private createInstrumentedFetch(
@@ -104,8 +123,11 @@ export class LLMHub extends LLM {
 
 		return (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
 			const cur = this.profiles.findOne({ id: profileId })
-			if (!opts?.allowCircuitOpen && cur && circuit.enabled && isCircuitOpen(effectiveHealth(cur))) {
-				throw llmErrorToError(llmError('E_CIRCUIT_OPEN', `circuit open: ${profileId}`, { profileId }))
+			const health = cur ? effectiveHealth(cur) : null
+			if (!opts?.allowCircuitOpen && cur && circuit.enabled && health && isCircuitOpen(health)) {
+				throw llmErrorToError(
+					llmError('E_CIRCUIT_OPEN', `circuit open: ${profileId}`, { profileId, openUntil: health.openUntil }),
+				)
 			}
 
 			const traceId = opts?.traceId
@@ -243,11 +265,10 @@ export class LLMHub extends LLM {
 			)
 		}
 
-		const mode = settings.selection?.mode ?? 'default-first'
-		const allowFallback = opts?.allowFallback !== false && (settings.selection?.fallback ?? true)
-		const candidates = sortCandidates(mode, this.resolveCandidates())
+		const allowFallback = opts?.allowFallback !== false
+		const candidates = sortCandidates(this.resolveCandidates())
 
-		if (candidates.length === 0) return llmErr('E_NO_DEFAULT_PROFILE', 'no profiles (create one in LLM UI)')
+		if (candidates.length === 0) return llmErr('E_NO_USABLE_PROFILE', 'no profiles (create one in LLM UI)')
 
 		const tried: Array<{ profileId: string; err: LLMError }> = []
 
@@ -290,13 +311,6 @@ export class LLMHub extends LLM {
 			const now = Date.now()
 			const next: LLMHubSettingsDoc = {
 				...cur,
-				selection: {
-					mode:
-						input.selection?.mode === 'default-first' || input.selection?.mode === 'priority-first'
-							? input.selection.mode
-							: cur.selection.mode,
-					fallback: typeof input.selection?.fallback === 'boolean' ? input.selection.fallback : cur.selection.fallback,
-				},
 				circuit: {
 					...cur.circuit,
 					...(normalizeCircuitConfig(input.circuit) ?? {}),
@@ -319,13 +333,7 @@ export class LLMHub extends LLM {
 				.slice()
 				.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
 
-			const vault = this.ctx.vault.open()
-			const has = async (id: string) => {
-				const token = await vault.getToken(llmVaultKeyForProfile(id))
-				return !!(token && String(token).trim())
-			}
-
-			const publicList = await Promise.all(list.map(async (p) => toPublicProfile(normalizeProfileDoc(p), await has(p.id))))
+			const publicList = await Promise.all(list.map(async (p) => toPublicProfile(normalizeProfileDoc(p), await this.hasApiKey(p.id))))
 			return ok(publicList)
 		} catch (e) {
 			return asLLMErrorResult(e, 'failed to list profiles')
@@ -351,16 +359,19 @@ export class LLMHub extends LLM {
 			const priority = normalizePriority(input.priority)
 			const config = normalizeObject('config', input.config)
 			const options = normalizeObject('options', input.options)
-			const makeDefault = input.makeDefault !== false
 			const circuit = normalizeCircuitConfig(input.circuit)
 
 			const apiKey = String(input.apiKey ?? '').trim()
-			if (apiKey) await this.ctx.vault.open().setToken(llmVaultKeyForProfile(id), apiKey)
+			if (apiKey) {
+				await this.ctx.vault.open().setToken(llmVaultKeyForProfile(id), apiKey)
+				this.apiKeyCache.set(id, apiKey)
+			} else {
+				this.apiKeyCache.delete(id)
+			}
 
 			const doc: LLMProfileDoc = {
 				id,
 				enabled: true,
-				isDefault: false,
 				priority,
 				title,
 				provider,
@@ -376,11 +387,6 @@ export class LLMHub extends LLM {
 			}
 
 			this.profiles.insert(doc)
-
-			if (makeDefault || !this.profiles.findOne({ isDefault: true, enabled: true })) {
-				const def = await this.setDefaultProfileResult(id)
-				if (!def.ok) return err(def.err)
-			}
 
 			const latest = this.profiles.findOne({ id })!
 			return ok(toPublicProfile(normalizeProfileDoc(latest), await this.hasApiKey(id)))
@@ -416,15 +422,6 @@ export class LLMHub extends LLM {
 
 			this.profiles.updateOne({ id }, { $set: next as any })
 
-			const updated = this.profiles.findOne({ id })!
-			if (updated.isDefault && !updated.enabled) {
-				const nextDefault = this.profiles.findOne({ enabled: true })
-				if (nextDefault) {
-					const def = await this.setDefaultProfileResult(nextDefault.id)
-					if (!def.ok) return err(def.err)
-				}
-			}
-
 			const latest = this.profiles.findOne({ id })!
 			return ok(toPublicProfile(normalizeProfileDoc(latest), await this.hasApiKey(id)))
 		} catch (e) {
@@ -438,34 +435,6 @@ export class LLMHub extends LLM {
 		return res.val
 	}
 
-	private async ensureDefaultConsistency(defaultId: string): Promise<void> {
-		const all = this.profiles.find().fetch()
-		for (const p of all) {
-			const shouldBeDefault = p.id === defaultId
-			if ((p.isDefault ?? false) !== shouldBeDefault) {
-				this.profiles.updateOne({ id: p.id }, { $set: { isDefault: shouldBeDefault, updatedAt: Date.now() } })
-			}
-		}
-	}
-
-	async setDefaultProfileResult(id: LLMProfileId): Promise<Result<void, LLMError>> {
-		await this.whenReady()
-		try {
-			const doc = this.profiles.findOne({ id })
-			if (!doc) return llmErr('E_PROFILE_NOT_FOUND', `profile not found: ${id}`)
-			if (!doc.enabled) return llmErr('E_PROFILE_DISABLED', `cannot set disabled profile as default: ${id}`)
-			await this.ensureDefaultConsistency(id)
-			return ok(undefined)
-		} catch (e) {
-			return asLLMErrorResult(e, 'failed to set default profile')
-		}
-	}
-
-	async setDefaultProfile(id: LLMProfileId): Promise<void> {
-		const res = await this.setDefaultProfileResult(id)
-		if (!res.ok) throw llmErrorToError(res.err)
-	}
-
 	async deleteProfileResult(id: LLMProfileId): Promise<Result<void, LLMError>> {
 		await this.whenReady()
 		try {
@@ -473,16 +442,9 @@ export class LLMHub extends LLM {
 			if (!doc) return ok(undefined)
 
 			this.profiles.removeOne({ id })
+			this.apiKeyCache.delete(id)
 
 			await this.ctx.vault.open().deleteToken(llmVaultKeyForProfile(id)).catch(() => {})
-
-			if (doc.isDefault) {
-				const next = this.profiles.findOne({ enabled: true })
-				if (next) {
-					const def = await this.setDefaultProfileResult(next.id)
-					if (!def.ok) return def
-				}
-			}
 			return ok(undefined)
 		} catch (e) {
 			return asLLMErrorResult(e, 'failed to delete profile')
@@ -517,6 +479,7 @@ export class LLMHub extends LLM {
 			if (!doc) return llmErr('E_PROFILE_NOT_FOUND', `profile not found: ${id}`)
 
 			await this.ctx.vault.open().setToken(llmVaultKeyForProfile(id), trimmed)
+			this.apiKeyCache.set(id, trimmed)
 			this.profiles.updateOne({ id }, { $set: { apiKeyPreview: maskToken(trimmed), updatedAt: Date.now() } })
 
 			const updated = this.profiles.findOne({ id })!
@@ -539,6 +502,7 @@ export class LLMHub extends LLM {
 			if (!doc) return llmErr('E_PROFILE_NOT_FOUND', `profile not found: ${id}`)
 
 			await this.ctx.vault.open().deleteToken(llmVaultKeyForProfile(id)).catch(() => {})
+			this.apiKeyCache.set(id, null)
 			this.profiles.updateOne({ id }, { $set: { apiKeyPreview: undefined, updatedAt: Date.now() } })
 
 			const updated = this.profiles.findOne({ id })!
@@ -554,4 +518,3 @@ export class LLMHub extends LLM {
 		return res.val
 	}
 }
-

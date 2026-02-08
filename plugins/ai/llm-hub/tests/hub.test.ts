@@ -6,15 +6,14 @@ import { LLM, LLMHub } from '../src'
 import { createAxAIFromConnection } from '../src/adapters/ax'
 
 describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
-	it('creates profiles, sets apiKey, and resolves AxAI', async () => {
+	it('creates a profile, sets apiKey, and resolves AxAI', async () => {
 		await withHost(async (host) => {
 			host.add(LLMHub)
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			const p = await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test', makeDefault: true })
+			const p = await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test' })
 
-			expect(p.isDefault).toBe(true)
 			expect(p.hasApiKey).toBe(true)
 
 			const ai = createAxAIFromConnection(await host.require(LLM).connection())
@@ -28,7 +27,7 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test', makeDefault: true })
+			await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test' })
 
 			const conn = await host.require(LLM).connection()
 			expect(conn.profile.provider).toBe('openai')
@@ -44,7 +43,7 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			const p = await hub.createProfile({ provider: 'openai', makeDefault: true })
+			const p = await hub.createProfile({ provider: 'openai' })
 			expect(p.hasApiKey).toBe(false)
 
 			await expect(host.require(LLM).connection()).rejects.toThrow(/missing apiKey/i)
@@ -55,37 +54,32 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 		})
 	})
 
-	it('moves default away when the default profile is disabled', async () => {
+	it('falls back when the highest-priority profile is disabled', async () => {
 		await withHost(async (host) => {
 			host.add(LLMHub)
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			const a = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true })
-			const b = await hub.createProfile({ provider: 'openai', apiKey: 'sk-b', makeDefault: false })
+			const a = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', priority: 100 })
+			const b = await hub.createProfile({ provider: 'anthropic', apiKey: 'sk-b', priority: 0 })
 
-			await hub.setDefaultProfile(b.id)
-			await hub.updateProfile(b.id, { enabled: false })
+			await hub.updateProfile(a.id, { enabled: false })
 
-			const list = await hub.listProfiles()
-			const pa = list.find((p) => p.id === a.id)!
-			const pb = list.find((p) => p.id === b.id)!
-			expect(pa.isDefault).toBe(true)
-			expect(pb.isDefault).toBe(false)
-			expect(pb.enabled).toBe(false)
+			const conn = await host.require(LLM).connection()
+			expect(conn.profile.provider).toBe('anthropic')
 		})
 	})
 
-	it('falls back by priority when the default profile circuit is open', async () => {
+	it('falls back by priority when the highest-priority profile circuit is open', async () => {
 		await withHost(async (host) => {
 			host.add(LLMHub)
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			const a = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true, priority: 0 })
-			const b = await hub.createProfile({ provider: 'anthropic', apiKey: 'sk-b', makeDefault: false, priority: 10 })
+			const a = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', priority: 100 })
+			const b = await hub.createProfile({ provider: 'anthropic', apiKey: 'sk-b', priority: 0 })
 
-			// Force the default profile circuit open in stored health.
+			// Force the top-priority profile circuit open in stored health.
 			;(hub as any).profiles.updateOne(
 				{ id: a.id },
 				{ $set: { health: { consecutiveFailures: 3, openUntil: Date.now() + 60_000 }, updatedAt: Date.now() } },
@@ -93,13 +87,6 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 
 			const conn = await host.require(LLM).connection()
 			expect(conn.profile.provider).toBe('anthropic')
-
-			// Make sure the candidate wasn't silently changed.
-			const list = await hub.listProfiles()
-			const pa = list.find((p) => p.id === a.id)!
-			const pb = list.find((p) => p.id === b.id)!
-			expect(pa.isDefault).toBe(true)
-			expect(pb.isDefault).toBe(false)
 		})
 	})
 
@@ -109,7 +96,7 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			const p = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true })
+			const p = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a' })
 
 			// Force circuit open in stored health.
 			;(hub as any).profiles.updateOne(
@@ -140,7 +127,7 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 			await host.commit()
 
 			const hub = host.require(LLMHub)
-			const p = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true })
+			const p = await hub.createProfile({ provider: 'openai', apiKey: 'sk-a' })
 
 			// Simulate an old open circuit that has already cooled down.
 			;(hub as any).profiles.updateOne(
@@ -165,20 +152,4 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 		})
 	})
 
-	it('supports priority-first selection mode via settings', async () => {
-		await withHost(async (host) => {
-			host.add(LLMHub)
-			await host.commit()
-
-			const hub = host.require(LLMHub)
-			await hub.createProfile({ provider: 'openai', apiKey: 'sk-a', makeDefault: true, priority: 0 })
-			await hub.createProfile({ provider: 'anthropic', apiKey: 'sk-b', makeDefault: false, priority: 100 })
-
-			const updated = await hub.updateSettingsResult({ selection: { mode: 'priority-first', fallback: true } as any })
-			expect(updated.ok).toBe(true)
-
-			const conn = await host.require(LLM).connection()
-			expect(conn.profile.provider).toBe('anthropic')
-		})
-	})
 })

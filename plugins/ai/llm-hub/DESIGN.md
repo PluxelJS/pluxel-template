@@ -15,7 +15,7 @@ Goal: expose a *small* and *composable* LLM service for the Pluxel/HMR plugin ru
 - **Availability-aware routing**:
   - profiles have `priority` for fallback ordering
   - per-profile circuit breaker tracks failures and can temporarily mark a profile unavailable
-  - UI exposes a small routing policy (`default-first` / `priority-first`, fallback on/off)
+  - routing is deterministic and UI-managed via `priority` (no “default” concept)
 
 ## Layering (plugin perspective)
 
@@ -46,17 +46,9 @@ When `profileId` is provided, `LLMHub` resolves that profile (and fails fast if 
 When `profileId` is omitted:
 
 - Candidate set: all `enabled: true` profiles.
-- Sort policy (UI-configured):
-  - `default-first`:
-    1) `isDefault` first
-    2) higher `priority` first
-    3) higher `updatedAt` first (stable tiebreak)
-  - `priority-first`:
-    1) higher `priority` first
-    2) `isDefault` first
-    3) higher `updatedAt` first
-- Try candidates in order:
-  - If global fallback is disabled, return the first failure.
+- Sort order: higher `priority` first, then higher `updatedAt` first (stable tiebreak).
+- Try candidates in order (fallback enabled by default):
+  - If `allowFallback: false`, return the first failure.
   - Otherwise, fall back to the next candidate until one succeeds or all fail.
 
 Per-call overrides:
@@ -89,7 +81,7 @@ Gating points:
 
 Collections:
 - `llm:profiles` (pluginData): profiles + routing metadata + health
-- `llm:settings` (pluginData): global routing/circuit policy (single doc `id: "default"`)
+- `llm:settings` (pluginData): global circuit defaults (single doc `id: "default"`)
 
 Vault:
 - API keys only (`llm:profiles:{id}:apiKey`), never persisted in pluginData.
@@ -117,10 +109,10 @@ Recommendation:
 ## Provider management UI
 
 The default provider plugin `LLMHub` registers a simple host UI tab for managing profiles:
-- create/set default profiles
+- create/edit profiles (including `priority`)
 - set API key (stored in Vault)
 - edit JSON `config`/`options` for advanced provider knobs
-- routing policy + circuit breaker controls
+- circuit breaker defaults + per-profile overrides
 
 ### UI RPC API shape (recommended)
 
@@ -129,7 +121,7 @@ To avoid endless surface growth, the UI RPC is designed to converge on a single 
 - `ctx.services.hmr.ui.LLMHub.request({ type: ... })`（RPC namespace = plugin id）
 
 Current request types are profile-focused:
-- `profiles:list | profiles:create | profiles:update | profiles:setDefault | profiles:delete | profiles:resetHealth | profiles:setApiKey | profiles:clearApiKey`
+- `profiles:list | profiles:create | profiles:update | profiles:delete | profiles:resetHealth | profiles:setApiKey | profiles:clearApiKey`
 - `settings:get | settings:update`
 
 ## Future: usage accounting (direction)

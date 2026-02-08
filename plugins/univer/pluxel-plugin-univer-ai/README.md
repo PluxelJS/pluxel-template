@@ -7,7 +7,7 @@ Univer 的 AI service 插件（service-only）：对接 `pluxel-plugin-llm-hub`�
 
 ## Usage
 
-1) 确保 `pluxel-plugin-llm-hub` 已配置默认 profile（在它的 UI 里配置 provider/model/key）。
+1) 确保 `pluxel-plugin-llm-hub` 已配置至少一个可用 profile（在它的 UI 里配置 provider/model/key；若有多个，则按 `priority`（高优先）自动选路并回退）。
 2) 在 `pluxel.hmr.jsonc` profile 中启用 `pluxel-plugin-univer-ai`（本 repo 已默认加入 `default/univer`）。
 3) 打开 Univer 编辑页，点击右上角 `AI` 打开面板，选区后点击“生成建议”。
 

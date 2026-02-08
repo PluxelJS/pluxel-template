@@ -7,7 +7,6 @@ import {
 	Group,
 	Modal,
 	NumberInput,
-	Select,
 	Stack,
 	Switch,
 	Text,
@@ -22,7 +21,6 @@ import {
 	IconKeyOff,
 	IconPencil,
 	IconRefresh,
-	IconStar,
 	IconToggleLeft,
 	IconToggleRight,
 	IconTrash,
@@ -42,21 +40,22 @@ type RuntimeApi = Readonly<{
 
 function useRuntime(): RuntimeApi {
 	const ctx = useExtensionContext('plugin')
+	const { hmr } = ctx.services
 	// Root cause note:
 	// - RPC extension namespaces are keyed by `ctx.pluginInfo.id` on the host (`RpcService.registerExtension`).
 	// - So the UI must call `ctx.services.hmr.ui[ctx.pluginName].*`, not a hardcoded name.
 	const namespace = ctx.pluginName
-	const ui = (ctx.services.hmr.ui as any)?.[namespace] as { request?: RequestFn } | undefined
 	const request = useCallback<RequestFn>(
 		async (req) => {
-			if (!ui || typeof ui.request !== 'function') {
+			const res = await (hmr.ui as any)[namespace].request(req as any)
+			if (!res || typeof res !== 'object' || typeof (res as any).ok !== 'boolean') {
 				throw new Error(
-					`LLMHub RPC not available: ctx.services.hmr.ui["${namespace}"].request is missing. Is "${namespace}" running and did it register ext.rpc?`,
+					`LLMHub RPC not available: ctx.services.hmr.ui["${namespace}"].request returned an invalid response. Is "${namespace}" running and did it register ext.rpc?`,
 				)
 			}
-			return (await ui.request(req as any)) as any
+			return res as any
 		},
-		[namespace, ui],
+		[hmr.ui, namespace],
 	)
 	return useMemo(() => ({ pluginName: ctx.pluginName, request }), [ctx.pluginName, request])
 }
@@ -90,8 +89,6 @@ function LLMProfilesPanel() {
 
 	const [profiles, setProfiles] = useState<Profile[]>([])
 	const [settings, setSettings] = useState<LLMHubSettingsDoc | null>(null)
-	const [settingsMode, setSettingsMode] = useState<'default-first' | 'priority-first'>('default-first')
-	const [settingsFallback, setSettingsFallback] = useState(true)
 	const [settingsCircuitEnabled, setSettingsCircuitEnabled] = useState(true)
 	const [settingsCircuitFailureThreshold, setSettingsCircuitFailureThreshold] = useState<number>(3)
 	const [settingsCircuitOpenSeconds, setSettingsCircuitOpenSeconds] = useState<number>(30)
@@ -110,7 +107,6 @@ function LLMProfilesPanel() {
 	const [createOpenSeconds, setCreateOpenSeconds] = useState<number>(30)
 	const [createConfigJson, setCreateConfigJson] = useState('{}')
 	const [createOptionsJson, setCreateOptionsJson] = useState('{}')
-	const [createMakeDefault, setCreateMakeDefault] = useState(true)
 
 	const [editOpen, setEditOpen] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
@@ -155,8 +151,6 @@ function LLMProfilesPanel() {
 
 	useEffect(() => {
 		if (!settings) return
-		setSettingsMode(settings.selection?.mode ?? 'default-first')
-		setSettingsFallback(settings.selection?.fallback ?? true)
 		setSettingsCircuitEnabled(settings.circuit?.enabled ?? true)
 		setSettingsCircuitFailureThreshold(settings.circuit?.failureThreshold ?? 3)
 		setSettingsCircuitOpenSeconds(Math.round((settings.circuit?.openMs ?? 30_000) / 1000))
@@ -167,7 +161,6 @@ function LLMProfilesPanel() {
 			const res = await request({
 				type: 'settings:update',
 				input: {
-					selection: { mode: settingsMode, fallback: settingsFallback },
 					circuit: {
 						enabled: settingsCircuitEnabled,
 						failureThreshold: settingsCircuitFailureThreshold,
@@ -182,7 +175,7 @@ function LLMProfilesPanel() {
 		} catch (e) {
 			setError(rpcErrorMessage(e, '无法保存设置'))
 		}
-	}, [request, settingsCircuitEnabled, settingsCircuitFailureThreshold, settingsCircuitOpenSeconds, settingsFallback, settingsMode])
+	}, [request, settingsCircuitEnabled, settingsCircuitFailureThreshold, settingsCircuitOpenSeconds])
 
 	const createProfile = useCallback(async () => {
 		try {
@@ -205,7 +198,6 @@ function LLMProfilesPanel() {
 					config,
 					options,
 					apiKey: createApiKey.trim() || undefined,
-					makeDefault: createMakeDefault,
 				},
 			})
 			if (!res.ok) return setError(errorMessage(res.err, '无法创建 profile'))
@@ -219,14 +211,13 @@ function LLMProfilesPanel() {
 		createApiKey,
 		createBaseURL,
 		createCircuitEnabled,
-		createConfigJson,
-		createFailureThreshold,
-		createMakeDefault,
-		createModel,
-		createOpenSeconds,
-		createOptionsJson,
-		createPriority,
-		createProvider,
+			createConfigJson,
+			createFailureThreshold,
+			createModel,
+			createOpenSeconds,
+			createOptionsJson,
+			createPriority,
+			createProvider,
 		createTitle,
 		refresh,
 		request,
@@ -337,34 +328,40 @@ function LLMProfilesPanel() {
 				</Text>
 			) : null}
 
-			{settings ? (
+			{!loading && !error && profiles.length === 0 ? (
 				<Card withBorder radius="md" p="md">
-					<Group justify="space-between" align="center">
-						<Group gap="xs">
-							<Text fw={600}>Policy</Text>
-							<Badge variant="light" color="gray">
-								<Code>routing</Code>
-							</Badge>
+					<Stack gap={6}>
+						<Text fw={600}>No profiles yet</Text>
+						<Text size="sm" c="dimmed">
+							Click <Code>New</Code> to create your first LLM profile. API keys are stored in Vault; only a masked preview is shown here.
+						</Text>
+						<Group>
+							<Button size="xs" variant="light" leftSection={<IconCirclePlus size={14} />} onClick={() => setCreateOpen(true)}>
+								Create profile
+							</Button>
 						</Group>
-						<Button size="xs" variant="light" onClick={() => void saveSettings()}>
-							Save
-						</Button>
-					</Group>
-					<Group mt="sm" grow align="end">
-						<Select
-							label="Selection mode"
-							data={[
-								{ value: 'default-first', label: 'Default first' },
-								{ value: 'priority-first', label: 'Priority first' },
-							]}
-							value={settingsMode}
-							onChange={(v) => setSettingsMode(v === 'priority-first' ? 'priority-first' : 'default-first')}
-						/>
-						<Switch label="Allow fallback" checked={settingsFallback} onChange={(e) => setSettingsFallback(e.currentTarget.checked)} />
-						<Switch
-							label="Circuit enabled"
-							checked={settingsCircuitEnabled}
-							onChange={(e) => setSettingsCircuitEnabled(e.currentTarget.checked)}
+					</Stack>
+				</Card>
+			) : null}
+
+				{settings ? (
+					<Card withBorder radius="md" p="md">
+						<Group justify="space-between" align="center">
+							<Group gap="xs">
+								<Text fw={600}>Circuit Breaker</Text>
+								<Badge variant="light" color="gray">
+									<Code>defaults</Code>
+								</Badge>
+							</Group>
+							<Button size="xs" variant="light" onClick={() => void saveSettings()}>
+								Save
+							</Button>
+						</Group>
+						<Group mt="sm" grow align="end">
+							<Switch
+								label="Circuit enabled"
+								checked={settingsCircuitEnabled}
+								onChange={(e) => setSettingsCircuitEnabled(e.currentTarget.checked)}
 						/>
 						<NumberInput
 							label="Failure threshold"
@@ -389,24 +386,19 @@ function LLMProfilesPanel() {
 				const overrideEnabled = p.circuit?.enabled
 				const globalEnabled = settings?.circuit?.enabled ?? true
 				const circuitEnabled = overrideEnabled === undefined ? globalEnabled : overrideEnabled !== false
-				const isOpen = circuitEnabled && typeof openUntil === 'number' && openUntil > Date.now()
+					const isOpen = circuitEnabled && typeof openUntil === 'number' && openUntil > Date.now()
 
-				return (
-					<Card key={p.id} withBorder radius="md" p="md">
-						<Group justify="space-between" align="center">
-							<Stack gap={4}>
-								<Group gap="xs">
-									<Text fw={600}>{p.title ?? p.provider}</Text>
-									{p.isDefault ? (
-										<Badge leftSection={<IconStar size={12} />} color="yellow" variant="light">
-											Default
-										</Badge>
-									) : null}
-									{p.enabled ? (
-										<Badge color="teal" variant="light">
-											Enabled
-										</Badge>
-									) : (
+					return (
+						<Card key={p.id} withBorder radius="md" p="md">
+							<Group justify="space-between" align="center">
+								<Stack gap={4}>
+									<Group gap="xs">
+										<Text fw={600}>{p.title ?? p.provider}</Text>
+										{p.enabled ? (
+											<Badge color="teal" variant="light">
+												Enabled
+											</Badge>
+										) : (
 										<Badge color="gray" variant="light">
 											Disabled
 										</Badge>
@@ -460,28 +452,13 @@ function LLMProfilesPanel() {
 									}}
 								>
 									{p.enabled ? <IconToggleRight size={16} /> : <IconToggleLeft size={16} />}
-								</ActionIcon>
-								<ActionIcon
-									variant="light"
-									aria-label="设为默认"
-									onClick={async () => {
-										try {
-											const r = await request({ type: 'profiles:setDefault', id: p.id })
-											if (!r.ok) return setError(errorMessage(r.err, '无法设为默认'))
-											await refresh()
-										} catch (e) {
-											setError(rpcErrorMessage(e, '无法设为默认'))
-										}
-									}}
-								>
-									<IconStar size={16} />
-								</ActionIcon>
-								<ActionIcon
-									variant="light"
-									aria-label="重置熔断/健康"
-									onClick={async () => {
-										try {
-											const r = await request({ type: 'profiles:resetHealth', id: p.id })
+									</ActionIcon>
+									<ActionIcon
+										variant="light"
+										aria-label="重置熔断/健康"
+										onClick={async () => {
+											try {
+												const r = await request({ type: 'profiles:resetHealth', id: p.id })
 											if (!r.ok) return setError(errorMessage(r.err, '无法重置健康状态'))
 											await refresh()
 										} catch (e) {
@@ -591,19 +568,18 @@ function LLMProfilesPanel() {
 						maxRows={6}
 						value={createOptionsJson}
 						onChange={(e) => setCreateOptionsJson(e.currentTarget.value)}
-					/>
-					<TextInput
-						label="API key"
-						leftSection={<IconKey size={14} />}
-						type="password"
-						value={createApiKey}
-						onChange={(e) => setCreateApiKey(e.currentTarget.value)}
-					/>
-					<Switch label="Set as default" checked={createMakeDefault} onChange={(e) => setCreateMakeDefault(e.currentTarget.checked)} />
-					<Group justify="flex-end">
-						<Button variant="light" onClick={() => setCreateOpen(false)}>
-							Cancel
-						</Button>
+						/>
+						<TextInput
+							label="API key"
+							leftSection={<IconKey size={14} />}
+							type="password"
+							value={createApiKey}
+							onChange={(e) => setCreateApiKey(e.currentTarget.value)}
+						/>
+						<Group justify="flex-end">
+							<Button variant="light" onClick={() => setCreateOpen(false)}>
+								Cancel
+							</Button>
 						<Button onClick={() => void createProfile()}>Create</Button>
 					</Group>
 				</Stack>

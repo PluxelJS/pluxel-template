@@ -1,540 +1,436 @@
-import { Alert, Badge, Button, Checkbox, Code, Divider, Group, Loader, ScrollArea, Stack, Table, Text, Textarea, Title } from '@mantine/core'
-import { IconBolt, IconCheck, IconCode, IconEye, IconSparkles, IconX } from '@tabler/icons-react'
-import { rpcErrorMessage } from '@pluxel/hmr/web'
-import { formatStructured } from '@pluxel/promptkit/toon'
-import { useCallback, useMemo, useState } from 'react'
+import {
+	AIChatDialogue,
+	AIChatInput,
+	Banner,
+	Button,
+	Card,
+	Divider,
+	List,
+	Space,
+	Spin,
+	Tabs,
+	Tag,
+	Typography,
+} from '@douyinfe/semi-ui-19'
+import { IconArrowBackUp, IconCheck, IconEye, IconPin, IconPinnedOff, IconRefresh, IconX } from '@tabler/icons-react'
 
-import type { UniverAiChange, UniverAiChangeSet, UniverAiContext, UniverAiSuggestEditsInput, UniverAiSuggestEditsResult } from 'pluxel-plugin-univer-ai'
-import type { UniverRuntime } from '../univer/runtime'
+import { CodeInline, Muted, SectionTitle } from '../kit'
+import { useAiPanelController } from './panel/controller'
+import { MatrixPreview } from './panel/matrix-preview'
+import type { AiPanelProps } from './panel/types'
 
-type AiPanelProps = {
-	ready: boolean
-	workbookId: string
-	getRuntime(): UniverRuntime | null
-	rpc: { suggestEdits(input: UniverAiSuggestEditsInput): Promise<UniverAiSuggestEditsResult> } | null
+const chatRoleConfig = {
+	user: { name: 'You' },
+	assistant: { name: 'AI' },
+	system: { name: 'System' },
 }
 
-function rangeRowsCols(range: UniverAiChange['range']) {
-	return { rows: range.endRow - range.startRow + 1, cols: range.endCol - range.startCol + 1 }
-}
+export function AiPanel(props: AiPanelProps) {
+	const ctrl = useAiPanelController(props)
 
-function as2dArray(value: unknown): unknown[][] | null {
-	if (!Array.isArray(value)) return null
-	if (!value.every(Array.isArray)) return null
-	return value as unknown[][]
-}
-
-export function AiPanel({ ready, workbookId, getRuntime, rpc }: AiPanelProps) {
-	const [instruction, setInstruction] = useState('把选区里的数据整理成一张干净的表，并补全缺失字段。')
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-	const [warn, setWarn] = useState<string | null>(null)
-	const [changeSet, setChangeSet] = useState<UniverAiChangeSet | null>(null)
-	const [meta, setMeta] = useState<UniverAiSuggestEditsResult['meta'] | null>(null)
-	const [selected, setSelected] = useState<Record<string, boolean>>({})
-	const [activeChangeId, setActiveChangeId] = useState<string | null>(null)
-	const [preview, setPreview] = useState<Record<string, { old: string[][]; next: string[][] | null }>>({})
-	const [debugOpen, setDebugOpen] = useState(false)
-	const [debugCtx, setDebugCtx] = useState<UniverAiContext | null>(null)
-	const [debugToonText, setDebugToonText] = useState<string | null>(null)
-	const [useToonWire, setUseToonWire] = useState(true)
-
-	const selectedIds = useMemo(() => Object.entries(selected).filter(([, v]) => v).map(([id]) => id), [selected])
-
-	const ensureRpc = useCallback(() => {
-		if (!rpc) {
-			setError('UniverAI RPC 未启用：请在 `pluxel.hmr.jsonc` profile 中启用 `pluxel-plugin-univer-ai`。')
-			return null
+	const connectionTag = ctrl.aiConnected ? <Tag color="green">AI 已连接</Tag> : <Tag color="grey">AI 未连接</Tag>
+	const busyLabel = (() => {
+		const op = ctrl.busyOp
+		if (!op) return null
+		switch (op.kind) {
+			case 'applyAll':
+				return `Applying ${op.done}/${op.total}`
+			case 'undoAll':
+				return `Undoing ${op.done}/${op.total}`
+			case 'apply':
+				return 'Applying…'
+			case 'undo':
+				return 'Undoing…'
+			case 'reject':
+				return 'Rejecting…'
+			case 'preview':
+				return 'Previewing…'
+			case 'applySelected':
+				return 'Applying selection…'
+			case 'undoSelected':
+				return 'Undoing selection…'
+			default:
+				return 'Working…'
 		}
-		return rpc
-	}, [rpc])
-
-	const collectContext = useCallback((): UniverAiContext | null => {
-		const rt = getRuntime()
-		if (!rt) return null
-		const fWorkbook = rt.api.getActiveWorkbook()
-		if (!fWorkbook) return null
-		const fWorksheet = fWorkbook.getActiveSheet()
-		if (!fWorksheet) return null
-
-		const active = fWorkbook.getActiveRange() ?? fWorksheet.getActiveRange()
-		if (!active) return null
-
-		const range = active.getRange()
-		const sheetId = fWorksheet.getSheetId()
-		const a1 = active.getA1Notation(true)
-
-		const maxRows = 40
-		const maxCols = 16
-		const origRows = range.endRow - range.startRow + 1
-		const origCols = range.endColumn - range.startColumn + 1
-
-		const endRow = Math.min(range.endRow, range.startRow + maxRows - 1)
-		const endCol = Math.min(range.endColumn, range.startColumn + maxCols - 1)
-		const sliceRange = {
-			startRow: range.startRow,
-			startCol: range.startColumn,
-			endRow,
-			endCol,
-		}
-
-		const fRange = fWorksheet.getRange({
-			startRow: sliceRange.startRow,
-			startColumn: sliceRange.startCol,
-			endRow: sliceRange.endRow,
-			endColumn: sliceRange.endCol,
-		})
-
-		const displayValues = fRange.getDisplayValues()
-		return {
-			workbookId,
-			sheetId,
-			range: sliceRange,
-			a1,
-			displayValues,
-			meta: {
-				truncated: origRows > maxRows || origCols > maxCols,
-				orig: { startRow: range.startRow, startCol: range.startColumn, endRow: range.endRow, endCol: range.endColumn, rows: origRows, cols: origCols },
-				limits: { maxRows, maxCols },
-			},
-		}
-	}, [getRuntime, workbookId])
-
-	const refreshDebug = useCallback(() => {
-		setWarn(null)
-		const ctx = collectContext()
-		if (!ctx) {
-			setWarn('无法获取选区：请先在表格里选中一个区域。')
-			setDebugCtx(null)
-			setDebugToonText(null)
-			return
-		}
-		setDebugCtx(ctx)
-		setDebugToonText(formatStructured(ctx, { format: 'toon' }).text)
-	}, [collectContext])
-
-	const copyText = useCallback(async (text: string) => {
-		try {
-			if (navigator.clipboard?.writeText) {
-				await navigator.clipboard.writeText(text)
-				setWarn('已复制到剪贴板')
-				return
-			}
-		} catch {
-			// fallthrough
-		}
-		window.prompt('Copy', text)
-	}, [])
-
-	const suggest = useCallback(async () => {
-		setError(null)
-		setWarn(null)
-		const rpc = ensureRpc()
-		if (!rpc) return
-		if (!ready) return
-		const ctx = collectContext()
-		if (!ctx) {
-			setError('无法获取选区：请先在表格里选中一个区域。')
-			return
-		}
-		const toonText = debugOpen || useToonWire ? formatStructured(ctx, { format: 'toon' }).text : null
-		if (debugOpen) {
-			setDebugCtx(ctx)
-			setDebugToonText(toonText)
-		}
-
-		setLoading(true)
-		try {
-			const context: UniverAiSuggestEditsInput['context'] = useToonWire
-				? { format: 'toon', contentType: 'text/plain; charset=utf-8', text: toonText ?? '' }
-				: { format: 'json', contentType: 'application/json; charset=utf-8', text: JSON.stringify(ctx) }
-			const input: UniverAiSuggestEditsInput = {
-				workbookId,
-				instruction: instruction.trim(),
-				context,
-				mode: 'safe',
-				contextHint: { sheetId: ctx.sheetId, range: ctx.range, a1: ctx.a1 },
-			}
-			const res = await rpc.suggestEdits(input)
-			setChangeSet(res.changeSet)
-			setMeta(res.meta ?? null)
-			const initSel: Record<string, boolean> = {}
-			for (const c of res.changeSet.changes) initSel[c.id] = true
-			setSelected(initSel)
-			setActiveChangeId(res.changeSet.changes[0]?.id ?? null)
-			setPreview({})
-		} catch (err) {
-			setChangeSet(null)
-			setMeta(null)
-			setError(rpcErrorMessage(err, 'AI 生成失败'))
-		} finally {
-			setLoading(false)
-		}
-	}, [collectContext, debugOpen, ensureRpc, instruction, ready, useToonWire, workbookId])
-
-	const focusChange = useCallback(
-		(change: UniverAiChange) => {
-			const rt = getRuntime()
-			if (!rt) return
-			setActiveChangeId(change.id)
-			rt.highlightRange({
-				sheetId: change.sheetId ?? null,
-				range: change.range,
-				style: { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.12)' },
-			})
-
-			setPreview((prev) => {
-				if (prev[change.id]) return prev
-				const fWorkbook = rt.api.getActiveWorkbook()
-				const fWorksheet = change.sheetId ? fWorkbook?.getSheetBySheetId(change.sheetId) : fWorkbook?.getActiveSheet()
-				if (!fWorkbook || !fWorksheet) return prev
-				const fRange = fWorksheet.getRange({
-					startRow: change.range.startRow,
-					startColumn: change.range.startCol,
-					endRow: change.range.endRow,
-					endColumn: change.range.endCol,
-				})
-				const old = fRange.getDisplayValues()
-				const next = change.op === 'setValues' ? as2dArray(change.value)?.map((r) => r.map((v) => (v == null ? '' : String(v)))) ?? null : null
-				return { ...prev, [change.id]: { old, next } }
-			})
-		},
-		[getRuntime],
-	)
-
-	const toggleSelected = useCallback((id: string) => {
-		setSelected((prev) => ({ ...prev, [id]: !prev[id] }))
-	}, [])
-
-	const selectAll = useCallback(() => {
-		if (!changeSet) return
-		const next: Record<string, boolean> = {}
-		for (const c of changeSet.changes) next[c.id] = true
-		setSelected(next)
-	}, [changeSet])
-
-	const clearAll = useCallback(() => {
-		if (!changeSet) return
-		const next: Record<string, boolean> = {}
-		for (const c of changeSet.changes) next[c.id] = false
-		setSelected(next)
-	}, [changeSet])
-
-	const applySelected = useCallback(async () => {
-		setError(null)
-		setWarn(null)
-		if (!ready) return
-		const rt = getRuntime()
-		if (!rt) return
-		const fWorkbook = rt.api.getActiveWorkbook()
-		if (!fWorkbook) return
-		if (!changeSet) return
-
-		const ids = new Set(selectedIds)
-		if (ids.size === 0) return
-
-		setLoading(true)
-		try {
-			const conflicts: string[] = []
-			const invalid: string[] = []
-			await rt.withUndoBatch(async () => {
-				await (fWorkbook as any).abortEditingAsync?.()
-
-				for (const c of changeSet.changes) {
-					if (!ids.has(c.id)) continue
-					const fWorksheet = c.sheetId ? fWorkbook.getSheetBySheetId(c.sheetId) : fWorkbook.getActiveSheet()
-					if (!fWorksheet) continue
-
-					if (c.sheetId) fWorkbook.setActiveSheet(c.sheetId)
-
-					const fRange = fWorksheet.getRange({
-						startRow: c.range.startRow,
-						startColumn: c.range.startCol,
-						endRow: c.range.endRow,
-						endColumn: c.range.endCol,
-					})
-
-					if (c.expectedOld !== undefined) {
-						const cur = fRange.getValues()
-						const expected = c.expectedOld
-						const ok = JSON.stringify(cur) === JSON.stringify(expected) || (JSON.stringify(cur) === JSON.stringify([[expected]]))
-						if (!ok) {
-							conflicts.push(c.id)
-							continue
-						}
-					}
-
-					if (c.op === 'clear') {
-						fRange.clearContent()
-						continue
-					}
-
-					const matrix = as2dArray(c.value)
-					if (!matrix) {
-						invalid.push(c.id)
-						continue
-					}
-					const { rows, cols } = rangeRowsCols(c.range)
-					if (matrix.length !== rows || matrix.some((r) => r.length !== cols)) {
-						invalid.push(c.id)
-						continue
-					}
-
-					fRange.setValues(matrix as any)
-				}
-			})
-
-			if (conflicts.length || invalid.length) {
-				setWarn(`部分变更未应用：conflicts=${conflicts.length} invalid=${invalid.length}`)
-			}
-		} catch (err) {
-			setError(rpcErrorMessage(err, '应用变更失败'))
-		} finally {
-			setLoading(false)
-		}
-	}, [changeSet, getRuntime, ready, selectedIds])
+	})()
 
 	return (
-		<Stack gap="sm" style={{ height: '100%' }}>
-			<Group justify="space-between" wrap="nowrap">
-				<Group gap="xs" wrap="nowrap">
-					<IconSparkles size={18} />
-					<Title order={5}>AI</Title>
-					<Badge variant="light">ChangeSet</Badge>
-					{meta?.llmProfile ? (
-						<Badge variant="light" color="grape">
-							<Code>
-								{meta.llmProfile.provider}
-								{meta.llmProfile.model ? `/${meta.llmProfile.model}` : ''}
-							</Code>
-						</Badge>
-					) : null}
-				</Group>
-				{loading ? <Loader size="sm" /> : null}
-			</Group>
-
-			{rpc ? null : (
-				<Alert color="yellow" title="未启用 UniverAI">
-					<Text size="sm">
-						请在 `pluxel.hmr.jsonc` 中启用 <Code>pluxel-plugin-univer-ai</Code>，并确保 <Code>pluxel-plugin-llm-hub</Code> 已配置默认 profile。
-					</Text>
-				</Alert>
-			)}
-
-			{error ? (
-				<Alert color="red" title="错误">
-					{error}
-				</Alert>
-			) : null}
-
-			{warn ? (
-				<Alert color="yellow" title="提示">
-					{warn}
-				</Alert>
-			) : null}
-
-			<Textarea
-				label="指令"
-				autosize
-				minRows={3}
-				value={instruction}
-				onChange={(e) => setInstruction(e.currentTarget.value)}
-				disabled={!ready || loading}
-			/>
-
-			<Group justify="space-between">
-				<Button leftSection={<IconBolt size={16} />} onClick={() => void suggest()} disabled={!ready || loading || !rpc}>
-					生成建议
-				</Button>
-				<Group gap="xs">
+		<div className="univer-ai-panel">
+			<div className="univer-ai-panel__top">
+				<div className="univer-ai-panel__title">
+					<SectionTitle>AI Assistant</SectionTitle>
+					{connectionTag}
+				</div>
+				<Space spacing="tight">
 					<Button
-						variant="subtle"
-						leftSection={<IconCode size={16} />}
-						onClick={() => {
-							setDebugOpen((v) => !v)
-							if (!debugOpen) refreshDebug()
-						}}
-						disabled={!ready || loading}
+						size="small"
+						theme="borderless"
+						icon={ctrl.autoSync ? <IconPinnedOff size={16} /> : <IconPin size={16} />}
+						onClick={() => ctrl.setAutoSync((v) => !v)}
+						disabled={ctrl.busy}
 					>
-						Debug
+						{ctrl.autoSync ? '自动同步' : '冻结'}
 					</Button>
-					<Button variant="subtle" leftSection={<IconCheck size={16} />} onClick={selectAll} disabled={!changeSet || loading}>
-						全选
+					<Button
+						size="small"
+						theme="borderless"
+						icon={<IconRefresh size={16} />}
+						onClick={ctrl.refreshSelection}
+						disabled={!props.ready || ctrl.busy}
+					>
+						刷新选区
 					</Button>
-					<Button variant="subtle" leftSection={<IconX size={16} />} onClick={clearAll} disabled={!changeSet || loading}>
-						全不选
-					</Button>
-				</Group>
-			</Group>
+				</Space>
+			</div>
 
-			{debugOpen ? (
-				<>
-					<Divider />
-					<Stack gap={6}>
-						<Group justify="space-between" wrap="nowrap">
-							<Text size="sm" fw={600}>
-								Debug · Selection as TOON
-							</Text>
-							<Group gap="xs" wrap="nowrap">
-								<Button size="xs" variant="subtle" onClick={refreshDebug} disabled={!ready || loading}>
-									Refresh
-								</Button>
-								<Button
-									size="xs"
-									variant="subtle"
-									onClick={() => (debugToonText ? void copyText(debugToonText) : undefined)}
-									disabled={!debugToonText}
-								>
-									Copy TOON
-								</Button>
-							</Group>
-						</Group>
-						<Checkbox
-							size="xs"
-							label="生成建议时使用 TOON 作为请求上下文（所见即所得，payload 更小）"
-							checked={useToonWire}
-							onChange={(e) => setUseToonWire(e.currentTarget.checked)}
-							disabled={!ready || loading}
-						/>
+			{ctrl.warn ? <Banner fullMode={false} type="warning" title="提示" description={ctrl.warn} /> : null}
+			{ctrl.error ? <Banner fullMode={false} type="danger" title="错误" description={ctrl.error} /> : null}
 
-						{debugCtx ? (
-							<Text size="xs" c="dimmed">
-								<Code>{debugCtx.sheetId ?? '(sheet unknown)'}</Code> · <Code>{debugCtx.a1 ?? '(a1 unknown)'}</Code> · range:{' '}
-								<Code>
-									r{debugCtx.range?.startRow}:c{debugCtx.range?.startCol} → r{debugCtx.range?.endRow}:c{debugCtx.range?.endCol}
-								</Code>
-								{(debugCtx.meta as any)?.truncated ? (
-									<>
-										{' '}
-										<Badge size="xs" variant="light" color="yellow">
-											truncated
-										</Badge>
-									</>
-								) : null}
-							</Text>
-						) : (
-							<Text size="xs" c="dimmed">
-								（无选区）
-							</Text>
-						)}
-
-						{debugToonText ? (
-							<ScrollArea style={{ maxHeight: 220 }}>
-								<Code block>{debugToonText}</Code>
-							</ScrollArea>
-						) : (
-							<Text size="sm" c="dimmed">
-								点 Refresh 获取选区并生成 TOON 预览。
-							</Text>
-						)}
-					</Stack>
-				</>
-			) : null}
-
-			{changeSet ? (
-				<>
-					<Divider />
-					<Stack gap={6}>
-						<Group justify="space-between" wrap="nowrap">
-							<Text size="sm" fw={600}>
-								建议摘要
-							</Text>
-							<Text size="xs" c="dimmed">
-								changes: <Code>{changeSet.changes.length}</Code> · selected: <Code>{selectedIds.length}</Code>
-							</Text>
-						</Group>
-						{changeSet.summary ? (
-							<Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-								{changeSet.summary}
-							</Text>
-						) : (
-							<Text size="sm" c="dimmed">
-								（无 summary）
-							</Text>
-						)}
-					</Stack>
-
-					<Group justify="space-between" mt="sm">
-						<Button
-							variant="light"
-							leftSection={<IconCheck size={16} />}
-							onClick={() => void applySelected()}
-							disabled={!ready || loading || selectedIds.length === 0}
-						>
-							应用所选
+			<Card bordered={false} className="univer-ai-panel__context" bodyStyle={{ padding: 12 }}>
+				<div className="univer-ai-context">
+					<div className="univer-ai-context__current">
+						<Typography.Text type="tertiary">当前选区</Typography.Text>
+						<div className="univer-ai-context__row">
+							{ctrl.currentSelection?.range ? (
+								<>
+									<CodeInline>{ctrl.currentSelection.a1 ?? ctrl.rangeToA1(ctrl.currentSelection.range)}</CodeInline>
+									<Typography.Text type="tertiary">{ctrl.selectionLabel(ctrl.currentSelection)}</Typography.Text>
+								</>
+							) : (
+								<Typography.Text type="tertiary">（未选中）</Typography.Text>
+							)}
+						</div>
+					</div>
+					<div className="univer-ai-context__actions">
+						<Button size="small" icon={<IconPin size={16} />} onClick={ctrl.pinCurrentSelection} disabled={!props.ready}>
+							固定为上下文
 						</Button>
-					</Group>
+						<Button size="small" theme="borderless" disabled={!ctrl.pinnedSelections.length} onClick={ctrl.clearPins}>
+							清空上下文
+						</Button>
+					</div>
+				</div>
 
-					<Divider my="sm" />
+				{ctrl.pinnedSelections.length ? (
+					<div className="univer-ai-pins">
+						{ctrl.pinnedSelections.map((ctx) => {
+							const id = ctrl.selectionKey(ctx)
+							return (
+								<div key={id} className="univer-ai-pin">
+									<div className="univer-ai-pin__text">
+										<Typography.Text strong>{ctrl.selectionLabel(ctx)}</Typography.Text>
+										<Typography.Text type="tertiary">{ctrl.selectionMeta(ctx)}</Typography.Text>
+									</div>
+									<Button theme="borderless" size="small" icon={<IconX size={14} />} onClick={() => ctrl.unpinSelection(id)} />
+								</div>
+							)
+						})}
+					</div>
+				) : (
+					<Muted>（未固定额外上下文。可固定多个选区，用于跨片段对比/汇总。）</Muted>
+				)}
+			</Card>
 
-					<ScrollArea style={{ flex: 1 }}>
-						<Table highlightOnHover>
-							<Table.Thead>
-								<Table.Tr>
-									<Table.Th style={{ width: 42 }} />
-									<Table.Th>Op</Table.Th>
-									<Table.Th>Range</Table.Th>
-									<Table.Th>Reason</Table.Th>
-								</Table.Tr>
-							</Table.Thead>
-							<Table.Tbody>
-								{changeSet.changes.map((c) => (
-									<Table.Tr
-										key={c.id}
-										style={{
-											cursor: 'pointer',
-											background: activeChangeId === c.id ? 'rgba(168, 85, 247, 0.10)' : undefined,
-										}}
-										onClick={() => focusChange(c)}
+			<Divider margin="12px 0" />
+
+			<Tabs type="line" activeKey={ctrl.tab} onChange={(key) => ctrl.setTab(key as any)}>
+				<Tabs.TabPane tab="对话" itemKey="chat">
+					<div className="univer-ai-chat">
+						<AIChatDialogue
+							chats={ctrl.chats}
+							align="leftAlign"
+							mode="bubble"
+							roleConfig={chatRoleConfig}
+							className="univer-ai-chat__dialogue"
+						/>
+						<AIChatInput
+							placeholder="在表格里选区后，描述你希望 AI 完成的修改…"
+							keepSkillAfterSend={false}
+							onMessageSend={ctrl.handleAiSend}
+							canSend={ctrl.aiConnected && !ctrl.busy}
+							generating={ctrl.loading}
+							references={ctrl.selectionReferences}
+							showReference={ctrl.selectionReferences.length > 0}
+							onReferenceDelete={(ref) => {
+								if ((ref as any).closable === false) return
+								ctrl.unpinSelection(ref.id)
+							}}
+							renderReference={(ref) => (
+								<div key={ref.id} className="univer-ai-ref" data-closable={(ref as any).closable !== false ? 'true' : 'false'}>
+									<div className="univer-ai-ref__text">
+										<Typography.Text strong>{(ref as any).label ?? ref.id}</Typography.Text>
+										{(ref as any).meta ? <Typography.Text type="tertiary">{(ref as any).meta}</Typography.Text> : null}
+									</div>
+									{(ref as any).closable !== false ? (
+										<Button theme="borderless" size="small" icon={<IconX size={12} />} onClick={() => ctrl.unpinSelection(ref.id)} />
+									) : null}
+								</div>
+							)}
+							showUploadButton={false}
+							showUploadFile={false}
+							sendHotKey="enter"
+							className="univer-ai-chat__input"
+						/>
+						<div className="univer-ai-chat__footer">
+							<Space spacing="tight">
+								<Typography.Text type="tertiary">
+									上下文格式：<CodeInline>TOON</CodeInline>
+								</Typography.Text>
+								{ctrl.pinnedSelections.length ? (
+									<Typography.Text type="tertiary">· 已固定 {ctrl.pinnedSelections.length} 个片段</Typography.Text>
+								) : null}
+							</Space>
+						</div>
+					</div>
+				</Tabs.TabPane>
+
+				<Tabs.TabPane tab="变更" itemKey="changes">
+					<div className="univer-ai-changes">
+						<div className="univer-ai-changes__top">
+							<Space spacing="tight" wrap>
+								<Tag color="blue">Preview: 橙色</Tag>
+								<Tag color="green">Applied: 绿色</Tag>
+								<Tag color="grey">Rejected: 灰色</Tag>
+								{busyLabel ? <Tag color="orange">{busyLabel}</Tag> : null}
+							</Space>
+							<Space spacing="tight">
+								<Button
+									size="small"
+									icon={<IconEye size={16} />}
+									onClick={() => ctrl.setPreviewMode((v) => (v === 'overlay' ? 'inSheet' : 'overlay'))}
+									disabled={ctrl.busy}
+								>
+									预览模式：{ctrl.previewMode === 'overlay' ? '虚拟渲染' : '写入表格'}
+								</Button>
+								{ctrl.previewMode === 'overlay' ? (
+									<Button
+										size="small"
+										theme="borderless"
+										onClick={() => ctrl.setVirtualRender((v) => !v)}
+										disabled={ctrl.busy}
 									>
-										<Table.Td>
-											<Checkbox checked={!!selected[c.id]} onChange={() => toggleSelected(c.id)} onClick={(e) => e.stopPropagation()} />
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm">
-												<Code>{c.op}</Code>
-											</Text>
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm">
-												r{c.range.startRow}:c{c.range.startCol} → r{c.range.endRow}:c{c.range.endCol}
-											</Text>
-										</Table.Td>
-										<Table.Td>
-											<Text size="sm" c={c.reason ? undefined : 'dimmed'} lineClamp={2}>
-												{c.reason ?? '—'}
-											</Text>
-										</Table.Td>
-									</Table.Tr>
-								))}
-							</Table.Tbody>
-						</Table>
+										预览值：{ctrl.virtualRender ? '开' : '关'}
+									</Button>
+								) : null}
+								<Button size="small" theme="borderless" onClick={() => ctrl.setHoverPopup((v) => !v)} disabled={ctrl.busy}>
+									悬浮提示：{ctrl.hoverPopup ? '开' : '关'}
+								</Button>
+							</Space>
+						</div>
 
-						{activeChangeId && preview[activeChangeId] ? (
-							<Stack gap={6} mt="sm">
-								<Group gap="xs">
-									<IconEye size={16} />
-									<Text size="sm" fw={600}>
-										预览（best-effort）
-									</Text>
-								</Group>
-								<Text size="xs" c="dimmed">
-									Old（display）:
-								</Text>
-								<Code block>{JSON.stringify(preview[activeChangeId]!.old)}</Code>
-								<Text size="xs" c="dimmed">
-									New（stringified）:
-								</Text>
-								<Code block>{JSON.stringify(preview[activeChangeId]!.next)}</Code>
-							</Stack>
+						{ctrl.preparedChanges.length ? (
+							<Space spacing="tight" style={{ margin: '8px 0 0' }}>
+								<Button size="small" type="primary" icon={<IconCheck size={16} />} onClick={() => void ctrl.applyAll()} disabled={ctrl.busy}>
+									全部应用
+								</Button>
+								<Button size="small" icon={<IconArrowBackUp size={16} />} onClick={() => void ctrl.undoAll()} disabled={ctrl.busy}>
+									全部撤销
+								</Button>
+							</Space>
 						) : null}
-					</ScrollArea>
-				</>
-			) : (
-				<Text size="sm" c="dimmed">
-					生成建议后，这里会展示 ChangeSet 列表（可勾选、定位高亮、批量应用）。
-				</Text>
-			)}
-		</Stack>
+
+						<div className="univer-ai-changes__body" data-empty={ctrl.preparedChanges.length ? 'false' : 'true'}>
+							{ctrl.loading ? (
+								<div className="univer-ai-center">
+									<Spin />
+								</div>
+							) : ctrl.preparedChanges.length ? (
+								<div className="univer-ai-changes__grid">
+									<div className="univer-ai-changes__list">
+										<List
+											dataSource={ctrl.preparedChanges}
+											renderItem={(ch) => {
+												const state = ctrl.changeState[ch.id] ?? 'idle'
+												const isActive = ch.id === ctrl.activeChangeId
+												const stateColor =
+													state === 'applied'
+														? 'green'
+														: state === 'preview'
+															? 'orange'
+															: state === 'rejected'
+																? 'grey'
+																: 'blue'
+												const stateLabel = state === 'idle' ? 'SUGGESTED' : state.toUpperCase()
+												const visibleDiffs = ctrl.visibleDiffCountByChange?.[ch.id] ?? ch.cellDiffs.length
+												const busyOp = ctrl.busyOp
+												return (
+													<List.Item
+														main
+														className="univer-ai-change"
+														data-active={isActive ? 'true' : 'false'}
+														onClick={() => ctrl.setActiveChangeId(ch.id)}
+													>
+														<div className="univer-ai-change__title">
+															<Typography.Text strong>{ctrl.rangeToA1(ch.range)}</Typography.Text>
+															<Tag size="small" color={stateColor}>
+																{stateLabel}
+															</Tag>
+														</div>
+														<Typography.Text type="tertiary">{ch.reason ?? ch.op}</Typography.Text>
+														<div className="univer-ai-change__meta">
+															<Tag size="small" color="light-blue">
+																Δ {visibleDiffs}
+															</Tag>
+															{ch.sheetId ? (
+																<Tag size="small" color="light-blue">
+																	{ch.sheetId}
+																</Tag>
+															) : null}
+														</div>
+														<div className="univer-ai-change__actions">
+															<Button
+																size="small"
+																onClick={() => void ctrl.previewChange(ch.id)}
+																disabled={!props.ready || ctrl.busy || state === 'rejected'}
+																loading={busyOp?.kind === 'preview' && busyOp.changeId === ch.id}
+															>
+																Preview
+															</Button>
+															<Button
+																size="small"
+																type="primary"
+																onClick={() => void ctrl.applyChange(ch.id)}
+																disabled={!props.ready || ctrl.busy || state === 'rejected'}
+																loading={busyOp?.kind === 'apply' && busyOp.changeId === ch.id}
+															>
+																Apply
+															</Button>
+															<Button
+																size="small"
+																onClick={() => void ctrl.undoChange(ch.id)}
+																disabled={!props.ready || ctrl.busy || state === 'idle' || state === 'rejected'}
+																loading={busyOp?.kind === 'undo' && busyOp.changeId === ch.id}
+															>
+																Undo
+															</Button>
+															<Button
+																size="small"
+																theme="borderless"
+																onClick={() => void ctrl.rejectChange(ch.id)}
+																disabled={!props.ready || ctrl.busy || state === 'rejected'}
+																loading={busyOp?.kind === 'reject' && busyOp.changeId === ch.id}
+															>
+																Reject
+															</Button>
+														</div>
+													</List.Item>
+												)
+											}}
+										/>
+									</div>
+
+									<div className="univer-ai-changes__detail">
+										{ctrl.activePrepared ? (
+											<Card
+												title={
+													<Space spacing="tight">
+														<Typography.Text strong>{ctrl.rangeToA1(ctrl.activePrepared.range)}</Typography.Text>
+														<Tag size="small" color="light-blue">
+															Δ {ctrl.activeVisibleDiffs.length}
+														</Tag>
+													</Space>
+												}
+												bordered={false}
+											>
+												<Typography.Text type="tertiary">{ctrl.activePrepared.reason ?? ctrl.activePrepared.op} · hover cell to inspect old/new</Typography.Text>
+												<div className="univer-ai-detail__matrices">
+													<div>
+														<Typography.Text type="tertiary">原值</Typography.Text>
+														<MatrixPreview matrix={ctrl.activePrepared.oldMatrix} />
+													</div>
+													<div>
+														<Typography.Text type="tertiary">新值</Typography.Text>
+														<MatrixPreview matrix={ctrl.activePrepared.nextMatrix} />
+													</div>
+												</div>
+												{ctrl.activeVisibleDiffs.length ? (
+													<div className="univer-ai-detail__diffs">
+														<Typography.Text type="tertiary">变更点（橙=待应用 · 绿=已应用；悬浮单元格查看原值/新值）</Typography.Text>
+														<Space spacing="tight" wrap style={{ marginTop: 8 }}>
+															<Button
+																size="small"
+																type="primary"
+																disabled={ctrl.previewMode !== 'overlay' || ctrl.busy}
+																loading={ctrl.busyOp?.kind === 'applySelected' && ctrl.busyOp.changeId === ctrl.activePrepared?.id}
+																onClick={() => void ctrl.applySelectedCells(ctrl.activePrepared!.id)}
+															>
+																应用选中（{ctrl.activeCellState?.selectedCount ?? 0}）
+															</Button>
+															<Button
+																size="small"
+																disabled={ctrl.previewMode !== 'overlay' || ctrl.busy}
+																loading={ctrl.busyOp?.kind === 'undoSelected' && ctrl.busyOp.changeId === ctrl.activePrepared?.id}
+																onClick={() => void ctrl.undoSelectedCells(ctrl.activePrepared!.id)}
+															>
+																撤销选中
+															</Button>
+															<Tag color="light-blue">已应用 {ctrl.activeCellState?.appliedCount ?? 0}</Tag>
+															<Tag color="light-blue">总变更点 {ctrl.activeVisibleDiffs.length}</Tag>
+															{ctrl.previewMode !== 'overlay' ? <Tag color="orange">写入表格模式下请用 Apply/Undo</Tag> : null}
+														</Space>
+														<div className="univer-ai-diffchips">
+															{ctrl.activeVisibleDiffs.slice(0, 80).map((d) => (
+																<div
+																	key={`${d.row}:${d.col}`}
+																	className="univer-ai-diffchip"
+																	data-selected={ctrl.activeCellState?.selected[`${d.row}:${d.col}`] ? 'true' : 'false'}
+																	data-applied={ctrl.activeCellState?.applied[`${d.row}:${d.col}`] ? 'true' : 'false'}
+																	onClick={() => ctrl.toggleCellSelected(ctrl.activePrepared!.id, d.row, d.col)}
+																>
+																	<CodeInline>{ctrl.cellToA1(d.row, d.col)}</CodeInline>
+																	<span className="univer-ai-diffchip__arrow">→</span>
+																	<span className="univer-ai-diffchip__value">{d.nextValue === '' ? '∅' : d.nextValue}</span>
+																</div>
+															))}
+															{ctrl.activeVisibleDiffs.length > 80 ? (
+																<Typography.Text type="tertiary">… +{ctrl.activeVisibleDiffs.length - 80}</Typography.Text>
+															) : null}
+														</div>
+													</div>
+												) : (
+													<Muted>（无可见差异；或已被手动编辑覆盖）</Muted>
+												)}
+											</Card>
+										) : (
+											<Muted>选择左侧一条建议查看细节。</Muted>
+										)}
+									</div>
+								</div>
+							) : (
+								<Muted>（暂无建议。请在「对话」里发送指令。）</Muted>
+							)}
+						</div>
+					</div>
+				</Tabs.TabPane>
+
+				<Tabs.TabPane tab="Debug" itemKey="debug">
+					<div className="univer-ai-debug">
+						<Space spacing="tight" wrap>
+							{typeof ctrl.hoverIndexSize === 'number' ? <Tag color="light-blue">hoverIndex: {ctrl.hoverIndexSize}</Tag> : null}
+							<Tag color="light-blue">changes: {ctrl.preparedChanges.length}</Tag>
+							<Tag color="light-blue">pins: {ctrl.pinnedSelections.length}</Tag>
+						</Space>
+
+						<Divider margin="12px 0" />
+
+						<Card title="Selection (TOON preview)" bordered={false}>
+							{ctrl.toonPreviewText ? (
+								<div className="univer-codeblock">
+									<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{ctrl.toonPreviewText}</pre>
+								</div>
+							) : (
+								<Muted>（无选区）</Muted>
+							)}
+						</Card>
+
+						<Divider margin="12px 0" />
+
+						<Card title="Meta" bordered={false}>
+							<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{ctrl.meta ? JSON.stringify(ctrl.meta, null, 2) : '(no meta)'}</pre>
+						</Card>
+					</div>
+				</Tabs.TabPane>
+			</Tabs>
+		</div>
 	)
 }

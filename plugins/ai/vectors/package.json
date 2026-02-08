@@ -1,0 +1,40 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-vectors",
+	"version": "0.1.0",
+	"description": "Vector search service plugin (default: LanceDB). Provides a small, stable API for upsert/query/delete with caller scoping.",
+	"type": "module",
+	"exports": {
+		".": {
+			"@pluxel/hmr": "./src/index.ts",
+			"default": "./dist/index.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"types": "./dist/index.d.mts",
+	"files": [
+		"dist",
+		"DESIGN.md",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-vectors"
+	},
+	"dependencies": {
+		"@lancedb/lancedb": "^0.24.1"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.mjs",
+			"./package.json": "./package.json"
+		}
+	},
+	"pluxel": {
+		"dependOn": {
+			"required": [],
+			"optional": []
+		}
+	}
+}

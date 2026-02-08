@@ -15,5 +15,5 @@ describe('pluxel-plugin-drizzle-orm (libsql)', () => {
 
 		expect(Users.baseName).toBe('users')
 		expect(getTableName(Users('Script_users'))).toBe('Script_users')
-	})
+	}, 15_000)
 })

@@ -4,7 +4,7 @@
 // Manual edits are allowed but may be overwritten by the generator.
 {
 	"version": 1,
-	"profile": "univer",
+	"profile": "dev",
 	"defaults": {
 		"roots": [
 			"packages",
@@ -28,7 +28,10 @@
 	},
 	"profiles": {
 		"dev": {
-			"enabled": []
+			"enabled": [
+				"@pluxel/cmd",
+				"@pluxel/toolkit"
+			]
 		},
 		"default": {
 			"enabled": [

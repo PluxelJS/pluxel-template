@@ -23,8 +23,7 @@ export type LLMProfileHealth = {
 export type LLMProfileDoc = {
 	id: LLMProfileId
 	enabled: boolean
-	isDefault: boolean
-	/** Higher wins when selecting fallbacks. */
+	/** Higher wins when selecting candidates. */
 	priority?: number
 	title?: string
 	provider: string

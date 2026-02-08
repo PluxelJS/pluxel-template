@@ -5,7 +5,7 @@ export type LLMErrorCode =
 	| 'E_INVALID_INPUT'
 	| 'E_PROFILE_NOT_FOUND'
 	| 'E_PROFILE_DISABLED'
-	| 'E_NO_DEFAULT_PROFILE'
+	| 'E_NO_USABLE_PROFILE'
 	| 'E_MISSING_API_KEY'
 	| 'E_CIRCUIT_OPEN'
 	| 'E_PROVIDER_UNAVAILABLE'
@@ -49,4 +49,3 @@ export function asLLMError(e: unknown, fallbackMessage = 'internal error'): LLME
 	const message = typeof (e as any)?.message === 'string' ? (e as any).message : fallbackMessage
 	return llmError('E_INTERNAL', message)
 }
-

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { collectPluxelVitestWorkspaceProjects } from '@pluxel/test/vitest'
+import { VITEST_WORKSPACE_ROOTS } from './vitest-workspace-roots.mjs'
 
 function shouldDropLine(line) {
 	return (
@@ -41,7 +42,7 @@ function run(cmd, args) {
 
 // Vitest multi-project mode is convenient but can OOM in large workspaces due to
 // accumulating per-project Vite caches. Run one project per process instead.
-const projects = collectPluxelVitestWorkspaceProjects().map((p) => p.name)
+const projects = collectPluxelVitestWorkspaceProjects({ roots: VITEST_WORKSPACE_ROOTS }).map((p) => p.name)
 projects.sort()
 
 for (const name of projects) {

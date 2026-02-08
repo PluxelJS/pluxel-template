@@ -1,5 +1,5 @@
-import { Alert, Button, Code, Drawer, Group, Stack, Text, Title } from '@mantine/core'
-import { IconDeviceFloppy, IconRefresh, IconSparkles } from '@tabler/icons-react'
+import { Banner, Button, Space, Typography } from '@douyinfe/semi-ui-19'
+import { IconDeviceFloppy, IconRefresh } from '@tabler/icons-react'
 import type { PluginExtensionContext } from '@pluxel/hmr/web'
 import { rpcErrorMessage } from '@pluxel/hmr/web'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -10,11 +10,14 @@ import type { UniverAIRpc } from 'pluxel-plugin-univer-ai'
 import { sha256Hex } from '../crypto'
 import { parseWorkbookId } from '../shared'
 import { AiPanel } from '../ai/ai-panel'
+import { AiFloatWindow } from '../ai/ai-float-window'
+import { adaptUniverAiRpc } from '../ai/ai-contract'
 import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '../univer/plugins-sse'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
 import { UNIVER_PLUGINS_SSE_NS, type UniverPluginSpec } from '@pluxel/univer-protocol'
 import { isSupportedUniverPluginKey } from '../univer/catalog'
 import { DebugDrawer } from '../debug/debug-drawer'
+import { CodeInline } from '../kit'
 
 type SaveState = 'idle' | 'saving' | 'conflict' | 'error'
 type SaveReason = 'manual' | 'auto' | 'init'
@@ -31,14 +34,22 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 	if (!rpc) {
 		return (
-			<Alert color="yellow" title="UniverWorkbooks 未启用">
-				<Text size="sm">
-					当前后端没有提供 <Code>UniverWorkbooks</Code> RPC，无法打开工作簿。
-				</Text>
-				<Text size="sm" mt="xs">
-					请启用 <Code>pluxel-plugin-univer-workbooks</Code>（profile: <Code>pluxel.hmr.jsonc</Code>），然后刷新页面。
-				</Text>
-			</Alert>
+			<Banner
+				fullMode={false}
+				type="warning"
+				title="UniverWorkbooks 未启用"
+				description={
+					<Space vertical align="start" spacing="tight">
+						<div>
+							当前后端没有提供 <CodeInline>UniverWorkbooks</CodeInline> RPC，无法打开工作簿。
+						</div>
+						<div>
+							请启用 <CodeInline>pluxel-plugin-univer-workbooks</CodeInline>（profile:{' '}
+							<CodeInline>pluxel.hmr.jsonc</CodeInline>），然后刷新页面。
+						</div>
+					</Space>
+				}
+			/>
 		)
 	}
 
@@ -67,12 +78,18 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	const [title, setTitle] = useState('Univer')
 	const [ready, setReady] = useState(false)
 	const [dirty, setDirty] = useState(false)
+	const [runtimeSeq, setRuntimeSeq] = useState(0)
 	const [saveState, setSaveState] = useState<SaveState>('idle')
 	const [saveError, setSaveError] = useState<string | null>(null)
 	const [conflictRev, setConflictRev] = useState<number | null>(null)
 
 	const [aiOpen, setAiOpen] = useState(false)
+	const [aiOpenSeq, setAiOpenSeq] = useState(0)
 	const [debugOpen, setDebugOpen] = useState(false)
+	const openAiPanel = useCallback(() => {
+		setAiOpen(true)
+		setAiOpenSeq((v) => v + 1)
+	}, [])
 
 	const saveStateRef = useRef<SaveState>('idle')
 	useEffect(() => {
@@ -179,8 +196,10 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			workbookName: workbookNameRef.current,
 			snapshot,
 			installedPlugins: desired,
+			onAiOpen: openAiPanel,
 		})
 		rtRef.current = next
+		setRuntimeSeq((v) => v + 1)
 		attachDirtyListener()
 		applyFrontendPlugins(next)
 	}, [applyFrontendPlugins, attachDirtyListener, desiredInstalledPluginKeys, workbookId])
@@ -314,7 +333,9 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			workbookName: info.name,
 			snapshot,
 			installedPlugins: desired,
+			onAiOpen: openAiPanel,
 		})
+		setRuntimeSeq((v) => v + 1)
 		attachDirtyListener()
 		ensureRuntimePlugins()
 
@@ -331,8 +352,9 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 	const getRuntime = useCallback(() => rtRef.current, [])
 
-	const aiRpc = useMemo(() => {
-		return ((ctx.services.hmr.ui as any).UniverAI as UniverAIRpc | undefined) ?? null
+	const aiApi = useMemo(() => {
+		const backend = ((ctx.services.hmr.ui as any).UniverAI as UniverAIRpc | undefined) ?? null
+		return adaptUniverAiRpc(backend)
 	}, [ctx.services.hmr.ui])
 
 	useEffect(() => {
@@ -366,7 +388,9 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 					workbookName: info.name,
 					snapshot,
 					installedPlugins: desired,
+					onAiOpen: openAiPanel,
 				})
+				setRuntimeSeq((v) => v + 1)
 
 				attachDirtyListener()
 				ensureRuntimePlugins()
@@ -447,61 +471,56 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	return (
 		<div className="univer-standalone">
 			<div className="univer-standalone__header">
-				<Group justify="space-between" wrap="nowrap">
-					<Stack gap={0} style={{ minWidth: 0 }}>
-						<Title order={4} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-							{title}
-						</Title>
-						<Text size="xs" c="dimmed">
-							rev: <Code>{latestRevRef.current}</Code> · base: <Code>{baseRevRef.current}</Code> · {dirty ? 'dirty' : 'clean'}
-						</Text>
-					</Stack>
+				<div className="univer-standalone__header-top">
+					<div>
+						<Typography.Text strong>{title}</Typography.Text>
+						<div className="univer-standalone__meta">
+							rev: <CodeInline>{latestRevRef.current}</CodeInline> · base: <CodeInline>{baseRevRef.current}</CodeInline> ·{' '}
+							{dirty ? 'dirty' : 'clean'}
+						</div>
+					</div>
 
-					<Group gap="xs" wrap="nowrap">
-						<Button
-							size="sm"
-							variant="subtle"
-							leftSection={<IconSparkles size={16} />}
-							disabled={!ready || !aiRpc}
-							onClick={() => setAiOpen(true)}
-						>
-							AI
-						</Button>
-
-						<Button size="sm" variant="subtle" disabled={!ready} onClick={() => setDebugOpen(true)}>
+					<div className="univer-standalone__actions">
+						<Button theme="borderless" size="small" disabled={!ready} onClick={() => setDebugOpen(true)}>
 							Debug
 						</Button>
 
 						<Button
-							size="sm"
-							variant="light"
-							leftSection={<IconDeviceFloppy size={16} />}
+							type="primary"
+							size="small"
+							icon={<IconDeviceFloppy size={16} />}
 							disabled={!ready || saveState === 'saving'}
-							loading={saveState === 'saving'}
 							onClick={() => void doSave('manual')}
 						>
 							保存
 						</Button>
-					</Group>
-				</Group>
+					</div>
+				</div>
 
 				{saveState === 'conflict' ? (
-					<Alert color="yellow" title="版本冲突" mt="sm">
-						<Text size="sm">
-							远端已更新到 rev <Code>{conflictRev ?? '?'}</Code>。请重新加载最新版本后再保存（本地未保存改动将丢失）。
-						</Text>
-						<Group mt="xs">
-							<Button size="xs" variant="light" leftSection={<IconRefresh size={14} />} onClick={() => void reloadLatest()}>
-								重新加载
-							</Button>
-						</Group>
-					</Alert>
+					<div style={{ marginTop: 12 }}>
+						<Banner
+							fullMode={false}
+							type="warning"
+							title="版本冲突"
+							description={
+								<Space vertical align="start" spacing="tight">
+									<div>
+										远端已更新到 rev <CodeInline>{conflictRev ?? '?'}</CodeInline>。请重新加载最新版本后再保存（本地未保存改动将丢失）。
+									</div>
+									<Button size="small" icon={<IconRefresh size={14} />} onClick={() => void reloadLatest()}>
+										重新加载
+									</Button>
+								</Space>
+							}
+						/>
+					</div>
 				) : null}
 
 				{saveState === 'error' && saveError ? (
-					<Alert color="red" title="保存失败" mt="sm">
-						{saveError}
-					</Alert>
+					<div style={{ marginTop: 12 }}>
+						<Banner fullMode={false} type="danger" title="保存失败" description={saveError} />
+					</div>
 				) : null}
 			</div>
 
@@ -509,9 +528,9 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				<div ref={mountRef} className="univer-standalone__mount" />
 			</div>
 
-			<Drawer opened={aiOpen} onClose={() => setAiOpen(false)} position="right" size={520} title="AI" overlayProps={{ opacity: 0.15 }}>
-				<AiPanel ready={ready && !!aiRpc} workbookId={workbookId} getRuntime={getRuntime} rpc={aiRpc} />
-			</Drawer>
+			<AiFloatWindow open={aiOpen} openSeq={aiOpenSeq} onOpenChange={setAiOpen} title="AI">
+				<AiPanel ready={ready && !!aiApi} workbookId={workbookId} getRuntime={getRuntime} runtimeSeq={runtimeSeq} api={aiApi} />
+			</AiFloatWindow>
 
 			<DebugDrawer
 				opened={debugOpen}
@@ -523,7 +542,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				rawPlugins={() => [...pluginsByIdRef.current.values()]}
 				services={{
 					workbooks: Boolean((ctx.services.hmr.ui as any).UniverWorkbooks),
-					ai: Boolean(aiRpc),
+					ai: Boolean(aiApi),
 				}}
 			/>
 		</div>

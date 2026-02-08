@@ -1,4 +1,4 @@
-import { AppShell, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { Button, Layout, Space, Tag, Typography } from '@douyinfe/semi-ui-19'
 import {
 	ExtensionProvider,
 	createGlobalExtensionContext,
@@ -51,32 +51,30 @@ export function App() {
 
 	return (
 		<ExtensionProvider value={ctx}>
-			<AppShell
-				padding="md"
-				header={{ height: 56 }}
-				styles={{
-					main: { height: 'calc(100vh - 56px)' },
-				}}
-			>
-				<AppShell.Header>
-					<Group h="100%" px="md" justify="space-between">
-						<Group gap="sm">
-							<Title order={4}>Pluxel × Univer</Title>
-							<Text c="dimmed" size="sm">
-								Host: <code>/api</code>
-							</Text>
-						</Group>
-						<Button component="a" href="/" variant="light">
+			<Layout className="univer-shell">
+				<Layout.Header className="univer-topbar">
+					<div className="univer-topbar__inner">
+						<Space align="center" spacing="tight">
+							<Typography.Text strong>Pluxel × Univer</Typography.Text>
+							<Tag color="blue" size="small">
+								Host: /api
+							</Tag>
+						</Space>
+						<Button
+							theme="borderless"
+							type="primary"
+							onClick={() => {
+								window.location.href = '/'
+							}}
+						>
 							Home
 						</Button>
-					</Group>
-				</AppShell.Header>
-				<AppShell.Main>
-					<Stack h="100%" gap="md">
-						<DocsTab />
-					</Stack>
-				</AppShell.Main>
-			</AppShell>
+					</div>
+				</Layout.Header>
+				<Layout.Content className="univer-content">
+					<DocsTab />
+				</Layout.Content>
+			</Layout>
 		</ExtensionProvider>
 	)
 }

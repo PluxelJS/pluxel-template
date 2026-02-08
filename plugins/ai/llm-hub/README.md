@@ -33,6 +33,8 @@ export class MyPlugin extends BasePlugin {
 }
 ```
 
+Note: host/tests may import the concrete implementation `LLMHub` from this package. Business plugins should still inject the `LLM` token.
+
 ## Setup (host)
 
 1) Enable the hub plugin in your profile (e.g. `pluxel.hmr.jsonc`):
@@ -52,11 +54,12 @@ export class MyPlugin extends BasePlugin {
 
 ## Routing: priority + circuit breaker
 
-When `profileId` is omitted, `llm.connection()` selects a profile using the UI-configured policy:
+When `profileId` is omitted, `llm.connection()` selects a profile deterministically:
 
-- **Selection mode**: `default-first` (default) or `priority-first`
-- **Fallback**: if the chosen profile is unusable (missing key / circuit open), it will fall back to the next candidate when enabled
-- **Circuit breaker**: failures (HTTP 429/5xx and network errors) are tracked per profile and can temporarily open the circuit
+- Candidate set: `enabled: true` profiles
+- Sort order: higher `priority` first, then newer `updatedAt`
+- Fallback: if the current candidate is unusable (missing key / circuit open), it will fall back to the next candidate by default
+- Circuit breaker: failures (HTTP 429/5xx and network errors) are tracked per profile and can temporarily open the circuit
 
 Per-call overrides:
 - `allowFallback: false` disables fallback for this call only.
@@ -67,9 +70,14 @@ const conn = await llm.connection({ allowFallback: false })
 const forceProbe = await llm.connection({ profileId: '...', allowCircuitOpen: true })
 ```
 
+When to disable fallback (`allowFallback: false`):
+- You need strong consistency (one request must stick to one provider/profile).
+- You want failures to be loud (e.g. tests, admin actions, migrations).
+- You are doing multi-step flows that depend on upstream state (some providers have subtle per-session behaviors).
+
 You can edit these in the LLM web UI tab:
 - per-profile: `priority`, circuit knobs, and a one-click "reset health"
-- global: routing policy + default circuit config
+- global: default circuit config
 
 If you prefer explicit error handling (Result-style), use:
 
@@ -77,6 +85,10 @@ If you prefer explicit error handling (Result-style), use:
 const res = await llm.connectionResult()
 if (!res.ok) {
   // res.err.code / res.err.message
+  // res.err.details may include:
+  // - { profileId } for missing key / circuit open
+  // - { openUntil } for circuit open
+  // - { tried: [...] } when all candidates are unavailable
   throw new Error(res.err.message)
 }
 const conn = res.val
@@ -192,7 +204,7 @@ Use a hard timeout (and log `startError`/`resolveError`) so you never get stuck:
 
 ```ts
 import { withHost } from '@pluxel/test'
-import { LLMHub } from './plugins/ai/llm-hub/dist/index.mjs'
+import { LLMHub } from 'pluxel-plugin-llm-hub'
 
 const kill = setTimeout(() => process.exit(124), 15_000)
 kill.unref()

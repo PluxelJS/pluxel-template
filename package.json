@@ -8,6 +8,7 @@
 		"bootstrap": "sh ./scripts/bootstrap.sh",
 		"predev": "node scripts/predev.mjs",
 		"dev": "node scripts/dev.mjs",
+		"dev:full": "node scripts/dev-full.mjs",
 		"build": "turbo build",
 		"build:builtin": "turbo build:builtin --filter=./plugins/builtin/*",
 		"test": "node scripts/test-vitest.mjs",

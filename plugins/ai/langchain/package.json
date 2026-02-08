@@ -1,0 +1,49 @@
+{
+	"$schema": "https://market.pluxel.dev/schema/package.json",
+	"name": "pluxel-plugin-langchain",
+	"version": "0.1.0",
+	"description": "LangChain.js adapter plugin: turns pluxel-plugin-llm-hub connections into LangChain chat/embeddings models (service-only).",
+	"type": "module",
+	"exports": {
+		".": {
+			"@pluxel/hmr": "./src/index.ts",
+			"default": "./dist/index.mjs"
+		},
+		"./sessions": {
+			"@pluxel/hmr": "./src/sessions.ts",
+			"default": "./dist/sessions.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"types": "./dist/index.d.mts",
+	"files": [
+		"dist",
+		"DESIGN.md",
+		"!**/*.map"
+	],
+	"scripts": {
+		"build": "pluxel build",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-langchain"
+	},
+	"dependencies": {
+		"@langchain/core": "^1.1.19",
+		"@langchain/openai": "^1.2.5"
+	},
+	"peerDependencies": {
+		"pluxel-plugin-llm-hub": "workspace:^"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.mjs",
+			"./sessions": "./dist/sessions.mjs",
+			"./package.json": "./package.json"
+		}
+	},
+	"pluxel": {
+		"dependOn": {
+			"required": [],
+			"optional": ["pluxel-plugin-llm-hub"]
+		}
+	}
+}

@@ -1,6 +1,7 @@
 logs
 gqty
 **/vault
+data/vectors
 
 # workspace
 .pluxel
@@ -213,6 +214,7 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+storybook-static
 
 # Gatsby files
 .cache/
