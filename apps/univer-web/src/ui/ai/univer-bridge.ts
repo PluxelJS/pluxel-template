@@ -1,6 +1,4 @@
-import type { IDisposable } from '@univerjs/core'
-import { HoverManagerService } from '@univerjs/sheets-ui'
-import type { UniverAiContext } from 'pluxel-plugin-univer-ai'
+import type { UniverAiContext } from '@pluxel/univer-protocol'
 import type { UniverRuntime } from '../univer/runtime'
 
 export type UniverRangeRect = { startRow: number; startCol: number; endRow: number; endCol: number }
@@ -107,41 +105,4 @@ export function collectActiveSelectionContext(input: {
 }): UniverAiContext | null {
 	const res = collectActiveSelectionContexts(input)
 	return res?.current ?? null
-}
-
-export function subscribeHoverCell(
-	rt: UniverRuntime,
-	onCell: (cell: { sheetId: string; row: number; col: number } | null) => void,
-): IDisposable {
-	let hover: HoverManagerService
-	try {
-		const injector = (rt.univer as any).__getInjector?.()
-		hover = injector?.get?.(HoverManagerService)
-		if (!hover) {
-			throw new Error('HoverManagerService not available')
-		}
-	} catch {
-		return { dispose() {} } as IDisposable
-	}
-
-	const sub = hover.currentCell$.subscribe((pos: any) => {
-		if (!pos?.location) {
-			onCell(null)
-			return
-		}
-		const sheetId = String((pos.location as any).subUnitId ?? '')
-		const row = Number((pos.location as any).row)
-		const col = Number((pos.location as any).col)
-		if (!sheetId || !Number.isFinite(row) || !Number.isFinite(col)) {
-			onCell(null)
-			return
-		}
-		onCell({ sheetId, row, col })
-	}) as { unsubscribe(): void }
-
-	return {
-		dispose() {
-			sub.unsubscribe()
-		},
-	} as IDisposable
 }

@@ -3,11 +3,11 @@ import { Button, Space, Tag, Typography } from '@douyinfe/semi-ui-19'
 import { IconSparkles } from '@tabler/icons-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { UniverAiChange, UniverAiContext, UniverAiSuggestEditsMeta } from 'pluxel-plugin-univer-ai'
+import type { UniverLoopbackRunInput, UniverLoopbackRunResult } from '@pluxel/univer-protocol'
 
 import { AiPanel } from './ai-panel'
 import { AiFloatWindow } from './ai-float-window'
-import type { UniverAiFrontendApi, UniverAiSuggestInput } from './ai-contract'
+import type { LoopbackBackend } from './loopback-backend'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
 
 const meta: Meta<typeof AiPanel> = {
@@ -19,57 +19,9 @@ const meta: Meta<typeof AiPanel> = {
 export default meta
 type Story = StoryObj<typeof AiPanel>
 
-const demoMeta: UniverAiSuggestEditsMeta = {
-	llmProfile: { id: 'demo', provider: 'mock', model: 'storybook' },
-}
-
 function toStringMatrix(input: unknown) {
 	if (!Array.isArray(input)) return []
 	return input.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []))
-}
-
-function buildMockChangeSet(ctx: UniverAiContext, instruction: string) {
-	if (!ctx.range) throw new Error('[storybook] missing ctx.range')
-	const source = toStringMatrix(ctx.displayValues)
-	const next = source.map((row, r) =>
-		row.map((cell, c) => {
-			const v = String(cell ?? '')
-			if (instruction.toLowerCase().includes('补全') && v.trim() === '') return '—'
-			if (r === 0) return v.trim().toUpperCase()
-			if (c === 0 && v.trim() !== '') return `#${v.trim()}`
-			return v
-		}),
-	)
-
-	const changes: UniverAiChange[] = [
-		{
-			id: `change-${Date.now()}`,
-			op: 'setValues',
-			range: ctx.range,
-			value: next,
-			reason: '字段规范化 + 补齐缺失值（mock）',
-		},
-	]
-
-	// Add a second tiny change so hover popup is easy to see.
-	changes.push({
-		id: `change-note-${Date.now()}`,
-		op: 'setValues',
-		range: { startRow: 1, startCol: 4, endRow: 1, endCol: 4 },
-		value: [['AI']],
-		reason: '标记负责人为 AI（mock）',
-	})
-
-	return {
-		changeSet: {
-			id: `cs-${Date.now()}`,
-			workbookId: ctx.workbookId,
-			createdAt: Date.now(),
-			summary: 'Storybook mock：生成两个变更，便于体验 Preview/Apply + hover old/new。',
-			changes,
-		},
-		meta: demoMeta,
-	}
 }
 
 function UniverAiPlayground() {
@@ -79,6 +31,7 @@ function UniverAiPlayground() {
 	const [runtimeSeq, setRuntimeSeq] = useState(0)
 	const [aiOpen, setAiOpen] = useState(true)
 	const [aiOpenSeq, setAiOpenSeq] = useState(0)
+	const [rev, setRev] = useState(1)
 
 	const openAiPanel = useCallback(() => {
 		setAiOpen(true)
@@ -127,6 +80,7 @@ function UniverAiPlayground() {
 			workbookId: 'demo-workbook',
 			workbookName: 'Storybook',
 			installedPlugins: [],
+			aiEntryEnabled: true,
 			onAiOpen: openAiPanel,
 		})
 		runtimeRef.current = rt
@@ -144,40 +98,53 @@ function UniverAiPlayground() {
 		}
 	}, [openAiPanel, seedWorkbook, selectDemoRange])
 
-	const api = useMemo<UniverAiFrontendApi>(
-		() => ({
-			suggestEdits: async (input: UniverAiSuggestInput) => {
-				await new Promise((r) => setTimeout(r, 450))
-				const rt = runtimeRef.current
-				if (!rt) return { changeSet: null, meta: demoMeta }
-				const workbook = rt.api.getActiveWorkbook()
-				const sheet = input.contextHint.sheetId
-					? workbook?.getSheetBySheetId(input.contextHint.sheetId)
-					: workbook?.getActiveSheet()
-				if (!workbook || !sheet) return { changeSet: null, meta: demoMeta }
+	const backend = useMemo<LoopbackBackend>(() => {
+		return {
+			runLoopback: async (input: UniverLoopbackRunInput): Promise<UniverLoopbackRunResult> => {
+				await new Promise((r) => setTimeout(r, 380))
 
-				const range = input.contextHint.range
-				const displayValues = sheet
-					.getRange({
-						startRow: range.startRow,
-						startColumn: range.startCol,
-						endRow: range.endRow,
-						endColumn: range.endCol,
-					})
-					.getDisplayValues()
-				const ctx: UniverAiContext = {
-					workbookId: input.workbookId,
-					sheetId: sheet.getSheetId(),
-					range,
-					a1: input.contextHint.a1 ?? '',
-					displayValues,
-					meta: { truncated: false },
+				const rt = runtimeRef.current
+				const workbook = rt?.api.getActiveWorkbook()
+				const sheet = workbook?.getActiveSheet()
+				if (!rt || !workbook || !sheet) return { ok: false, error: 'runtime not ready' }
+
+				const range = sheet.getRange(input.current ?? input.read?.[0] ?? 'A1')
+				const source = toStringMatrix(range.getDisplayValues())
+				const next = source.map((row, r) =>
+					row.map((cell, c) => {
+						const v = String(cell ?? '')
+						if (String(input.instruction ?? '').includes('补全') && v.trim() === '') return '—'
+						if (r === 0) return v.trim().toUpperCase()
+						if (c === 0 && v.trim() !== '') return `#${v.trim()}`
+						return v
+					}),
+				)
+
+				range.setValues(next as any)
+
+				let appliedOps = 0
+				for (let r = 0; r < next.length; r++) {
+					for (let c = 0; c < (next[r]?.length ?? 0); c++) {
+						if (String(next[r]?.[c] ?? '') !== String(source[r]?.[c] ?? '')) appliedOps++
+					}
 				}
-				return buildMockChangeSet(ctx, input.instruction)
+
+				const baseRev = rev
+				const newRev = baseRev + 1
+				setRev(newRev)
+				return {
+					ok: true,
+					baseRev,
+					newRev,
+					newSnapshotUrl: `mock://snapshot/${newRev}`,
+					newEtag: `mock-etag-${newRev}`,
+					rounds: 1,
+					appliedOps,
+					summary: 'Storybook mock loopback applied to the active range.',
+				}
 			},
-		}),
-		[],
-	)
+		}
+	}, [rev])
 
 	const getRuntime = useCallback(() => runtimeRef.current, [])
 
@@ -196,12 +163,12 @@ function UniverAiPlayground() {
 									可编辑
 								</Tag>
 								<Tag color="grey" size="small">
-									Mock LLM
+									Mock Loopback
 								</Tag>
 							</Space>
 							<div style={{ marginTop: 6 }}>
 								<Typography.Text type="tertiary">
-									在表格里拖拽选择一个区域（支持 Ctrl 多选）→ 点击 “Open AI”（或右键/工具栏 AI）→ 发送「补全并规范化」→ 在「变更」里 Preview / Apply（橙色=预览值；悬浮单元格可看原值/新值并 Apply/Undo/Ignore）。
+									在表格里选择一个区域 → 点击 “Open AI” → 发送「补全并规范化」→ 模拟后端 loopback：直接提交修改并刷新编辑器快照（Storybook 里用 mock 实现）。
 								</Typography.Text>
 							</div>
 						</div>
@@ -222,7 +189,7 @@ function UniverAiPlayground() {
 			</div>
 
 			<AiFloatWindow open={aiOpen} openSeq={aiOpenSeq} onOpenChange={setAiOpen} title="AI">
-				<AiPanel ready={ready} workbookId="demo-workbook" getRuntime={getRuntime} runtimeSeq={runtimeSeq} api={api} />
+				<AiPanel ready={ready} workbookId="demo-workbook" getRuntime={getRuntime} runtimeSeq={runtimeSeq} backend={backend} dirty={false} />
 			</AiFloatWindow>
 		</div>
 	)

@@ -6,6 +6,7 @@ Univer 的核心后端/服务插件：管理“前端需要启用的 Univer 插�
 
 - 维护可序列化的 Univer 插件开关集合（`pluginKey + config`）
 - 通过 SSE namespace `univer:plugins` 推送 `snapshot/upsert/remove`
+- 汇总“后端功能可用性/开关”（Capabilities），通过 `UI.rpc.Univer.capabilities()` 提供给前端（用于入口开关、debug 面板等）
 - 可选：基于自身 config 启用默认能力（例如 watermark）
 
 ## Frontend

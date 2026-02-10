@@ -1,7 +1,10 @@
 import { BasePlugin, Config, Plugin, type Config as PluxelConfig } from '@pluxel/hmr'
 import { v } from '@pluxel/hmr/config'
+import { RpcTarget } from '@pluxel/hmr/capnweb'
 import type {
 	UniverConfiguredPlugin,
+	UniverCapabilitiesSnapshot,
+	UniverCapabilityResult,
 	UniverPluginSpec,
 	UniverPluginsRemovePayload,
 	UniverPluginsSnapshotPayload,
@@ -10,6 +13,18 @@ import type {
 import { UNIVER_PLUGINS_SSE_NS } from '@pluxel/univer-protocol'
 
 type PluginEvent = 'upsert' | 'remove'
+
+export type CapabilityProvider = () => unknown | Promise<unknown>
+
+export class UniverRpc extends RpcTarget {
+	constructor(private readonly plugin: UniverPlugin) {
+		super()
+	}
+
+	capabilities(): Promise<UniverCapabilitiesSnapshot> {
+		return this.plugin.capabilitiesSnapshot()
+	}
+}
 
 export const UniverConfigSchema = v.object({
 	watermark: v.optional(
@@ -28,13 +43,73 @@ export type UniverConfig = PluxelConfig<typeof UniverConfigSchema>
 export class UniverPlugin extends BasePlugin {
 	private readonly specs = new Map<string, UniverPluginSpec>()
 	private readonly ssePushers = new Set<(event: PluginEvent, payload: unknown) => void>()
+	private readonly capabilityProviders = new Map<string, CapabilityProvider>()
+	private capabilitiesCache: UniverCapabilitiesSnapshot | null = null
+	private capabilitiesInFlight: Promise<UniverCapabilitiesSnapshot> | null = null
+	private readonly capabilitiesTtlMs = 2_000
 
-	@Config(UniverConfigSchema)
-	private config!: UniverConfig
+	private config = this.configs.use(UniverConfigSchema)
 
 	override async init(_abort: AbortSignal): Promise<void> {
 		this.registerPluginsSse()
+		this.registerRpc()
 		this.applyBuiltinSpecs()
+	}
+
+	/**
+	 * Register a capability provider under a stable key.
+	 *
+	 * This is a lightweight "contract surface" for other plugins. The core service owns
+	 * the RPC; feature plugins only provide values.
+	 */
+	public provideCapability(key: string, provider: CapabilityProvider): () => void {
+		const k = String(key ?? '').trim()
+		if (!k) throw new Error('[univer] capability key must be non-empty')
+		this.capabilityProviders.set(k, provider)
+		this.invalidateCapabilities()
+
+		const dispose = () => {
+			const cur = this.capabilityProviders.get(k)
+			if (cur !== provider) return
+			this.capabilityProviders.delete(k)
+			this.invalidateCapabilities()
+		}
+
+		const effects = this.ctx.caller?.effects ?? this.ctx.effects
+		const guard = effects.defer(dispose)
+		return () => guard.dispose()
+	}
+
+	private invalidateCapabilities() {
+		this.capabilitiesCache = null
+	}
+
+	private async computeCapabilities(): Promise<UniverCapabilitiesSnapshot> {
+		const providers = [...this.capabilityProviders.entries()]
+		const results = await Promise.all(
+			providers.map(async ([key, provider]) => {
+				try {
+					const value = await provider()
+					return [key, { ok: true, value } satisfies UniverCapabilityResult] as const
+				} catch (e) {
+					const msg = e instanceof Error ? e.message : String(e)
+					return [key, { ok: false, error: msg } satisfies UniverCapabilityResult] as const
+				}
+			}),
+		)
+		return { updatedAt: Date.now(), items: Object.fromEntries(results) }
+	}
+
+	public async capabilitiesSnapshot(): Promise<UniverCapabilitiesSnapshot> {
+		const cur = this.capabilitiesCache
+		if (cur && Date.now() - cur.updatedAt < this.capabilitiesTtlMs) return cur
+		if (this.capabilitiesInFlight) return this.capabilitiesInFlight
+		this.capabilitiesInFlight = this.computeCapabilities().finally(() => {
+			this.capabilitiesInFlight = null
+		})
+		const snap = await this.capabilitiesInFlight
+		this.capabilitiesCache = snap
+		return snap
 	}
 
 	/**
@@ -99,6 +174,15 @@ export class UniverPlugin extends BasePlugin {
 		return { plugins: [...this.specs.values()] }
 	}
 
+	private registerRpc() {
+		try {
+			this.ctx.ext.rpc.registerExtension(() => new UniverRpc(this))
+		} catch (error) {
+			// Allow running in minimal/test hosts without ext.rpc.
+			this.ctx.logger.warn('Univer RPC registration skipped', { error })
+		}
+	}
+
 	private registerPluginsSse() {
 		try {
 			this.ctx.ext.sse.registerExtension(
@@ -122,3 +206,11 @@ export class UniverPlugin extends BasePlugin {
 export default UniverPlugin
 
 export type { UniverConfiguredPlugin } from '@pluxel/univer-protocol'
+
+declare module '@pluxel/hmr/services' {
+	namespace UI {
+		interface rpc {
+			Univer: UniverRpc
+		}
+	}
+}

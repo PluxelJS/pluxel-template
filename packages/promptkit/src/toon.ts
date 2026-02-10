@@ -39,6 +39,14 @@ export type FormatStructuredOptions = {
  */
 export function formatStructured(
 	value: unknown,
+	opts: { format: 'toon'; toon?: ToonEncodeOptions },
+): { format: 'toon'; contentType: string; text: string }
+export function formatStructured(
+	value: unknown,
+	opts: { format: 'json'; jsonSpaces?: number },
+): { format: 'json'; contentType: string; text: string }
+export function formatStructured(
+	value: unknown,
 	opts: FormatStructuredOptions,
 ): { format: StructuredFormat; contentType: string; text: string } {
 	if (opts.format === 'toon') {
@@ -56,4 +64,3 @@ export function formatStructured(
 		text: JSON.stringify(value, null, spaces),
 	}
 }
-

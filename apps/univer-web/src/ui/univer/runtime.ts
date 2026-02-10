@@ -19,6 +19,7 @@ export type UniverRuntime = {
 	workbookId: string
 	workbookName: string
 	installedPlugins: ReadonlySet<string>
+	aiEntryEnabled: boolean
 	dispose(): void
 	applyWatermark(config: unknown): void
 	clearWatermark(): void
@@ -39,6 +40,7 @@ export function createUniverRuntime(input: {
 	workbookName: string
 	snapshot?: unknown
 	installedPlugins?: readonly string[]
+	aiEntryEnabled?: boolean
 	onAiOpen?: () => void
 }): UniverRuntime {
 	// Best-effort cleanup: UI plugins may leave DOM behind when the runtime is created/disposed rapidly
@@ -58,7 +60,8 @@ export function createUniverRuntime(input: {
 	})
 
 	const api = FUniver.newAPI(univer)
-	const aiCommandDisposable = input.onAiOpen ? registerAiMenu(univer, input.onAiOpen) : null
+	const aiEnabled = Boolean(input.aiEntryEnabled && input.onAiOpen)
+	const aiCommandDisposable = aiEnabled && input.onAiOpen ? registerAiMenu(univer, input.onAiOpen) : null
 	const fWorkbook = api.createWorkbook(normalizeWorkbookSnapshot(input))
 	const workbookId = fWorkbook.getId()
 
@@ -148,6 +151,7 @@ export function createUniverRuntime(input: {
 		workbookId,
 		workbookName: input.workbookName,
 		installedPlugins,
+		aiEntryEnabled: aiEnabled,
 		dispose,
 		applyWatermark: watermark.apply,
 		clearWatermark: watermark.clear,

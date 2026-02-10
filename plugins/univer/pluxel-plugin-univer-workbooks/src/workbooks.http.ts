@@ -52,4 +52,3 @@ export function registerUniverWorkbooksHttp(ctx: Context, store: UniverWorkbooks
 		})
 	})
 }
-

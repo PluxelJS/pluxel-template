@@ -32,11 +32,7 @@
 						"noEmptyBlockStatements": "info"
 					},
 					"style": {
-						"noDefaultExport": "info",
-						"useConsistentArrayType": {
-							"level": "error",
-							"options": { "syntax": "shorthand" }
-						}
+						"noDefaultExport": "info"
 					}
 				}
 			}

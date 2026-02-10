@@ -1,10 +1,6 @@
-import { BasePlugin, type Config, Plugin } from '@pluxel/hmr'
-import { v } from '@pluxel/hmr/config'
-import { createBullBoard } from '@bull-board/api'
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter'
-import { HonoAdapter } from '@bull-board/hono'
-import { serveStatic } from '@hono/node-server/serve-static'
-import type { EffectGuard, Effects } from '@pluxel/core/services'
+import { BasePlugin, Plugin } from '@pluxel/hmr'
+import type { Effects } from '@pluxel/core/services'
+import type { EventEmitter } from 'node:events'
 import {
 	FlowProducer,
 	Queue,
@@ -19,96 +15,39 @@ import {
 	type RedisClient,
 	type WorkerOptions,
 } from 'bullmq'
+import { BullBoardFeature, type BullBoardMountHandle, type BullBoardMountOptions } from './bullboard_feature'
+import { BullMQConfigSchema, type BullMQConfig } from './bullmq_config'
+import type {
+	BullMQBaseOptionsInput,
+	BullMQClientTarget,
+	BullMQQueueEventsOptionsInput,
+	BullMQQueueOptionsInput,
+	BullMQWorkerOptionsInput,
+	Closeable,
+	TrackOptions,
+} from './bullmq_types'
+import { trackResource, untrackResource, type ManagedResource } from './resource_tracking'
 
-export const BullMQConfigSchema = v.object({
-	/** Redis URL, e.g. redis://localhost:6379/0 */
-	url: v.optional(v.string()),
-	/** BullMQ connection options (ioredis options or cluster options). */
-	connection: v.optional(v.record(v.string(), v.any())),
-	/** Optional key prefix for all queues. */
-	prefix: v.optional(v.string()),
-	/** Default job options merged into every queue's `defaultJobOptions`. */
-	defaultJobOptions: v.optional(v.record(v.string(), v.any()), {}),
-})
-
-export type BullMQConfig = Config<typeof BullMQConfigSchema>
-
-export type TrackOptions = {
-	/** Default: true. Auto-dispose when caller plugin unloads. */
-	trackToCaller?: boolean
-	/**
-	 * Default: true. Close resource when BullMQ plugin unloads.
-	 *
-	 * Notes:
-	 * - Caller-bound cleanup always closes (that's usually the point of caller tracking).
-	 * - This flag mainly controls provider-bound cleanup (i.e. BullMQ plugin unload).
-	 */
-	closeOnStop?: boolean
-	/** Optional label for logs when auto-closing. */
-	label?: string
-	/**
-	 * Optional explicit effects scope to bind caller-cleanup to.
-	 *
-	 * Useful in scripts/tests where there is no `ctx.caller`.
-	 * Only used when `trackToCaller !== false`.
-	 */
-	effects?: Effects
-}
-
-export type BullBoardMountOptions = {
-	/** Queues to expose in bull-board. */
-	queues: Queue[]
-	/** UI base path, e.g. `/queues` */
-	basePath?: string
-	/** UI config passed to bull-board (boardTitle, favIcon, etc.) */
-	uiConfig?: Record<string, unknown>
-	/** Custom serveStatic implementation for Hono (defaults to @hono/node-server). */
-	serveStatic?: typeof serveStatic
-}
-
-export type BullBoardMountHandle = {
-	/** bull-board API helpers (addQueue/removeQueue/etc). */
-	api: ReturnType<typeof createBullBoard>
-	/** Hono adapter instance. */
-	adapter: HonoAdapter
-	/** Mounted base path (normalized). */
-	basePath: string
-	/** Unmount handler from Hono (disposer). */
-	dispose: () => void
-}
-
-export type BullMQClientTarget = {
-	/** BullMQ connection promise (Queue/Worker/QueueEvents/FlowProducer all expose this). */
-	client: Promise<RedisClient>
-	/** Optional waitUntilReady (Queue/QueueEvents support this). */
-	waitUntilReady?: () => Promise<RedisClient>
-}
+type AnyQueue = Queue<any, any, any, any, any, any>
 
 export type ConnectionMonitorOptions = {
 	/** Label used in logs. */
 	label?: string
-	/** Default: true. Auto-dispose when caller plugin unloads. */
-	trackToCaller?: boolean
-	/** Optional explicit effects scope for scripts/tests (no caller). */
+	/** Optional explicit effects scope (defaults to caller effects when available). */
 	effects?: Effects
-}
-
-type ManagedResource<T> = {
-	resource: T
-	closeOnStop: boolean
-	label: string
-	selfGuard: EffectGuard
-	callerGuard: EffectGuard | null
 }
 
 @Plugin({ name: 'BullMQ', type: 'service' })
 export class BullMQPlugin extends BasePlugin {
-	private config: BullMQConfig = this.configs.use(BullMQConfigSchema)
+	private readonly config: BullMQConfig = this.configs.use(BullMQConfigSchema)
 
-	private queues = new Map<Queue, ManagedResource<Queue>>()
-	private workers = new Map<Worker, ManagedResource<Worker>>()
-	private events = new Map<QueueEvents, ManagedResource<QueueEvents>>()
-	private flows = new Map<FlowProducer, ManagedResource<FlowProducer>>()
+	readonly bullboard = this.features.use(BullBoardFeature)
+
+	private readonly tracked = new Map<Closeable, ManagedResource>()
+
+	private readonly queueByOwner = new WeakMap<Effects, Map<string, AnyQueue>>()
+	private readonly eventsByOwner = new WeakMap<Effects, Map<string, QueueEvents>>()
+	private readonly flowByOwner = new WeakMap<Effects, FlowProducer>()
 
 	/**
 	 * Resolve BullMQ connection options from explicit args or plugin config.
@@ -122,15 +61,15 @@ export class BullMQPlugin extends BasePlugin {
 	}
 
 	/**
-	 * Merge base defaults into any BullMQ options.
+	 * Merge base defaults into BullMQ options.
 	 * - Uses `queue` (if provided) to inherit connection/prefix.
 	 * - Falls back to plugin config when not provided.
 	 */
 	baseOptions<T extends { connection?: ConnectionOptions; prefix?: string }>(
 		options: T = {} as T,
-		queue?: Queue,
+		queue?: AnyQueue,
 	): T & { connection: ConnectionOptions } {
-		const { connection: _connection, prefix: _prefix, ...rest } = options as T
+		const { connection: _connection, prefix: _prefix, ...rest } = options
 		const connection = _connection ?? queue?.opts?.connection ?? this.connectionOptions()
 		const prefix = _prefix ?? queue?.opts?.prefix ?? this.config.prefix
 
@@ -145,7 +84,7 @@ export class BullMQPlugin extends BasePlugin {
 	 * Merge defaults into QueueOptions.
 	 * Includes `defaultJobOptions` from plugin config.
 	 */
-	queueOptions(options: QueueOptions = {}): QueueOptions {
+	queueOptions(options: BullMQQueueOptionsInput = {}): QueueOptions {
 		const { defaultJobOptions: _jobs, ...rest } = options
 		const base = this.baseOptions(rest)
 		const defaultJobOptions = this.mergeDefaultJobOptions(_jobs)
@@ -158,15 +97,21 @@ export class BullMQPlugin extends BasePlugin {
 
 	/**
 	 * Create Queue with resolved options (tracked by default).
-	 * Pass `false` to skip tracking and manage lifecycle yourself.
+	 * Reuses an existing instance within the same caller/plugin scope.
 	 */
 	queue<DataType = any, ResultType = any, NameType extends string = string>(
 		name: string,
-		options: QueueOptions = {},
-		track?: TrackOptions | false,
+		options: BullMQQueueOptionsInput = {},
 	): Queue<DataType, ResultType, NameType> {
+		const owner = this.ownerEffects()
+		const cache = this.cacheFor(this.queueByOwner, owner)
+		const existing = cache.get(name)
+		if (existing) return existing as unknown as Queue<DataType, ResultType, NameType>
+
 		const queue = new Queue<DataType, ResultType, NameType>(name, this.queueOptions(options))
-		return this.track(queue, track) as Queue<DataType, ResultType, NameType>
+		this.track(queue, { label: `queue:${name}` })
+		cache.set(name, queue as unknown as AnyQueue)
+		return queue
 	}
 
 	/**
@@ -174,87 +119,86 @@ export class BullMQPlugin extends BasePlugin {
 	 * `queue` may be a Queue instance to inherit connection/prefix.
 	 */
 	worker<DataType = any, ResultType = any, NameType extends string = string>(
-		queue: string | Queue,
+		queue: string | AnyQueue,
 		processor: string | URL | null | Processor<DataType, ResultType, NameType>,
-		options: WorkerOptions = {},
-		track?: TrackOptions | false,
+		options: BullMQWorkerOptionsInput = {},
 	): Worker<DataType, ResultType, NameType> {
 		const name = typeof queue === 'string' ? queue : queue.name
 		const opts = this.baseOptions(options, typeof queue === 'string' ? undefined : queue) as WorkerOptions
-		const worker = new Worker<DataType, ResultType, NameType>(name, processor as any, opts)
-		return this.track(worker, track) as Worker<DataType, ResultType, NameType>
+		const worker = new Worker<DataType, ResultType, NameType>(name, processor, opts)
+		this.track(worker, { label: `worker:${name}` })
+		return worker
 	}
 
 	/**
 	 * Create QueueEvents with resolved options (tracked by default).
 	 * Uses queue connection/prefix when a Queue is provided.
 	 */
-	queueEvents(queue: string | Queue, options: QueueEventsOptions = {}, track?: TrackOptions | false): QueueEvents {
+	queueEvents(
+		queue: string | AnyQueue,
+		options: BullMQQueueEventsOptionsInput = {},
+	): QueueEvents {
 		const name = typeof queue === 'string' ? queue : queue.name
+		const owner = this.ownerEffects()
+		const cache = this.cacheFor(this.eventsByOwner, owner)
+		const existing = cache.get(name)
+		if (existing) return existing
+
 		const opts = this.baseOptions(
 			options,
 			typeof queue === 'string' ? undefined : queue,
 		) as QueueEventsOptions
 		const events = new QueueEvents(name, opts)
-		return this.track(events, track)
+		this.track(events, { label: `events:${name}` })
+		cache.set(name, events)
+		return events
 	}
 
-	/**
-	 * Create FlowProducer with resolved options (tracked by default).
-	 */
-	flowProducer(options: QueueBaseOptions = {}, track?: TrackOptions | false): FlowProducer {
+	/** Create FlowProducer with resolved options (tracked by default, cached per owner scope). */
+	flowProducer(options: BullMQBaseOptionsInput = {}): FlowProducer {
+		const owner = this.ownerEffects()
+		const existing = this.flowByOwner.get(owner)
+		if (existing) return existing
+
 		const flow = new FlowProducer(this.baseOptions(options) as QueueBaseOptions)
-		return this.track(flow, track)
+		this.track(flow, { label: 'flow' })
+		this.flowByOwner.set(owner, flow)
+		return flow
 	}
 
-	/**
-	 * Track an external BullMQ resource for auto-cleanup.
-	 * Pass `false` to skip tracking.
-	 */
-	track<T extends Queue | Worker | QueueEvents | FlowProducer>(
-		resource: T,
-		options?: TrackOptions | false,
-	): T {
-		if (resource instanceof Queue) {
-			return this.trackManaged(this.queues, resource, options, `queue:${resource.name}`) as T
-		}
-		if (resource instanceof Worker) {
-			return this.trackManaged(this.workers, resource, options, `worker:${resource.name}`) as T
-		}
-		if (resource instanceof QueueEvents) {
-			return this.trackManaged(this.events, resource, options, `events:${resource.name}`) as T
-		}
-		if (resource instanceof FlowProducer) {
-			return this.trackManaged(this.flows, resource, options, 'flow') as T
-		}
-		return resource
+	/** Track an external closeable resource for auto-cleanup. Pass `false` to skip tracking. */
+	track<T extends Closeable>(resource: T, options?: TrackOptions | false): T {
+		const ctor = (resource as unknown as { constructor?: unknown }).constructor
+		const name = typeof ctor === 'function' ? ctor.name : ''
+		const fallbackLabel = name ? `resource:${name}` : 'resource'
+		return trackResource(this.ctx, this.tracked, resource, options, fallbackLabel)
 	}
 
 	/** Stop tracking a resource (does not close it). */
-	untrack(resource: Queue | Worker | QueueEvents | FlowProducer): boolean {
-		const stop = <T extends Queue | Worker | QueueEvents | FlowProducer>(
-			map: Map<T, ManagedResource<T>>,
-			r: T,
-		) => {
-			const rec = map.get(r)
-			if (!rec) return false
-			map.delete(r)
-			rec.selfGuard.cancel()
-			rec.callerGuard?.cancel()
-			return true
-		}
-
-		if (resource instanceof Queue) return stop(this.queues, resource)
-		if (resource instanceof Worker) return stop(this.workers, resource)
-		if (resource instanceof QueueEvents) return stop(this.events, resource)
-		if (resource instanceof FlowProducer) return stop(this.flows, resource)
-		return false
+	untrack(resource: Closeable): boolean {
+		return untrackResource(this.tracked, resource)
 	}
 
-	/**
-	 * Await the underlying Redis connection with a consistent error message.
-	 * Useful before critical operations that should fail fast.
-	 */
+	/** Tracked queues created via `this.queue(...)` (and any external queues you `track(...)`). */
+	trackedQueues(): AnyQueue[] {
+		const out: AnyQueue[] = []
+		for (const resource of this.tracked.keys()) {
+			if (resource instanceof Queue) out.push(resource as unknown as AnyQueue)
+		}
+		return out
+	}
+
+	/** Convenience: mount bull-board for all currently tracked queues. */
+	mountBullBoardTracked(options?: Omit<BullBoardMountOptions, 'queues'>): BullBoardMountHandle {
+		return this.bullboard.mount({ queues: this.trackedQueues(), ...(options ?? {}) })
+	}
+
+	/** Back-compat mount entry (delegates to feature). */
+	mountBullBoard(options: BullBoardMountOptions): BullBoardMountHandle {
+		return this.bullboard.mount(options)
+	}
+
+	/** Await the underlying Redis connection with a consistent error message. */
 	async ensureReady(target: BullMQClientTarget): Promise<RedisClient> {
 		try {
 			if (typeof target.waitUntilReady === 'function') return await target.waitUntilReady()
@@ -273,6 +217,7 @@ export class BullMQPlugin extends BasePlugin {
 		const label = options.label?.trim() || 'bullmq'
 		let disposed = false
 		let client: RedisClient | undefined
+		let emitter: EventEmitter | undefined
 
 		const onError = (error: unknown) => this.ctx.logger.warn('redis error ({label})', { label, error })
 		const onClose = () => this.ctx.logger.warn('redis closed ({label})', { label })
@@ -290,74 +235,65 @@ export class BullMQPlugin extends BasePlugin {
 			}
 			if (disposed || !client) return
 
-			client.on('error', onError)
-			client.on('close', onClose)
-			client.on('end', onEnd)
-			client.on('reconnecting', onReconnecting as any)
-			client.on('ready', onReady)
+			emitter = client as unknown as EventEmitter
+			emitter.on('error', onError as any)
+			emitter.on('close', onClose as any)
+			emitter.on('end', onEnd as any)
+			emitter.on('reconnecting', onReconnecting as any)
+			emitter.on('ready', onReady as any)
+		}
+
+		const detach = () => {
+			if (!emitter) return
+			const off =
+				typeof emitter.off === 'function'
+					? emitter.off.bind(emitter)
+					: emitter.removeListener.bind(emitter)
+			off('error', onError as any)
+			off('close', onClose as any)
+			off('end', onEnd as any)
+			off('reconnecting', onReconnecting as any)
+			off('ready', onReady as any)
 		}
 
 		const dispose = () => {
 			if (disposed) return
 			disposed = true
-			if (!client) return
-			client.off('error', onError)
-			client.off('close', onClose)
-			client.off('end', onEnd)
-			client.off('reconnecting', onReconnecting as any)
-			client.off('ready', onReady)
+			detach()
 		}
 
 		void attach()
 
-		const trackToCaller = options.trackToCaller ?? true
-		const ownerEffects: Effects | null =
-			trackToCaller ? (options.effects ?? this.ctx.caller?.effects ?? null) : null
+		const ownerEffects: Effects | null = options.effects ?? this.ctx.caller?.effects ?? null
 
-		let selfGuard!: EffectGuard
-		let callerGuard: EffectGuard | null = null
-
-		const disposeFromCaller = () => {
+		let selfGuard = this.ctx.effects.defer(() => {
 			dispose()
-			// Provider may outlive caller; cancel provider cleanup to avoid duplicate work.
-			selfGuard.cancel()
-		}
+		}, { tag: `bullmq:monitor:self:${label}` })
 
-		const disposeFromSelf = () => {
-			dispose()
-			// Provider is going away; detach from caller effects to avoid cross-plugin retention.
-			callerGuard?.cancel()
-		}
-
-		selfGuard = this.ctx.effects.defer(disposeFromSelf, { tag: `bullmq:monitor:self:${label}` })
-		if (ownerEffects) callerGuard = ownerEffects.defer(disposeFromCaller, { tag: `bullmq:monitor:caller:${label}` })
+		const ownerGuard = ownerEffects
+			? ownerEffects.defer(() => {
+					dispose()
+					selfGuard.cancel()
+				}, { tag: `bullmq:monitor:owner:${label}` })
+			: null
 
 		return () => {
 			dispose()
 			selfGuard.cancel()
-			callerGuard?.cancel()
+			ownerGuard?.cancel()
 		}
 	}
 
-	/**
-	 * Mount bull-board UI routes via HonoService (explicit call only).
-	 * Returns a handle with disposer for unmounting.
-	 */
-	mountBullBoard(options: BullBoardMountOptions): BullBoardMountHandle {
-		const basePath = normalizeBasePath(options.basePath ?? '/bullmq')
-		const adapter = new HonoAdapter(options.serveStatic ?? serveStatic)
-		const api = createBullBoard({
-			queues: options.queues.map((queue) => new BullMQAdapter(queue)),
-			serverAdapter: adapter,
-			options: { uiConfig: options.uiConfig ?? {} },
-		})
+	private ownerEffects(): Effects {
+		return (this.ctx.caller?.effects ?? this.ctx.effects) as Effects
+	}
 
-		adapter.setBasePath(basePath)
-		const dispose = this.ctx.honoService.modifyApp((app: any) => {
-			app.route(basePath, adapter.registerPlugin())
-		})
-
-		return { api, adapter, basePath, dispose }
+	private cacheFor<T>(store: WeakMap<Effects, Map<string, T>>, owner: Effects): Map<string, T> {
+		const existing = store.get(owner)
+		if (existing) return existing
+		const created = new Map<string, T>()
+		store.set(owner, created)
+		return created
 	}
 
 	private mergeDefaultJobOptions(next?: JobsOptions): JobsOptions | undefined {
@@ -365,63 +301,7 @@ export class BullMQPlugin extends BasePlugin {
 		const merged = { ...base, ...(next ?? {}) }
 		return Object.keys(merged).length ? (merged as JobsOptions) : undefined
 	}
-
-	private trackManaged<T extends { close: () => Promise<void> }>(
-		map: Map<T, ManagedResource<T>>,
-		resource: T,
-		track: TrackOptions | false | undefined,
-		fallbackLabel: string,
-	): T {
-		if (map.has(resource)) return resource
-		if (track === false) return resource
-
-		const label = track?.label?.trim() || fallbackLabel
-		const closeOnStop = track?.closeOnStop ?? true
-		const trackToCaller = track?.trackToCaller ?? true
-		const ownerEffects: Effects | null =
-			trackToCaller ? (track?.effects ?? this.ctx.caller?.effects ?? null) : null
-
-		const record: ManagedResource<T> = {
-			resource,
-			closeOnStop,
-			label,
-			selfGuard: undefined as any,
-			callerGuard: null,
-		}
-		map.set(resource, record)
-
-		const close = () =>
-			record.resource.close().catch((error) => {
-				this.ctx.logger.debug('close failed ({label})', { label, error })
-			})
-
-		const cleanupFromCaller = () => {
-			if (!map.delete(resource)) return
-			// Caller tracking implies "owned by caller": always close on caller unload.
-			void close()
-			// Provider may outlive the caller; cancel provider cleanup to avoid duplicate work.
-			record.selfGuard.cancel()
-		}
-
-		const cleanupFromSelf = () => {
-			if (!map.delete(resource)) return
-			if (record.closeOnStop) void close()
-			// Provider is going away; detach from caller effects to avoid cross-plugin retention.
-			record.callerGuard?.cancel()
-		}
-
-		record.selfGuard = this.ctx.effects.defer(cleanupFromSelf, { tag: `bullmq:track:self:${label}` })
-		if (ownerEffects) record.callerGuard = ownerEffects.defer(cleanupFromCaller, { tag: `bullmq:track:caller:${label}` })
-		return resource
-	}
 }
 
 // biome-ignore lint/style/noDefaultExport: keep compatibility with existing default import users
 export default BullMQPlugin
-
-function normalizeBasePath(input: string): string {
-	const raw = String(input ?? '').trim()
-	if (!raw || raw === '/') return '/bullmq'
-	const withSlash = raw.startsWith('/') ? raw : `/${raw}`
-	return withSlash.replace(/\/+$/, '')
-}

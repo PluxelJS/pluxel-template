@@ -1,19 +1,20 @@
 import type { Message as AiMessage } from '@douyinfe/semi-ui-19/lib/es/aiChatDialogue/interface'
-import type { UniverAiChangeSet, UniverAiContext, UniverAiSuggestEditsResult } from 'pluxel-plugin-univer-ai'
+import type { UniverAiContext } from '@pluxel/univer-protocol'
 
 import type { UniverRuntime } from '../../univer/runtime'
-import type { UniverAiFrontendApi } from '../ai-contract'
+import type { LoopbackBackend } from '../loopback-backend'
 
 export type AiPanelDevState = {
 	instruction?: string
 	chats?: AiMessage[]
-	changeSet?: UniverAiChangeSet | null
-	meta?: UniverAiSuggestEditsResult['meta'] | null
 	pinnedSelections?: UniverAiContext[]
 	currentSelection?: UniverAiContext | null
-	autoSync?: boolean
-	previewMode?: 'overlay' | 'inSheet'
-	hoverPopup?: boolean
+	fillDownRows?: number
+	/** Where AI is allowed to write. */
+	writeMode?: 'scoped' | 'table'
+	/** Loopback max rounds (server-side). */
+	loopMaxRounds?: number
+	mode?: 'safe' | 'aggressive'
 }
 
 export type AiPanelProps = {
@@ -28,8 +29,12 @@ export type AiPanelProps = {
 	 * (e.g. toggling frontend plugins in the host app).
 	 */
 	runtimeSeq?: number
-	api: UniverAiFrontendApi | null
+	backend: LoopbackBackend | null
+	/** Reload the editor from the latest snapshot. */
+	onReloadLatest?: () => void
+	/** When dirty, backend loopback runs on a stale snapshot. Disable in that case. */
+	dirty?: boolean
 	dev?: AiPanelDevState
 }
 
-export type ChangeState = 'idle' | 'preview' | 'applied' | 'rejected'
+export type { LoopbackBackend }

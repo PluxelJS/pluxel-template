@@ -89,6 +89,14 @@ export type UniverCommitSaveConflict = Readonly<{
 
 export type UniverCommitSaveResult = UniverCommitSaveOk | UniverCommitSaveConflict
 
+export type UniverCommitSnapshotInput = Readonly<{
+	id: string
+	baseRev: number
+	json: string
+}>
+
+export type UniverCommitSnapshotResult = UniverCommitSaveOk | UniverCommitSaveConflict
+
 type WorkbookMetaDoc = {
 	id: string
 	name: string
@@ -432,6 +440,50 @@ export class UniverWorkbooksStore {
 			{ $set: { latestRev: newRev, latestEtag: etag, updatedAt: now } },
 		)
 		this.uploads.removeOne({ id: upload.id })
+
+		return {
+			newRev,
+			newSnapshotUrl: this.snapshotUrl(meta.id, newRev),
+			newEtag: etag,
+		}
+	}
+
+	/**
+	 * Server-side commit helper: commit a snapshot JSON string as a new rev without the upload step.
+	 *
+	 * This is intended for trusted internal services (e.g. headless loopback) that already hold
+	 * the final snapshot and want to atomically advance the rev.
+	 */
+	commitSnapshot(input: UniverCommitSnapshotInput): UniverCommitSnapshotResult {
+		const meta = this.workbooks.findOne({ id: input.id })
+		if (!meta) throw new Error(`[univer] workbook not found: ${input.id}`)
+
+		if (input.baseRev !== meta.latestRev) {
+			return this.conflict(meta)
+		}
+
+		const json = String(input.json ?? '')
+		if (!json) throw new Error('[univer] snapshot json must be non-empty')
+		const size = Buffer.byteLength(json, 'utf8')
+		const etag = sha256Hex(json)
+
+		const newRev = meta.latestRev + 1
+		const now = Date.now()
+		const key = snapshotKey(meta.id, newRev)
+		this.snapshots.insert({
+			id: meta.id,
+			key,
+			rev: newRev,
+			etag,
+			json,
+			size,
+			createdAt: now,
+		})
+
+		this.workbooks.updateOne(
+			{ id: meta.id },
+			{ $set: { latestRev: newRev, latestEtag: etag, updatedAt: now } },
+		)
 
 		return {
 			newRev,

@@ -78,7 +78,6 @@
 				"pluxel-plugin-redis",
 				"pluxel-plugin-s3mini",
 				"pluxel-plugin-univer",
-				"pluxel-plugin-univer-ai",
 				"pluxel-plugin-univer-workbooks"
 			],
 			"builtin": [

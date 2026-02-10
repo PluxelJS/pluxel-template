@@ -10,21 +10,21 @@
 			"@pluxel/hmr": "./src/index.ts",
 			"default": "./dist/index.mjs"
 		},
-		"./toon": {
-			"@pluxel/hmr": "./src/toon.ts",
-			"default": "./dist/toon.mjs"
-		},
 		"./mdream": {
 			"@pluxel/hmr": "./src/mdream/index.ts",
 			"default": "./dist/mdream.mjs"
 		},
-		"./mdream/plugins": {
+		"./mdream-plugins": {
 			"@pluxel/hmr": "./src/mdream/plugins.ts",
 			"default": "./dist/mdream-plugins.mjs"
 		},
-		"./mdream/preset/minimal": {
+		"./mdream-preset-minimal": {
 			"@pluxel/hmr": "./src/mdream/preset/minimal.ts",
 			"default": "./dist/mdream-preset-minimal.mjs"
+		},
+		"./toon": {
+			"@pluxel/hmr": "./src/toon.ts",
+			"default": "./dist/toon.mjs"
 		},
 		"./package.json": "./package.json"
 	},
@@ -45,10 +45,10 @@
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
-			"./toon": "./dist/toon.mjs",
 			"./mdream": "./dist/mdream.mjs",
-			"./mdream/plugins": "./dist/mdream-plugins.mjs",
-			"./mdream/preset/minimal": "./dist/mdream-preset-minimal.mjs",
+			"./mdream-plugins": "./dist/mdream-plugins.mjs",
+			"./mdream-preset-minimal": "./dist/mdream-preset-minimal.mjs",
+			"./toon": "./dist/toon.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

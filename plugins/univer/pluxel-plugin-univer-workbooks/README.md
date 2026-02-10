@@ -33,4 +33,4 @@ Univer 的“文档数据面 + 保存控制面”插件（service-only）。
 - 权限/多人协作：在 `openWorkbook/beginSave/commitSave` 前后增加鉴权与能力对象即可
 - OT/增量日志：保持 `snapshot@rev` 作为 checkpoint，不破坏现有缓存语义
 - 大对象/分块：在同一 HTTP 前缀下新增 tiles/attachments，不影响控制面协议
-
+- AI/Agents：先保证数据面稳定；AI 行为层后续单独实现并复用同一套保存流程

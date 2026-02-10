@@ -5,9 +5,10 @@ BullMQ service plugin with optional bull-board UI (Hono).
 ## What you get
 
 - **Option helpers**: `baseOptions()` / `queueOptions()` resolve `connection/prefix/defaultJobOptions` from Pluxel config.
-- **Safe-by-default tracking**: queues/workers/events/flows created via the plugin are auto-closed on plugin stop (and on caller unload), but you can opt out.
-- **Connection visibility**: simple helpers for waiting on readiness and logging reconnects.
-- **Optional UI**: bull-board mount via `ctx.honoService` (explicit call).
+- **Safe-by-default lifecycle**: resources created via the plugin are auto-closed on plugin stop (and, by default, on caller unload).
+- **Efficient defaults**: `queue()` / `queueEvents()` / `flowProducer()` reuse instances within the same caller/plugin scope (avoid accidental duplicates).
+- **Connection visibility**: `ensureReady()` + `monitorConnection()` helpers for readiness/reconnect logs.
+- **Optional UI (feature)**: bull-board is exposed as `bull.bullboard` (`this.features.use(...)`) and can be mounted explicitly.
 
 ## Register
 
@@ -15,12 +16,11 @@ BullMQ service plugin with optional bull-board UI (Hono).
 import { plugins as bullmqPlugins } from 'pluxel-plugin-bullmq'
 ```
 
-## Use like BullMQ (raw + helpers)
+## Typical usage (plugin-managed resources)
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
 import { BullMQPlugin } from 'pluxel-plugin-bullmq'
-import { Queue, Worker, QueueEvents, FlowProducer } from 'bullmq'
 
 @Plugin({ name: 'Jobs' })
 export class Jobs extends BasePlugin {
@@ -29,62 +29,47 @@ export class Jobs extends BasePlugin {
   }
 
   async init() {
-    const queue = new Queue('emails', this.bull.queueOptions())
-    const worker = new Worker('emails', async (job) => {
-      return { ok: true }
-    }, this.bull.baseOptions({ concurrency: 5 }))
+    const queue = this.bull.queue('emails')
+    this.bull.worker(queue, async (job) => ({ ok: true }))
 
-    const events = new QueueEvents('emails', this.bull.baseOptions())
-    const flow = new FlowProducer(this.bull.baseOptions())
-
-    // optional: monitor redis connection events
+    // optional: connection diagnostics
     this.bull.monitorConnection(queue, { label: 'emails' })
     await this.bull.ensureReady(queue)
-
-    // remember to close resources when appropriate
-    void Promise.allSettled([queue.close(), worker.close(), events.close(), flow.close()])
   }
 }
 ```
 
-## Use plugin-managed resources (auto cleanup)
+## Raw BullMQ (bring your own lifecycle)
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
 import { BullMQPlugin } from 'pluxel-plugin-bullmq'
+import { Queue, Worker } from 'bullmq'
 
 @Plugin({ name: 'Jobs' })
 export class Jobs extends BasePlugin {
   constructor(private bull: BullMQPlugin) { super() }
 
   async init() {
-    const queue = this.bull.queue('emails')
-    const worker = this.bull.worker('emails', async (job) => ({ ok: true }))
-    const events = this.bull.queueEvents(queue)
-    const flow = this.bull.flowProducer()
+    const queue = new Queue('emails', this.bull.queueOptions())
+    const worker = new Worker('emails', async (job) => ({ ok: true }), this.bull.baseOptions({ concurrency: 5 }))
 
-    // resources above will auto-close on plugin stop/caller unload
+    // you own lifecycle when you construct BullMQ classes directly
+    void Promise.allSettled([worker.close(), queue.close()])
   }
 }
 ```
 
-Opt out per resource with `false`:
+## Tracking / lifecycle notes
 
-```ts
-const queue = this.bull.queue('emails', {}, false)
-```
-
-Or track external instances (and untrack when you take over lifecycle):
-
-```ts
-const queue = new Queue('emails', this.bull.queueOptions())
-this.bull.track(queue)
-this.bull.untrack(queue)
-```
+- Default: resources created via `bull.queue/worker/queueEvents/flowProducer` are tracked.
+- If you need custom lifecycle: either construct BullMQ classes directly (raw mode), or call `this.bull.untrack(resource)` after creation.
+- Track external instances: `this.bull.track(queue, { owner: 'caller' })` (or `{ owner: 'plugin' }`).
+- `untrack()` stops tracking and does **not** close the resource.
 
 ## Bull-board (optional)
 
-Explicitly mount when needed:
+Recommended: use the feature entrypoint:
 
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
@@ -96,13 +81,19 @@ export class Board extends BasePlugin {
 
   async init() {
     const emails = this.bull.queue('emails')
-    this.bull.mountBullBoard({
+    this.bull.bullboard.mount({
       queues: [emails],
       basePath: '/queues',
       uiConfig: { boardTitle: 'Jobs' },
     })
   }
 }
+```
+
+Convenience: mount all currently tracked queues:
+
+```ts
+this.bull.mountBullBoardTracked({ basePath: '/queues' })
 ```
 
 If you need advanced bull-board wiring (custom adapters, auth, multi-app routing), use `@bull-board/api` directly.
@@ -117,3 +108,8 @@ import { BullMQConfigSchema } from 'pluxel-plugin-bullmq'
 - `connection`: BullMQ connection options (ioredis options or cluster options).
 - `prefix`: Optional key prefix for all queues.
 - `defaultJobOptions`: Merged into every queue's `defaultJobOptions`.
+
+Bull-board feature config (optional):
+
+- `bullboard.config.basePath`
+- `bullboard.config.uiConfig`

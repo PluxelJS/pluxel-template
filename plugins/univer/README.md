@@ -7,6 +7,7 @@
 - 前端（Vite）：`apps/univer-web`（通过 `@pluxel/hmr/web` 连接 Host 的 `/api/*`）
 - 后端（Pluxel 插件）：`plugins/univer/*`（只提供 RPC/SSE/存储，不再注册 `ext.ui`）
 - 前端 Univer 插件开关（后端控制）：统一由核心后端插件 `pluxel-plugin-univer` 管理 spec + SSE；“基础能力”走核心配置（如 watermark），复杂能力再拆成独立后端插件（如 AI）
+- 能力开关/可用性（Capabilities）：统一由核心后端插件 `pluxel-plugin-univer` 汇总并通过 `UniverRpc.capabilities()` 提供；其它插件只注册 provider（例如 AI 注册 `univer.ai`），前端据此决定是否显示入口/是否可用。
 
 ## 目标与约束（必须）
 
@@ -161,4 +162,4 @@ this.univer.use({
 
 - 核心前端插件（UI + 编辑器）：`plugins/univer/pluxel-plugin-univer/README.md`
 - 文档/保存服务插件（workbooks）：`plugins/univer/pluxel-plugin-univer-workbooks/README.md`
-- AI service 插件（Ax + TOON + ChangeSet）：`plugins/univer/pluxel-plugin-univer-ai/README.md`
+- AI（WIP）：当前先保留最小底座 `@pluxel/univer-headless` 的 Univer→AI call bridge，后续再逐步恢复 planner/executor/loopback。

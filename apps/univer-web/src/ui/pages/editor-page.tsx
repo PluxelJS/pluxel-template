@@ -5,16 +5,23 @@ import { rpcErrorMessage } from '@pluxel/hmr/web'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { UniverAutosavePolicy, UniverOpenWorkbookResult } from 'pluxel-plugin-univer-workbooks'
-import type { UniverAIRpc } from 'pluxel-plugin-univer-ai'
 
 import { sha256Hex } from '../crypto'
 import { parseWorkbookId } from '../shared'
 import { AiPanel } from '../ai/ai-panel'
 import { AiFloatWindow } from '../ai/ai-float-window'
-import { adaptUniverAiRpc } from '../ai/ai-contract'
+import type { LoopbackBackend } from '../ai/loopback-backend'
 import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '../univer/plugins-sse'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
-import { UNIVER_PLUGINS_SSE_NS, type UniverPluginSpec } from '@pluxel/univer-protocol'
+import {
+	UNIVER_CAP_KEY_AI,
+	UNIVER_PLUGINS_SSE_NS,
+	type UniverAiCapability,
+	type UniverCapabilitiesSnapshot,
+	type UniverLoopbackRpc,
+	type UniverPluginSpec,
+	type UniverRpc,
+} from '@pluxel/univer-protocol'
 import { isSupportedUniverPluginKey } from '../univer/catalog'
 import { DebugDrawer } from '../debug/debug-drawer'
 import { CodeInline } from '../kit'
@@ -90,6 +97,74 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		setAiOpen(true)
 		setAiOpenSeq((v) => v + 1)
 	}, [])
+
+	const univerRpc = useMemo(() => {
+		return (((ctx.services.hmr.ui as any).Univer as UniverRpc | undefined) ?? null) satisfies UniverRpc | null
+	}, [ctx.services.hmr.ui])
+
+	const univerLoopbackRpc = useMemo(() => {
+		return (((ctx.services.hmr.ui as any).UniverLoopback as UniverLoopbackRpc | undefined) ?? null) satisfies UniverLoopbackRpc | null
+	}, [ctx.services.hmr.ui])
+
+	const isAiCapability = useCallback((value: unknown): value is UniverAiCapability => {
+		if (!value || typeof value !== 'object') return false
+		const available = (value as UniverAiCapability).available
+		if (typeof available !== 'boolean') return false
+		const defaultProfile = (value as UniverAiCapability).defaultProfile
+		if (defaultProfile === undefined) return true
+		if (!defaultProfile || typeof defaultProfile !== 'object') return false
+		if (typeof (defaultProfile as any).id !== 'string' || !(defaultProfile as any).id) return false
+		if (typeof (defaultProfile as any).provider !== 'string' || !(defaultProfile as any).provider) return false
+		if ((defaultProfile as any).model !== undefined && typeof (defaultProfile as any).model !== 'string') return false
+		if ((defaultProfile as any).baseURL !== undefined && typeof (defaultProfile as any).baseURL !== 'string') return false
+		const reason = (value as UniverAiCapability).reason
+		if (reason !== undefined && typeof reason !== 'string') return false
+		return true
+	}, [])
+
+	const decodeAiCapability = useCallback((snap: UniverCapabilitiesSnapshot): UniverAiCapability => {
+		const raw = snap.items[UNIVER_CAP_KEY_AI]
+		if (!raw) return { available: false, reason: 'AI capability missing' }
+		if (!raw.ok) return { available: false, reason: raw.error || 'AI capability error' }
+		if (!isAiCapability(raw.value)) return { available: false, reason: 'AI capability invalid' }
+		return raw.value
+	}, [isAiCapability])
+
+	const [univerCaps, setUniverCaps] = useState<UniverCapabilitiesSnapshot | null>(null)
+	const [aiCaps, setAiCaps] = useState<UniverAiCapability | null>(null)
+	const aiEntryEnabled = Boolean(univerLoopbackRpc && aiCaps?.available)
+
+	const loopbackBackend = useMemo<LoopbackBackend | null>(() => {
+		if (!univerLoopbackRpc) return null
+		return { runLoopback: univerLoopbackRpc.runLoopback.bind(univerLoopbackRpc) }
+	}, [univerLoopbackRpc])
+
+	useEffect(() => {
+		if (!univerRpc) {
+			setUniverCaps(null)
+			setAiCaps(null)
+			return
+		}
+
+		let disposed = false
+		const refresh = async () => {
+			try {
+				const snap = await univerRpc.capabilities()
+				if (!disposed) setUniverCaps(snap)
+				const caps = decodeAiCapability(snap)
+				if (!disposed) setAiCaps(caps)
+			} catch (err) {
+				if (!disposed) setAiCaps({ available: false, reason: rpcErrorMessage(err, 'AI capabilities 失败') })
+			}
+		}
+
+		void refresh()
+		const timer = window.setInterval(refresh, 15_000)
+		return () => {
+			disposed = true
+			window.clearInterval(timer)
+		}
+	}, [decodeAiCapability, univerRpc])
 
 	const saveStateRef = useRef<SaveState>('idle')
 	useEffect(() => {
@@ -170,7 +245,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		const current = [...rt.installedPlugins].sort((a, b) => a.localeCompare(b))
 		const desiredSig = desired.join('|')
 		const currentSig = current.join('|')
-		if (desiredSig === currentSig) {
+		if (desiredSig === currentSig && rt.aiEntryEnabled === aiEntryEnabled) {
 			applyFrontendPlugins(rt)
 			return
 		}
@@ -196,13 +271,14 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			workbookName: workbookNameRef.current,
 			snapshot,
 			installedPlugins: desired,
+			aiEntryEnabled,
 			onAiOpen: openAiPanel,
 		})
 		rtRef.current = next
 		setRuntimeSeq((v) => v + 1)
 		attachDirtyListener()
 		applyFrontendPlugins(next)
-	}, [applyFrontendPlugins, attachDirtyListener, desiredInstalledPluginKeys, workbookId])
+	}, [aiEntryEnabled, applyFrontendPlugins, attachDirtyListener, desiredInstalledPluginKeys, workbookId])
 
 	const doSave = useCallback(
 		async (reason: SaveReason) => {
@@ -333,6 +409,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			workbookName: info.name,
 			snapshot,
 			installedPlugins: desired,
+			aiEntryEnabled,
 			onAiOpen: openAiPanel,
 		})
 		setRuntimeSeq((v) => v + 1)
@@ -348,14 +425,15 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		setSaveState('idle')
 		setSaveError(null)
 		setConflictRev(null)
-	}, [attachDirtyListener, desiredInstalledPluginKeys, ensureRuntimePlugins, rpc, workbookId])
+	}, [aiEntryEnabled, attachDirtyListener, desiredInstalledPluginKeys, ensureRuntimePlugins, rpc, workbookId])
 
 	const getRuntime = useCallback(() => rtRef.current, [])
 
-	const aiApi = useMemo(() => {
-		const backend = ((ctx.services.hmr.ui as any).UniverAI as UniverAIRpc | undefined) ?? null
-		return adaptUniverAiRpc(backend)
-	}, [ctx.services.hmr.ui])
+	useEffect(() => {
+		if (!ready) return
+		ensureRuntimePlugins()
+		if (!aiEntryEnabled) setAiOpen(false)
+	}, [aiEntryEnabled, ensureRuntimePlugins, ready])
 
 	useEffect(() => {
 		const mountEl = mountRef.current
@@ -388,6 +466,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 					workbookName: info.name,
 					snapshot,
 					installedPlugins: desired,
+					aiEntryEnabled,
 					onAiOpen: openAiPanel,
 				})
 				setRuntimeSeq((v) => v + 1)
@@ -422,7 +501,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			setReady(false)
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [attachDirtyListener, doSave, desiredInstalledPluginKeys, ensureRuntimePlugins, rpc, scheduleAutosave, workbookId])
+	}, [aiEntryEnabled, attachDirtyListener, doSave, desiredInstalledPluginKeys, ensureRuntimePlugins, rpc, scheduleAutosave, workbookId])
 
 	useEffect(() => {
 		const off = sse.ns(UNIVER_PLUGINS_SSE_NS).on(
@@ -529,7 +608,15 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			</div>
 
 			<AiFloatWindow open={aiOpen} openSeq={aiOpenSeq} onOpenChange={setAiOpen} title="AI">
-				<AiPanel ready={ready && !!aiApi} workbookId={workbookId} getRuntime={getRuntime} runtimeSeq={runtimeSeq} api={aiApi} />
+				<AiPanel
+					ready={ready}
+					workbookId={workbookId}
+					getRuntime={getRuntime}
+					runtimeSeq={runtimeSeq}
+					backend={loopbackBackend}
+					onReloadLatest={reloadLatest}
+					dirty={dirty}
+				/>
 			</AiFloatWindow>
 
 			<DebugDrawer
@@ -537,13 +624,16 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				onClose={() => setDebugOpen(false)}
 				ready={ready}
 				workbookId={workbookId}
+				aiThreadId={workbookId ? `univer:loopback:${workbookId}` : undefined}
+				createSse={ctx.services.hmr.createSse}
 				getRuntime={getRuntime}
 				effectivePlugins={() => [...effectivePluginsByKeyRef.current.values()]}
 				rawPlugins={() => [...pluginsByIdRef.current.values()]}
 				services={{
 					workbooks: Boolean((ctx.services.hmr.ui as any).UniverWorkbooks),
-					ai: Boolean(aiApi),
+					ai: Boolean(loopbackBackend && aiEntryEnabled),
 				}}
+				capabilities={univerCaps}
 			/>
 		</div>
 	)
