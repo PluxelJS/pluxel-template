@@ -108,9 +108,9 @@ importers:
       '@pluxel/hmr':
         specifier: link:../../../pluxel/packages/hmr
         version: link:../../../pluxel/packages/hmr
-      '@pluxel/univer-protocol':
+      '@pluxel/univer-headless':
         specifier: workspace:^
-        version: link:../../packages/univer-protocol
+        version: link:../../plugins/univer/packages/univer-headless
       '@tabler/icons-react':
         specifier: ^3.36.1
         version: 3.36.1(react@19.2.4)
@@ -242,29 +242,6 @@ importers:
       rapidhash-js:
         specifier: ^3.0.0
         version: 3.0.0
-
-  packages/univer-headless:
-    dependencies:
-      '@ax-llm/ax':
-        specifier: ^15.0.0
-        version: 15.1.1
-      '@pluxel/promptkit':
-        specifier: workspace:^
-        version: link:../promptkit
-      '@pluxel/univer-protocol':
-        specifier: workspace:^
-        version: link:../univer-protocol
-      '@univerjs/core':
-        specifier: ^0.15.4
-        version: 0.15.4(@wendellhu/redi@1.1.1(react@19.2.4))(rxjs@7.8.2)
-      '@univerjs/preset-sheets-node-core':
-        specifier: ^0.15.4
-        version: 0.15.4(@wendellhu/redi@1.1.1(react@19.2.4))(rxjs@7.8.2)
-      '@univerjs/presets':
-        specifier: ^0.15.4
-        version: 0.15.4(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(@wendellhu/redi@1.1.1(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rxjs@7.8.2)
-
-  packages/univer-protocol: {}
 
   plugins/ai/langchain:
     dependencies:
@@ -577,59 +554,31 @@ importers:
         specifier: ^1.0.1
         version: 1.1.1
 
+  plugins/univer/packages/univer-headless:
+    dependencies:
+      '@ax-llm/ax':
+        specifier: ^15.1.1
+        version: 15.1.1
+      '@sinclair/typebox':
+        specifier: ^0.34.8
+        version: 0.34.48
+      '@univerjs/core':
+        specifier: ^0.15.4
+        version: 0.15.4(@wendellhu/redi@1.1.1(react@19.2.4))(rxjs@7.8.2)
+      '@univerjs/preset-sheets-node-core':
+        specifier: ^0.15.4
+        version: 0.15.4(@wendellhu/redi@1.1.1(react@19.2.4))(rxjs@7.8.2)
+      '@univerjs/presets':
+        specifier: ^0.15.4
+        version: 0.15.4(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(@wendellhu/redi@1.1.1(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rxjs@7.8.2)
+
   plugins/univer/pluxel-plugin-univer:
     dependencies:
-      '@pluxel/univer-protocol':
-        specifier: workspace:^
-        version: link:../../../packages/univer-protocol
-
-  plugins/univer/pluxel-plugin-univer-ai:
-    dependencies:
       '@pluxel/univer-headless':
         specifier: workspace:^
-        version: link:../../../packages/univer-headless
-      '@pluxel/univer-protocol':
-        specifier: workspace:^
-        version: link:../../../packages/univer-protocol
-      pluxel-plugin-llm-hub:
-        specifier: workspace:^
-        version: link:../../ai/llm-hub
-      pluxel-plugin-univer:
-        specifier: workspace:^
-        version: link:../pluxel-plugin-univer
+        version: link:../packages/univer-headless
 
-  plugins/univer/pluxel-plugin-univer-edits:
-    dependencies:
-      '@pluxel/univer-headless':
-        specifier: workspace:^
-        version: link:../../../packages/univer-headless
-      '@pluxel/univer-protocol':
-        specifier: workspace:^
-        version: link:../../../packages/univer-protocol
-      pluxel-plugin-univer-ai:
-        specifier: workspace:^
-        version: link:../pluxel-plugin-univer-ai
-      pluxel-plugin-univer-workbooks:
-        specifier: workspace:^
-        version: link:../pluxel-plugin-univer-workbooks
-
-  plugins/univer/pluxel-plugin-univer-loopback:
-    dependencies:
-      '@pluxel/univer-protocol':
-        specifier: workspace:^
-        version: link:../../../packages/univer-protocol
-      pluxel-plugin-univer-edits:
-        specifier: workspace:^
-        version: link:../pluxel-plugin-univer-edits
-
-  plugins/univer/pluxel-plugin-univer-workbooks:
-    dependencies:
-      '@pluxel/univer-headless':
-        specifier: workspace:^
-        version: link:../../../packages/univer-headless
-      '@pluxel/univer-protocol':
-        specifier: workspace:^
-        version: link:../../../packages/univer-protocol
+  plugins/univer/pluxel-plugin-univer-workbooks: {}
 
 packages:
 
@@ -2373,6 +2322,9 @@ packages:
 
   '@saltify/milky-types@1.1.0':
     resolution: {integrity: sha512-ixm10sI+7ZAykPfKxWPEZ/Ag94gkDL/WSYPFBON0MIuunUiNHl6R9ISpXDS2aLH3SO5toav52pOwvFt5EcVbbw==}
+
+  '@sinclair/typebox@0.34.48':
+    resolution: {integrity: sha512-kKJTNuK3AQOrgjjotVxMrCn1sUJwM76wMszfq1kdU4uYVJjvEWuFQ6HgvLt4Xz3fSmZlTOxJ/Ie13KnIcWQXFA==}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -8321,6 +8273,8 @@ snapshots:
   '@saltify/milky-types@1.1.0':
     dependencies:
       zod: 4.3.5
+
+  '@sinclair/typebox@0.34.48': {}
 
   '@standard-schema/spec@1.1.0': {}
 

@@ -21,7 +21,7 @@
 		"typecheck": "tsc -p tsconfig.json"
 	},
 	"dependencies": {
-		"@pluxel/univer-protocol": "workspace:^"
+		"@pluxel/univer-headless": "workspace:^"
 	},
 	"publishConfig": {
 		"exports": {

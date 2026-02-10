@@ -32,7 +32,7 @@
 
 需要同时启动 Univer 前端时：
 
-- `pnpm dev:full`
+- `pnpm dev:univer`（`dev:full` 仍可用）
   - 后端 HMR Host（默认使用 `univer` profile）：`http://localhost:3000`（API 在 `/api/*`）
   - Univer 前端（Vite）：`http://localhost:5174`（通过代理访问 `/api/*`）
 

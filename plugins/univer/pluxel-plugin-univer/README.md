@@ -15,7 +15,7 @@ Univer 的核心后端/服务插件：管理“前端需要启用的 Univer 插�
 
 ## Protocol
 
-共享 payload/type 定义在：`packages/univer-protocol`（`@pluxel/univer-protocol`）。
+共享 payload/type 定义在：`packages/univer-headless/src/protocol`（`@pluxel/univer-headless/protocol`）。
 
 ## Config
 

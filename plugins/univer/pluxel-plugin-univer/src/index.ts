@@ -9,8 +9,8 @@ import type {
 	UniverPluginsRemovePayload,
 	UniverPluginsSnapshotPayload,
 	UniverPluginsUpsertPayload,
-} from '@pluxel/univer-protocol'
-import { UNIVER_PLUGINS_SSE_NS } from '@pluxel/univer-protocol'
+} from '@pluxel/univer-headless/protocol'
+import { UNIVER_PLUGINS_SSE_NS } from '@pluxel/univer-headless/protocol'
 
 type PluginEvent = 'upsert' | 'remove'
 
@@ -205,7 +205,7 @@ export class UniverPlugin extends BasePlugin {
 
 export default UniverPlugin
 
-export type { UniverConfiguredPlugin } from '@pluxel/univer-protocol'
+export type { UniverConfiguredPlugin } from '@pluxel/univer-headless/protocol'
 
 declare module '@pluxel/hmr/services' {
 	namespace UI {

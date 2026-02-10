@@ -1,40 +1,10 @@
-import { spawn } from 'node:child_process'
+import { createDevRunner } from './dev-runner.mjs'
 
-const procs = []
-
-function run(label, cmd, args, extraEnv = {}) {
-	const child = spawn(cmd, args, {
-		stdio: 'inherit',
-		env: { ...process.env, ...extraEnv },
-	})
-	procs.push({ label, child })
-	child.on('exit', (code, signal) => {
-		if (signal) return
-		if (typeof code === 'number' && code !== 0) {
-			console.error(`[dev] ${label} exited with code ${code}`)
-			shutdown(code)
-		}
-	})
-	return child
-}
-
-let shuttingDown = false
-function shutdown(code = 0) {
-	if (shuttingDown) return
-	shuttingDown = true
-	for (const { child } of procs) {
-		try {
-			child.kill('SIGINT')
-		} catch {}
-	}
-	setTimeout(() => process.exit(code), 250).unref()
-}
-
-process.on('SIGINT', () => shutdown(0))
-process.on('SIGTERM', () => shutdown(0))
+const runner = createDevRunner()
 
 // Backend HMR host only (serves /api/*).
 //
 // Univer frontend is an independent Vite app:
 // - Start it separately when needed: `pnpm --filter pluxel-univer-web dev`
-run('host', 'node', ['--conditions=@pluxel/hmr', 'src/index.ts'])
+// - Or use `pnpm dev:univer` to run host + frontend together
+runner.run('host', 'node', ['--conditions=@pluxel/hmr', 'src/index.ts'])
