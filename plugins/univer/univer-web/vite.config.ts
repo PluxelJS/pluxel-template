@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 const backendOrigin = process.env.PLUXEL_HMR_ORIGIN || 'http://localhost:3000'
 const promptkitToon = fileURLToPath(new URL('../../packages/promptkit/src/toon.ts', import.meta.url))
 const univerProtocol = fileURLToPath(
-	new URL('../../plugins/univer/packages/univer-headless/src/protocol/index.ts', import.meta.url),
+	new URL('../univer-headless/src/protocol/index.ts', import.meta.url),
 )
 const semiCss = fileURLToPath(
 	new URL('./node_modules/@douyinfe/semi-ui-19/dist/css/semi.css', import.meta.url),

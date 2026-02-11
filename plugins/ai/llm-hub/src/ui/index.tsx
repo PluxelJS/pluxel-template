@@ -1,12 +1,18 @@
 import {
+	Accordion,
 	ActionIcon,
+	Autocomplete,
 	Badge,
 	Button,
 	Card,
 	Code,
+	Collapse,
+	Divider,
 	Group,
+	Menu,
 	Modal,
 	NumberInput,
+	Select,
 	Stack,
 	Switch,
 	Text,
@@ -17,6 +23,9 @@ import {
 import { definePluginUIModule, ExtensionPoints, rpcErrorMessage, useExtensionContext } from '@pluxel/hmr/web'
 import {
 	IconCirclePlus,
+	IconChevronDown,
+	IconChevronUp,
+	IconDots,
 	IconKey,
 	IconKeyOff,
 	IconPencil,
@@ -30,6 +39,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { LLMHubRequest, LLMHubResponse } from '../rpc'
 import type { LLMHubSettingsDoc } from '../settings'
 import type { LLMProfilePublic } from '../profiles'
+import { resolveModelListUrl } from '../models'
 
 type RequestFn = <T extends LLMHubRequest>(req: T) => Promise<LLMHubResponse<T>>
 
@@ -37,6 +47,152 @@ type RuntimeApi = Readonly<{
 	pluginName: string
 	request: RequestFn
 }>
+
+type ProviderPreset = Readonly<{
+	id: string
+	label: string
+	provider: string
+	baseURL?: string
+	modelHint?: string
+	modelListPath?: string | null
+	note?: string
+}>
+
+const PROVIDER_PRESETS: ProviderPreset[] = [
+	{
+		id: 'openai',
+		label: 'OpenAI',
+		provider: 'openai',
+		baseURL: 'https://api.openai.com/v1',
+		modelHint: 'gpt-4o-mini',
+	},
+	{
+		id: 'deepseek',
+		label: 'DeepSeek (OpenAI-compatible)',
+		provider: 'deepseek',
+		baseURL: 'https://api.deepseek.com',
+		modelHint: 'deepseek-chat',
+	},
+	{
+		id: 'mistral',
+		label: 'Mistral (OpenAI-compatible)',
+		provider: 'mistral',
+		baseURL: 'https://api.mistral.ai/v1',
+		modelHint: 'mistral-large-latest',
+	},
+	{
+		id: 'groq',
+		label: 'Groq (OpenAI-compatible)',
+		provider: 'groq',
+		baseURL: 'https://api.groq.com/openai/v1',
+		modelHint: 'llama-3.3-70b-versatile',
+	},
+	{
+		id: 'openrouter',
+		label: 'OpenRouter (OpenAI-compatible)',
+		provider: 'openrouter',
+		baseURL: 'https://openrouter.ai/api/v1',
+		modelHint: 'openai/gpt-4o-mini',
+	},
+	{
+		id: 'together',
+		label: 'Together (OpenAI-compatible)',
+		provider: 'together',
+		baseURL: 'https://api.together.xyz/v1',
+		modelHint: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+	},
+	{
+		id: 'anthropic',
+		label: 'Anthropic',
+		provider: 'anthropic',
+		modelHint: 'claude-3-5-sonnet-latest',
+		modelListPath: null,
+		note: 'Anthropic API 非 OpenAI 兼容，暂不支持自动拉取 models。',
+	},
+	{
+		id: 'google',
+		label: 'Google Gemini',
+		provider: 'google',
+		modelHint: 'gemini-1.5-pro',
+		modelListPath: null,
+		note: 'Gemini API 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
+	},
+	{
+		id: 'cohere',
+		label: 'Cohere',
+		provider: 'cohere',
+		modelHint: 'command-r-plus',
+		modelListPath: null,
+		note: 'Cohere API 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
+	},
+	{
+		id: 'qwen',
+		label: 'Qwen (DashScope)',
+		provider: 'qwen',
+		modelHint: 'qwen-max',
+		modelListPath: null,
+		note: 'DashScope 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
+	},
+	{
+		id: 'zhipu',
+		label: 'Zhipu',
+		provider: 'zhipu',
+		modelHint: 'glm-4',
+		modelListPath: null,
+		note: '智谱 API 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
+	},
+	{
+		id: 'moonshot',
+		label: 'Moonshot',
+		provider: 'moonshot',
+		modelHint: 'moonshot-v1-8k',
+		modelListPath: null,
+		note: 'Moonshot API 配置差异较多，建议手动填写模型名与 baseURL。',
+	},
+	{
+		id: 'custom',
+		label: 'Other / Custom',
+		provider: 'custom',
+	},
+]
+
+const PRESET_OPTIONS = PROVIDER_PRESETS.map((p) => ({ value: p.id, label: p.label }))
+
+function resolvePreset(id: string | null) {
+	return PROVIDER_PRESETS.find((p) => p.id === id) ?? PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1]
+}
+
+async function fetchModelList(input: {
+	baseURL: string
+	apiKey?: string
+	modelListPath?: string | null
+	profileId?: string
+}) {
+	const res = await fetch('/api/llm/models', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			baseURL: input.baseURL,
+			apiKey: input.apiKey,
+			modelListPath: input.modelListPath,
+			profileId: input.profileId,
+		}),
+	})
+
+	const payload = await res.json().catch(() => null)
+	if (!res.ok || !payload || typeof payload !== 'object') {
+		throw new Error(`models 拉取失败: ${res.status}`)
+	}
+
+	if (!(payload as any).ok) {
+		const msg = typeof (payload as any).error === 'string' ? (payload as any).error : 'models 拉取失败'
+		throw new Error(msg)
+	}
+
+	const models = Array.isArray((payload as any).models) ? ((payload as any).models as string[]) : []
+	if (!models.length) throw new Error('models 列表为空或格式不识别')
+	return [...new Set(models)].sort((a, b) => a.localeCompare(b))
+}
 
 function useRuntime(): RuntimeApi {
 	const ctx = useExtensionContext('plugin')
@@ -96,9 +252,13 @@ function LLMProfilesPanel() {
 	const [error, setError] = useState<string | null>(null)
 
 	const [createOpen, setCreateOpen] = useState(false)
+	const [createPresetId, setCreatePresetId] = useState('openai')
 	const [createTitle, setCreateTitle] = useState('')
 	const [createProvider, setCreateProvider] = useState('openai')
-	const [createModel, setCreateModel] = useState('gpt-4o-mini')
+	const [createModel, setCreateModel] = useState('')
+	const [createModelOptions, setCreateModelOptions] = useState<string[]>([])
+	const [createModelLoading, setCreateModelLoading] = useState(false)
+	const [createModelError, setCreateModelError] = useState<string | null>(null)
 	const [createBaseURL, setCreateBaseURL] = useState('')
 	const [createApiKey, setCreateApiKey] = useState('')
 	const [createPriority, setCreatePriority] = useState<number>(0)
@@ -110,10 +270,15 @@ function LLMProfilesPanel() {
 
 	const [editOpen, setEditOpen] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
+	const [editPresetId, setEditPresetId] = useState('custom')
 	const [editTitle, setEditTitle] = useState('')
 	const [editProvider, setEditProvider] = useState('')
 	const [editModel, setEditModel] = useState('')
+	const [editModelOptions, setEditModelOptions] = useState<string[]>([])
+	const [editModelLoading, setEditModelLoading] = useState(false)
+	const [editModelError, setEditModelError] = useState<string | null>(null)
 	const [editBaseURL, setEditBaseURL] = useState('')
+	const [editApiKey, setEditApiKey] = useState('')
 	const [editEnabled, setEditEnabled] = useState(true)
 	const [editPriority, setEditPriority] = useState<number>(0)
 	const [editCircuitEnabled, setEditCircuitEnabled] = useState(true)
@@ -121,6 +286,8 @@ function LLMProfilesPanel() {
 	const [editOpenSeconds, setEditOpenSeconds] = useState<number>(30)
 	const [editConfigJson, setEditConfigJson] = useState('{}')
 	const [editOptionsJson, setEditOptionsJson] = useState('{}')
+
+	const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
 
 	const refresh = useCallback(async () => {
 		setLoading(true)
@@ -156,6 +323,115 @@ function LLMProfilesPanel() {
 		setSettingsCircuitOpenSeconds(Math.round((settings.circuit?.openMs ?? 30_000) / 1000))
 	}, [settings])
 
+	const defaultCircuit = useMemo(
+		() => ({
+			enabled: settings?.circuit?.enabled ?? true,
+			failureThreshold: settings?.circuit?.failureThreshold ?? 3,
+			openSeconds: Math.round((settings?.circuit?.openMs ?? 30_000) / 1000),
+		}),
+		[settings],
+	)
+
+	const toggleDetails = useCallback((id: string) => {
+		setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }))
+	}, [])
+
+	const applyCreatePreset = useCallback((presetId: string) => {
+		const preset = resolvePreset(presetId)
+		const isCustom = preset.id === 'custom'
+		setCreateProvider(isCustom ? '' : preset.provider)
+		setCreateBaseURL(preset.baseURL ?? '')
+		setCreateModel(preset.modelHint ?? '')
+		setCreateModelOptions([])
+		setCreateModelError(null)
+	}, [])
+
+	const resetCreateForm = useCallback(() => {
+		applyCreatePreset(createPresetId)
+		setCreateTitle('')
+		setCreateApiKey('')
+		setCreatePriority(0)
+		setCreateCircuitEnabled(defaultCircuit.enabled)
+		setCreateFailureThreshold(defaultCircuit.failureThreshold)
+		setCreateOpenSeconds(defaultCircuit.openSeconds)
+		setCreateConfigJson('{}')
+		setCreateOptionsJson('{}')
+	}, [
+		applyCreatePreset,
+		createPresetId,
+		defaultCircuit.enabled,
+		defaultCircuit.failureThreshold,
+		defaultCircuit.openSeconds,
+	])
+
+	const handleCreatePresetChange = useCallback(
+		(value: string | null) => {
+			const nextId = value ?? 'custom'
+			setCreatePresetId(nextId)
+			applyCreatePreset(nextId)
+		},
+		[applyCreatePreset],
+	)
+
+	const handleEditPresetChange = useCallback((value: string | null) => {
+		const nextId = value ?? 'custom'
+		setEditPresetId(nextId)
+		const preset = resolvePreset(nextId)
+		if (preset.id !== 'custom') {
+			setEditProvider(preset.provider)
+			setEditBaseURL(preset.baseURL ?? '')
+			setEditModel(preset.modelHint ?? '')
+			setEditModelOptions([])
+			setEditModelError(null)
+		}
+	}, [])
+
+	const loadCreateModels = useCallback(async () => {
+		const preset = resolvePreset(createPresetId)
+		const baseURL = createBaseURL.trim() || preset.baseURL || ''
+		setCreateModelLoading(true)
+		setCreateModelError(null)
+		try {
+			const models = await fetchModelList({
+				baseURL,
+				apiKey: createApiKey,
+				modelListPath: preset.modelListPath,
+			})
+			setCreateModelOptions(models)
+			if (!createModel && models.length) setCreateModel(models[0])
+		} catch (e) {
+			setCreateModelError(errorMessage(e, 'models 拉取失败'))
+		} finally {
+			setCreateModelLoading(false)
+		}
+	}, [createApiKey, createBaseURL, createModel, createPresetId])
+
+	const loadEditModels = useCallback(async () => {
+		const preset = resolvePreset(editPresetId)
+		const baseURL = editBaseURL.trim() || preset.baseURL || ''
+		setEditModelLoading(true)
+		setEditModelError(null)
+		try {
+			const models = await fetchModelList({
+				baseURL,
+				apiKey: editApiKey,
+				modelListPath: preset.modelListPath,
+				profileId: editId ?? undefined,
+			})
+			setEditModelOptions(models)
+			if (!editModel && models.length) setEditModel(models[0])
+		} catch (e) {
+			setEditModelError(errorMessage(e, 'models 拉取失败'))
+		} finally {
+			setEditModelLoading(false)
+		}
+	}, [editApiKey, editBaseURL, editModel, editPresetId])
+
+	const openCreate = useCallback(() => {
+		resetCreateForm()
+		setCreateOpen(true)
+	}, [resetCreateForm])
+
 	const saveSettings = useCallback(async () => {
 		try {
 			const res = await request({
@@ -179,6 +455,11 @@ function LLMProfilesPanel() {
 
 	const createProfile = useCallback(async () => {
 		try {
+			const provider = createProvider.trim()
+			if (!provider) {
+				setError('Provider 不能为空')
+				return
+			}
 			const config = parseJsonObject('Config', createConfigJson)
 			const options = parseJsonObject('Options', createOptionsJson)
 
@@ -186,7 +467,7 @@ function LLMProfilesPanel() {
 				type: 'profiles:create',
 				input: {
 					title: createTitle.trim() || undefined,
-					provider: createProvider,
+					provider,
 					model: createModel.trim() || undefined,
 					baseURL: createBaseURL.trim() || undefined,
 					priority: createPriority,
@@ -211,13 +492,13 @@ function LLMProfilesPanel() {
 		createApiKey,
 		createBaseURL,
 		createCircuitEnabled,
-			createConfigJson,
-			createFailureThreshold,
-			createModel,
-			createOpenSeconds,
-			createOptionsJson,
-			createPriority,
-			createProvider,
+		createConfigJson,
+		createFailureThreshold,
+		createModel,
+		createOpenSeconds,
+		createOptionsJson,
+		createPriority,
+		createProvider,
 		createTitle,
 		refresh,
 		request,
@@ -225,11 +506,16 @@ function LLMProfilesPanel() {
 
 	const openEdit = useCallback(
 		(p: Profile) => {
+			const matchedPreset = PROVIDER_PRESETS.find((preset) => preset.provider === p.provider)
+			setEditPresetId(matchedPreset?.id ?? 'custom')
 			setEditId(p.id)
 			setEditTitle(p.title ?? '')
 			setEditProvider(p.provider ?? '')
 			setEditModel(p.model ?? '')
+			setEditModelOptions([])
+			setEditModelError(null)
 			setEditBaseURL(p.baseURL ?? '')
+			setEditApiKey('')
 			setEditEnabled(!!p.enabled)
 			setEditPriority(p.priority ?? 0)
 			setEditCircuitEnabled(p.circuit?.enabled !== false)
@@ -249,6 +535,11 @@ function LLMProfilesPanel() {
 	const saveEdit = useCallback(async () => {
 		if (!editId) return
 		try {
+			const provider = editProvider.trim()
+			if (!provider) {
+				setError('Provider 不能为空')
+				return
+			}
 			const config = parseJsonObject('Config', editConfigJson)
 			const options = parseJsonObject('Options', editOptionsJson)
 
@@ -258,7 +549,7 @@ function LLMProfilesPanel() {
 				input: {
 					enabled: editEnabled,
 					title: editTitle.trim() || undefined,
-					provider: editProvider,
+					provider,
 					model: editModel.trim() || undefined,
 					baseURL: editBaseURL.trim() || undefined,
 					priority: editPriority,
@@ -273,6 +564,13 @@ function LLMProfilesPanel() {
 			})
 			if (!res.ok) return setError(errorMessage(res.err, '无法更新 profile'))
 
+			const apiKey = editApiKey.trim()
+			if (apiKey) {
+				const keyRes = await request({ type: 'profiles:setApiKey', id: editId, apiKey })
+				if (!keyRes.ok) return setError(errorMessage(keyRes.err, '无法设置 API key'))
+			}
+
+			setEditApiKey('')
 			setEditOpen(false)
 			await refresh()
 		} catch (e) {
@@ -291,9 +589,17 @@ function LLMProfilesPanel() {
 		editPriority,
 		editProvider,
 		editTitle,
+		editApiKey,
 		refresh,
 		request,
 	])
+
+	const createPreset = resolvePreset(createPresetId)
+	const editPreset = resolvePreset(editPresetId)
+	const createModelListUrl = resolveModelListUrl(createBaseURL.trim() || createPreset.baseURL || '', createPreset.modelListPath)
+	const editModelListUrl = resolveModelListUrl(editBaseURL.trim() || editPreset.baseURL || '', editPreset.modelListPath)
+	const showCreateBaseURL = createPreset.id === 'custom' || !createPreset.baseURL
+	const showEditBaseURL = editPreset.id === 'custom' || !editPreset.baseURL
 
 	return (
 		<Stack gap="md">
@@ -308,7 +614,7 @@ function LLMProfilesPanel() {
 					<ActionIcon variant="light" onClick={() => void refresh()} aria-label="刷新">
 						<IconRefresh size={16} />
 					</ActionIcon>
-					<Button size="xs" leftSection={<IconCirclePlus size={14} />} onClick={() => setCreateOpen(true)}>
+					<Button size="xs" leftSection={<IconCirclePlus size={14} />} onClick={openCreate}>
 						New
 					</Button>
 				</Group>
@@ -333,10 +639,11 @@ function LLMProfilesPanel() {
 					<Stack gap={6}>
 						<Text fw={600}>No profiles yet</Text>
 						<Text size="sm" c="dimmed">
-							Click <Code>New</Code> to create your first LLM profile. API keys are stored in Vault; only a masked preview is shown here.
+							Click <Code>New</Code> to create your first LLM profile. Provider presets can auto-fill baseURL and fetch models. API keys
+							are stored in Vault; only a masked preview is shown here.
 						</Text>
 						<Group>
-							<Button size="xs" variant="light" leftSection={<IconCirclePlus size={14} />} onClick={() => setCreateOpen(true)}>
+							<Button size="xs" variant="light" leftSection={<IconCirclePlus size={14} />} onClick={openCreate}>
 								Create profile
 							</Button>
 						</Group>
@@ -344,41 +651,47 @@ function LLMProfilesPanel() {
 				</Card>
 			) : null}
 
-				{settings ? (
-					<Card withBorder radius="md" p="md">
-						<Group justify="space-between" align="center">
+			{settings ? (
+				<Accordion variant="contained" radius="md">
+					<Accordion.Item value="circuit">
+						<Accordion.Control>
 							<Group gap="xs">
 								<Text fw={600}>Circuit Breaker</Text>
 								<Badge variant="light" color="gray">
 									<Code>defaults</Code>
 								</Badge>
 							</Group>
-							<Button size="xs" variant="light" onClick={() => void saveSettings()}>
-								Save
-							</Button>
-						</Group>
-						<Group mt="sm" grow align="end">
-							<Switch
-								label="Circuit enabled"
-								checked={settingsCircuitEnabled}
-								onChange={(e) => setSettingsCircuitEnabled(e.currentTarget.checked)}
-						/>
-						<NumberInput
-							label="Failure threshold"
-							value={settingsCircuitFailureThreshold}
-							min={1}
-							max={100}
-							onChange={(v) => setSettingsCircuitFailureThreshold(Number(v) || 1)}
-						/>
-						<NumberInput
-							label="Open seconds"
-							value={settingsCircuitOpenSeconds}
-							min={1}
-							max={3600}
-							onChange={(v) => setSettingsCircuitOpenSeconds(Number(v) || 1)}
-						/>
-					</Group>
-				</Card>
+						</Accordion.Control>
+						<Accordion.Panel>
+							<Group justify="flex-end">
+								<Button size="xs" variant="light" onClick={() => void saveSettings()}>
+									Save
+								</Button>
+							</Group>
+							<Group mt="sm" grow align="end">
+								<Switch
+									label="Circuit enabled"
+									checked={settingsCircuitEnabled}
+									onChange={(e) => setSettingsCircuitEnabled(e.currentTarget.checked)}
+								/>
+								<NumberInput
+									label="Failure threshold"
+									value={settingsCircuitFailureThreshold}
+									min={1}
+									max={100}
+									onChange={(v) => setSettingsCircuitFailureThreshold(Number(v) || 1)}
+								/>
+								<NumberInput
+									label="Open seconds"
+									value={settingsCircuitOpenSeconds}
+									min={1}
+									max={3600}
+									onChange={(v) => setSettingsCircuitOpenSeconds(Number(v) || 1)}
+								/>
+							</Group>
+						</Accordion.Panel>
+					</Accordion.Item>
+				</Accordion>
 			) : null}
 
 			{profiles.map((p) => {
@@ -386,21 +699,31 @@ function LLMProfilesPanel() {
 				const overrideEnabled = p.circuit?.enabled
 				const globalEnabled = settings?.circuit?.enabled ?? true
 				const circuitEnabled = overrideEnabled === undefined ? globalEnabled : overrideEnabled !== false
-					const isOpen = circuitEnabled && typeof openUntil === 'number' && openUntil > Date.now()
+				const isOpen = circuitEnabled && typeof openUntil === 'number' && openUntil > Date.now()
+				const detailsOpen = !!expandedIds[p.id]
 
-					return (
-						<Card key={p.id} withBorder radius="md" p="md">
-							<Group justify="space-between" align="center">
-								<Stack gap={4}>
-									<Group gap="xs">
-										<Text fw={600}>{p.title ?? p.provider}</Text>
-										{p.enabled ? (
-											<Badge color="teal" variant="light">
-												Enabled
-											</Badge>
-										) : (
+				return (
+					<Card key={p.id} withBorder radius="md" p="md">
+						<Group justify="space-between" align="center">
+							<Stack gap={6}>
+								<Group gap="xs">
+									<Text fw={600}>{p.title ?? p.provider}</Text>
+									{p.enabled ? (
+										<Badge color="teal" variant="light">
+											Enabled
+										</Badge>
+									) : (
 										<Badge color="gray" variant="light">
 											Disabled
+										</Badge>
+									)}
+									{p.hasApiKey ? (
+										<Badge color="blue" variant="light">
+											Key set
+										</Badge>
+									) : (
+										<Badge color="orange" variant="light">
+											Key missing
 										</Badge>
 									)}
 									{isOpen ? (
@@ -414,6 +737,96 @@ function LLMProfilesPanel() {
 									)}
 								</Group>
 								<Text size="sm" c="dimmed">
+									{p.provider}
+									{p.model ? ` · ${p.model}` : ''}
+									{p.baseURL ? ` · ${p.baseURL}` : ''}
+								</Text>
+							</Stack>
+							<Group gap="xs">
+								<ActionIcon
+									variant="light"
+									aria-label={p.enabled ? '禁用' : '启用'}
+									onClick={async () => {
+										try {
+											const r = await request({ type: 'profiles:update', id: p.id, input: { enabled: !p.enabled } })
+											if (!r.ok) return setError(errorMessage(r.err, '无法更新 enabled'))
+											await refresh()
+										} catch (e) {
+											setError(rpcErrorMessage(e, '无法更新 enabled'))
+										}
+									}}
+								>
+									{p.enabled ? <IconToggleRight size={16} /> : <IconToggleLeft size={16} />}
+								</ActionIcon>
+								<ActionIcon variant="light" aria-label="详情" onClick={() => toggleDetails(p.id)}>
+									{detailsOpen ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+								</ActionIcon>
+								<Menu shadow="md" width={200} position="bottom-end">
+									<Menu.Target>
+										<ActionIcon variant="light" aria-label="更多">
+											<IconDots size={16} />
+										</ActionIcon>
+									</Menu.Target>
+									<Menu.Dropdown>
+										<Menu.Item leftSection={<IconPencil size={14} />} onClick={() => openEdit(p)}>
+											Edit
+										</Menu.Item>
+										<Menu.Item leftSection={<IconKey size={14} />} onClick={() => openEdit(p)}>
+											Set API key
+										</Menu.Item>
+										<Menu.Item
+											leftSection={<IconKeyOff size={14} />}
+											onClick={async () => {
+												try {
+													const r = await request({ type: 'profiles:clearApiKey', id: p.id })
+													if (!r.ok) return setError(errorMessage(r.err, '无法清除 API key'))
+													await refresh()
+												} catch (e) {
+													setError(rpcErrorMessage(e, '无法清除 API key'))
+												}
+											}}
+										>
+											Clear API key
+										</Menu.Item>
+										<Menu.Item
+											leftSection={<IconRefresh size={14} />}
+											onClick={async () => {
+												try {
+													const r = await request({ type: 'profiles:resetHealth', id: p.id })
+													if (!r.ok) return setError(errorMessage(r.err, '无法重置健康状态'))
+													await refresh()
+												} catch (e) {
+													setError(rpcErrorMessage(e, '无法重置健康状态'))
+												}
+											}}
+										>
+											Reset health
+										</Menu.Item>
+										<Menu.Item
+											color="red"
+											leftSection={<IconTrash size={14} />}
+											onClick={async () => {
+												const yes = window.confirm(`Delete profile "${p.title ?? p.provider}"?`)
+												if (!yes) return
+												try {
+													const r = await request({ type: 'profiles:delete', id: p.id })
+													if (!r.ok) return setError(errorMessage(r.err, '无法删除 profile'))
+													await refresh()
+												} catch (e) {
+													setError(rpcErrorMessage(e, '无法删除 profile'))
+												}
+											}}
+										>
+											Delete
+										</Menu.Item>
+									</Menu.Dropdown>
+								</Menu>
+							</Group>
+						</Group>
+						<Collapse in={detailsOpen}>
+							<Divider my="sm" />
+							<Stack gap={4}>
+								<Text size="xs" c="dimmed">
 									provider: <Code>{p.provider}</Code> {p.model ? <>model: <Code>{p.model}</Code></> : null}{' '}
 									{p.baseURL ? <>baseURL: <Code>{p.baseURL}</Code></> : null}
 								</Text>
@@ -434,203 +847,268 @@ function LLMProfilesPanel() {
 									apiKey: <Code>{p.hasApiKey ? p.apiKeyPreview ?? 'set' : 'missing'}</Code>
 								</Text>
 							</Stack>
-							<Group gap="xs">
-								<ActionIcon variant="light" aria-label="编辑" onClick={() => openEdit(p)}>
-									<IconPencil size={16} />
-								</ActionIcon>
-								<ActionIcon
-									variant="light"
-									aria-label={p.enabled ? '禁用' : '启用'}
-									onClick={async () => {
-										try {
-											const r = await request({ type: 'profiles:update', id: p.id, input: { enabled: !p.enabled } })
-											if (!r.ok) return setError(errorMessage(r.err, '无法更新 enabled'))
-											await refresh()
-										} catch (e) {
-											setError(rpcErrorMessage(e, '无法更新 enabled'))
-										}
-									}}
-								>
-									{p.enabled ? <IconToggleRight size={16} /> : <IconToggleLeft size={16} />}
-									</ActionIcon>
-									<ActionIcon
-										variant="light"
-										aria-label="重置熔断/健康"
-										onClick={async () => {
-											try {
-												const r = await request({ type: 'profiles:resetHealth', id: p.id })
-											if (!r.ok) return setError(errorMessage(r.err, '无法重置健康状态'))
-											await refresh()
-										} catch (e) {
-											setError(rpcErrorMessage(e, '无法重置健康状态'))
-										}
-									}}
-								>
-									<IconRefresh size={16} />
-								</ActionIcon>
-								<ActionIcon
-									variant="light"
-									aria-label="设置 API key"
-									onClick={async () => {
-										const next = window.prompt('API key（将安全写入 Vault）', '')
-										if (!next) return
-										try {
-											const r = await request({ type: 'profiles:setApiKey', id: p.id, apiKey: next })
-											if (!r.ok) return setError(errorMessage(r.err, '无法设置 API key'))
-											await refresh()
-										} catch (e) {
-											setError(rpcErrorMessage(e, '无法设置 API key'))
-										}
-									}}
-								>
-									<IconKey size={16} />
-								</ActionIcon>
-								<ActionIcon
-									variant="light"
-									aria-label="清除 API key"
-									onClick={async () => {
-										try {
-											const r = await request({ type: 'profiles:clearApiKey', id: p.id })
-											if (!r.ok) return setError(errorMessage(r.err, '无法清除 API key'))
-											await refresh()
-										} catch (e) {
-											setError(rpcErrorMessage(e, '无法清除 API key'))
-										}
-									}}
-								>
-									<IconKeyOff size={16} />
-								</ActionIcon>
-								<ActionIcon
-									variant="light"
-									color="red"
-									aria-label="删除"
-									onClick={async () => {
-										const yes = window.confirm(`Delete profile "${p.title ?? p.provider}"?`)
-										if (!yes) return
-										try {
-											const r = await request({ type: 'profiles:delete', id: p.id })
-											if (!r.ok) return setError(errorMessage(r.err, '无法删除 profile'))
-											await refresh()
-										} catch (e) {
-											setError(rpcErrorMessage(e, '无法删除 profile'))
-										}
-									}}
-								>
-									<IconTrash size={16} />
-								</ActionIcon>
-							</Group>
-						</Group>
+						</Collapse>
 					</Card>
 				)
 			})}
 
-			<Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="Create LLM Profile">
+			<Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="Create LLM Profile" size="lg">
 				<Stack gap="sm">
+					<Select label="Provider preset" data={PRESET_OPTIONS} value={createPresetId} onChange={handleCreatePresetChange} />
+					{createPreset.note ? (
+						<Text size="xs" c="dimmed">
+							{createPreset.note}
+						</Text>
+					) : null}
 					<TextInput label="Title (optional)" value={createTitle} onChange={(e) => setCreateTitle(e.currentTarget.value)} />
-					<TextInput label="Provider" value={createProvider} onChange={(e) => setCreateProvider(e.currentTarget.value)} />
-					<TextInput label="Model" value={createModel} onChange={(e) => setCreateModel(e.currentTarget.value)} />
 					<TextInput
-						label="baseURL (optional)"
-						value={createBaseURL}
-						onChange={(e) => setCreateBaseURL(e.currentTarget.value)}
-						placeholder="https://api.openai.com/v1"
+						label="Provider id"
+						value={createProvider}
+						onChange={(e) => setCreateProvider(e.currentTarget.value)}
+						disabled={createPreset.id !== 'custom'}
 					/>
-					<NumberInput label="Priority" value={createPriority} onChange={(v) => setCreatePriority(Number(v) || 0)} />
-					<Group grow>
-						<Switch label="Circuit enabled" checked={createCircuitEnabled} onChange={(e) => setCreateCircuitEnabled(e.currentTarget.checked)} />
-						<NumberInput
-							label="Failure threshold"
-							value={createFailureThreshold}
-							min={1}
-							max={100}
-							onChange={(v) => setCreateFailureThreshold(Number(v) || 1)}
-						/>
-						<NumberInput
-							label="Open seconds"
-							value={createOpenSeconds}
-							min={1}
-							max={3600}
-							onChange={(v) => setCreateOpenSeconds(Number(v) || 1)}
-						/>
-					</Group>
-					<Textarea
-						label="Config (JSON)"
-						autosize
-						minRows={2}
-						maxRows={6}
-						value={createConfigJson}
-						onChange={(e) => setCreateConfigJson(e.currentTarget.value)}
-					/>
-					<Textarea
-						label="Options (JSON)"
-						autosize
-						minRows={2}
-						maxRows={6}
-						value={createOptionsJson}
-						onChange={(e) => setCreateOptionsJson(e.currentTarget.value)}
-						/>
+					{showCreateBaseURL ? (
 						<TextInput
-							label="API key"
-							leftSection={<IconKey size={14} />}
-							type="password"
-							value={createApiKey}
-							onChange={(e) => setCreateApiKey(e.currentTarget.value)}
+							label="Base URL"
+							value={createBaseURL}
+							onChange={(e) => setCreateBaseURL(e.currentTarget.value)}
+							placeholder="https://api.openai.com/v1"
 						/>
-						<Group justify="flex-end">
-							<Button variant="light" onClick={() => setCreateOpen(false)}>
-								Cancel
-							</Button>
+					) : null}
+					<Group align="end" grow>
+						<Autocomplete
+							label="Model"
+							value={createModel}
+							onChange={setCreateModel}
+							data={createModelOptions}
+							placeholder={createPreset.modelHint ?? 'e.g. gpt-4o-mini'}
+						/>
+						<Button
+							variant="light"
+							loading={createModelLoading}
+							disabled={!createModelListUrl}
+							onClick={() => void loadCreateModels()}
+						>
+							Fetch models
+						</Button>
+					</Group>
+					{createModelError ? (
+						<Text size="xs" c="red">
+							{createModelError}
+						</Text>
+					) : null}
+					{!createModelListUrl ? (
+						<Text size="xs" c="dimmed">
+							该 provider 暂不支持自动拉取 models（或 baseURL 未配置），请手动填写模型名。
+						</Text>
+					) : null}
+					<TextInput
+						label="API key"
+						leftSection={<IconKey size={14} />}
+						type="password"
+						value={createApiKey}
+						onChange={(e) => setCreateApiKey(e.currentTarget.value)}
+						description="留空时将创建无 key 的 profile（仅适用于无需鉴权的代理）。"
+					/>
+
+					<Accordion variant="contained" radius="md">
+						<Accordion.Item value="advanced">
+							<Accordion.Control>Advanced</Accordion.Control>
+							<Accordion.Panel>
+								<Stack gap="sm">
+									{!showCreateBaseURL ? (
+										<TextInput
+											label="Base URL override (optional)"
+											value={createBaseURL}
+											onChange={(e) => setCreateBaseURL(e.currentTarget.value)}
+											placeholder={createPreset.baseURL ?? 'https://api.openai.com/v1'}
+										/>
+									) : null}
+									<NumberInput label="Priority" value={createPriority} onChange={(v) => setCreatePriority(Number(v) || 0)} />
+									<Group grow>
+										<Switch
+											label="Circuit enabled"
+											checked={createCircuitEnabled}
+											onChange={(e) => setCreateCircuitEnabled(e.currentTarget.checked)}
+										/>
+										<NumberInput
+											label="Failure threshold"
+											value={createFailureThreshold}
+											min={1}
+											max={100}
+											onChange={(v) => setCreateFailureThreshold(Number(v) || 1)}
+										/>
+										<NumberInput
+											label="Open seconds"
+											value={createOpenSeconds}
+											min={1}
+											max={3600}
+											onChange={(v) => setCreateOpenSeconds(Number(v) || 1)}
+										/>
+									</Group>
+									<Textarea
+										label="Config (JSON)"
+										autosize
+										minRows={2}
+										maxRows={6}
+										value={createConfigJson}
+										onChange={(e) => setCreateConfigJson(e.currentTarget.value)}
+									/>
+									<Textarea
+										label="Options (JSON)"
+										autosize
+										minRows={2}
+										maxRows={6}
+										value={createOptionsJson}
+										onChange={(e) => setCreateOptionsJson(e.currentTarget.value)}
+									/>
+								</Stack>
+							</Accordion.Panel>
+						</Accordion.Item>
+					</Accordion>
+
+					<Group justify="flex-end">
+						<Button variant="light" onClick={() => setCreateOpen(false)}>
+							Cancel
+						</Button>
 						<Button onClick={() => void createProfile()}>Create</Button>
 					</Group>
 				</Stack>
 			</Modal>
 
-			<Modal opened={editOpen} onClose={() => setEditOpen(false)} title="Edit LLM Profile">
+			<Modal opened={editOpen} onClose={() => setEditOpen(false)} title="Edit LLM Profile" size="lg">
 				<Stack gap="sm">
-					<TextInput label="Title (optional)" value={editTitle} onChange={(e) => setEditTitle(e.currentTarget.value)} />
-					<TextInput label="Provider" value={editProvider} onChange={(e) => setEditProvider(e.currentTarget.value)} />
-					<TextInput label="Model" value={editModel} onChange={(e) => setEditModel(e.currentTarget.value)} />
-					<TextInput
-						label="baseURL (optional)"
-						value={editBaseURL}
-						onChange={(e) => setEditBaseURL(e.currentTarget.value)}
-						placeholder="https://api.openai.com/v1"
-					/>
-					<Switch label="Enabled" checked={editEnabled} onChange={(e) => setEditEnabled(e.currentTarget.checked)} />
-					<NumberInput label="Priority" value={editPriority} onChange={(v) => setEditPriority(Number(v) || 0)} />
-					<Group grow>
-						<Switch label="Circuit enabled" checked={editCircuitEnabled} onChange={(e) => setEditCircuitEnabled(e.currentTarget.checked)} />
-						<NumberInput
-							label="Failure threshold"
-							value={editFailureThreshold}
-							min={1}
-							max={100}
-							onChange={(v) => setEditFailureThreshold(Number(v) || 1)}
-						/>
-						<NumberInput
-							label="Open seconds"
-							value={editOpenSeconds}
-							min={1}
-							max={3600}
-							onChange={(v) => setEditOpenSeconds(Number(v) || 1)}
-						/>
+					<Select label="Provider preset" data={PRESET_OPTIONS} value={editPresetId} onChange={handleEditPresetChange} />
+					{editPreset.note ? (
+						<Text size="xs" c="dimmed">
+							{editPreset.note}
+						</Text>
+					) : null}
+					<Group grow align="end">
+						<TextInput label="Title (optional)" value={editTitle} onChange={(e) => setEditTitle(e.currentTarget.value)} />
+						<Switch label="Enabled" checked={editEnabled} onChange={(e) => setEditEnabled(e.currentTarget.checked)} />
 					</Group>
-					<Textarea
-						label="Config (JSON)"
-						autosize
-						minRows={2}
-						maxRows={8}
-						value={editConfigJson}
-						onChange={(e) => setEditConfigJson(e.currentTarget.value)}
+					<TextInput
+						label="Provider id"
+						value={editProvider}
+						onChange={(e) => setEditProvider(e.currentTarget.value)}
+						disabled={editPreset.id !== 'custom'}
 					/>
-					<Textarea
-						label="Options (JSON)"
-						autosize
-						minRows={2}
-						maxRows={8}
-						value={editOptionsJson}
-						onChange={(e) => setEditOptionsJson(e.currentTarget.value)}
-					/>
+					{showEditBaseURL ? (
+						<TextInput
+							label="Base URL"
+							value={editBaseURL}
+							onChange={(e) => setEditBaseURL(e.currentTarget.value)}
+							placeholder="https://api.openai.com/v1"
+						/>
+					) : null}
+					<Group align="end" grow>
+						<Autocomplete
+							label="Model"
+							value={editModel}
+							onChange={setEditModel}
+							data={editModelOptions}
+							placeholder={editPreset.modelHint ?? 'e.g. gpt-4o-mini'}
+						/>
+						<Button
+							variant="light"
+							loading={editModelLoading}
+							disabled={!editModelListUrl}
+							onClick={() => void loadEditModels()}
+						>
+							Fetch models
+						</Button>
+					</Group>
+					{editModelError ? (
+						<Text size="xs" c="red">
+							{editModelError}
+						</Text>
+					) : null}
+					{!editModelListUrl ? (
+						<Text size="xs" c="dimmed">
+							该 provider 暂不支持自动拉取 models（或 baseURL 未配置），请手动填写模型名。
+						</Text>
+					) : null}
+					<Group grow align="end">
+						<TextInput
+							label="API key"
+							leftSection={<IconKey size={14} />}
+							type="password"
+							value={editApiKey}
+							onChange={(e) => setEditApiKey(e.currentTarget.value)}
+							description="留空表示不修改；保存时才会写入 Vault。"
+						/>
+						<Button
+							variant="light"
+							color="red"
+							leftSection={<IconKeyOff size={14} />}
+							onClick={async () => {
+								if (!editId) return
+								try {
+									const r = await request({ type: 'profiles:clearApiKey', id: editId })
+									if (!r.ok) return setError(errorMessage(r.err, '无法清除 API key'))
+									await refresh()
+								} catch (e) {
+									setError(rpcErrorMessage(e, '无法清除 API key'))
+								}
+							}}
+						>
+							Clear key
+						</Button>
+					</Group>
+
+					<Accordion variant="contained" radius="md">
+						<Accordion.Item value="advanced">
+							<Accordion.Control>Advanced</Accordion.Control>
+							<Accordion.Panel>
+								<Stack gap="sm">
+									{!showEditBaseURL ? (
+										<TextInput
+											label="Base URL override (optional)"
+											value={editBaseURL}
+											onChange={(e) => setEditBaseURL(e.currentTarget.value)}
+											placeholder={editPreset.baseURL ?? 'https://api.openai.com/v1'}
+										/>
+									) : null}
+									<NumberInput label="Priority" value={editPriority} onChange={(v) => setEditPriority(Number(v) || 0)} />
+									<Group grow>
+										<Switch label="Circuit enabled" checked={editCircuitEnabled} onChange={(e) => setEditCircuitEnabled(e.currentTarget.checked)} />
+										<NumberInput
+											label="Failure threshold"
+											value={editFailureThreshold}
+											min={1}
+											max={100}
+											onChange={(v) => setEditFailureThreshold(Number(v) || 1)}
+										/>
+										<NumberInput
+											label="Open seconds"
+											value={editOpenSeconds}
+											min={1}
+											max={3600}
+											onChange={(v) => setEditOpenSeconds(Number(v) || 1)}
+										/>
+									</Group>
+									<Textarea
+										label="Config (JSON)"
+										autosize
+										minRows={2}
+										maxRows={8}
+										value={editConfigJson}
+										onChange={(e) => setEditConfigJson(e.currentTarget.value)}
+									/>
+									<Textarea
+										label="Options (JSON)"
+										autosize
+										minRows={2}
+										maxRows={8}
+										value={editOptionsJson}
+										onChange={(e) => setEditOptionsJson(e.currentTarget.value)}
+									/>
+								</Stack>
+							</Accordion.Panel>
+						</Accordion.Item>
+					</Accordion>
+
 					<Group justify="flex-end">
 						<Button variant="light" onClick={() => setEditOpen(false)}>
 							Cancel

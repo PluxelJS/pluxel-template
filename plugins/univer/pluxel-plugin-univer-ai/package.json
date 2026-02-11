@@ -1,8 +1,8 @@
 {
 	"$schema": "https://market.pluxel.dev/schema/package.json",
-	"name": "pluxel-plugin-univer-workbooks",
+	"name": "pluxel-plugin-univer-ai",
 	"version": "0.1.0",
-	"description": "Univer workbook data/control plane (RPC + HTTP) for snapshots and save workflow.",
+	"description": "Univer AI capability plugin: exposes AI availability via LLMHub profiles (no loopback RPC).",
 	"type": "module",
 	"exports": {
 		".": {
@@ -17,11 +17,15 @@
 		"!**/*.map"
 	],
 	"scripts": {
-		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-univer-workbooks",
+		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-univer-ai",
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json"
 	},
-	"dependencies": {},
+	"dependencies": {
+		"@pluxel/univer-headless": "workspace:^",
+		"pluxel-plugin-llm-hub": "workspace:^",
+		"pluxel-plugin-univer": "workspace:^"
+	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
@@ -29,3 +33,4 @@
 		}
 	}
 }
+

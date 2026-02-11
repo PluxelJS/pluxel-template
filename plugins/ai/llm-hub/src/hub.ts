@@ -18,6 +18,7 @@ import { normalizeCircuitConfig, normalizeObject, normalizeOptionalString, norma
 import { migrateLegacyProfiles } from './internal/migrations'
 import { normalizeProfileDoc, sortCandidates } from './internal/selection'
 import { registerLLMHubExtensions } from './extensions'
+import { parseModelList, resolveModelListUrl } from './models'
 
 const hasOwn = (obj: object, key: PropertyKey) => Object.prototype.hasOwnProperty.call(obj, key)
 
@@ -45,6 +46,12 @@ export class LLMHub extends LLM {
 		migrateLegacyProfiles(this.profiles)
 		this.ensureSettingsDoc()
 		registerLLMHubExtensions({ ctx: this.ctx, hub: this })
+		try {
+			const off = this.registerHttpRoutes()
+			this.ctx.effects.defer(off)
+		} catch (error) {
+			this.ctx.logger.warn('LLMHub HTTP routes registration skipped', { error })
+		}
 	}
 
 	protected override stop(_abort: AbortSignal): void {
@@ -63,6 +70,66 @@ export class LLMHub extends LLM {
 
 	private getSettings(): LLMHubSettingsDoc {
 		return this.settings.findOne({ id: 'default' }) ?? defaultSettings()
+	}
+
+	private registerHttpRoutes(): () => void {
+		const base = '/api/llm'
+		return this.ctx.honoService.modifyApp((app) => {
+			app.post(`${base}/models`, async (c) => {
+				let body: unknown
+				try {
+					body = await c.req.json()
+				} catch {
+					return c.json({ ok: false, error: 'invalid json' }, 400)
+				}
+				if (!body || typeof body !== 'object') return c.json({ ok: false, error: 'invalid payload' }, 400)
+				const input = body as Record<string, unknown>
+
+				const profileId = typeof input.profileId === 'string' ? input.profileId.trim() : ''
+				const modelListPath =
+					typeof input.modelListPath === 'string' ? input.modelListPath : input.modelListPath === null ? null : undefined
+
+				let baseURL = typeof input.baseURL === 'string' ? input.baseURL.trim() : ''
+				let apiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : ''
+
+				if (!baseURL && profileId) {
+					const profile = this.profiles.findOne({ id: profileId })
+					baseURL = typeof profile?.baseURL === 'string' ? profile.baseURL.trim() : ''
+				}
+
+				if (!apiKey && profileId) {
+					const res = await this.readApiKeyResult(profileId)
+					if (res.ok) apiKey = res.val
+				}
+
+				const url = resolveModelListUrl(baseURL, modelListPath)
+				if (!url) return c.json({ ok: false, error: 'models endpoint unavailable' }, 400)
+				if (!/^https?:\/\//i.test(url)) return c.json({ ok: false, error: 'models url invalid' }, 400)
+
+				try {
+					const headers: Record<string, string> = { Accept: 'application/json' }
+					if (apiKey) {
+						headers.Authorization = `Bearer ${apiKey}`
+						headers['X-API-Key'] = apiKey
+					}
+
+					const res = await fetch(url, { headers })
+					if (!res.ok) {
+						const text = await res.text().catch(() => '')
+						const msg = text ? ` ${text.slice(0, 200)}` : ''
+						return c.json({ ok: false, error: `upstream ${res.status}${msg}`.trim() }, 502)
+					}
+
+					const payload = await res.json().catch(() => null)
+					const models = parseModelList(payload)
+					if (!models.length) return c.json({ ok: false, error: 'models list empty or unrecognized' }, 502)
+
+					return c.json({ ok: true, models })
+				} catch (error) {
+					return c.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 502)
+				}
+			})
+		})
 	}
 
 	private resolveProfileByIdResult(id: string): Result<LLMProfileDoc, LLMError> {

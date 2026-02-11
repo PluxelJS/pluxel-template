@@ -17,6 +17,7 @@
 		"dist"
 	],
 	"scripts": {
+		"test": "pnpm -C ../../.. exec vitest run -c vitest.config.ts --project @pluxel/websocket",
 		"build": "pluxel build",
 		"build:builtin": "pluxel build"
 	},

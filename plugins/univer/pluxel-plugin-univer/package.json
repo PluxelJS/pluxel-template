@@ -17,6 +17,7 @@
 		"!**/*.map"
 	],
 	"scripts": {
+		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-univer",
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json"
 	},

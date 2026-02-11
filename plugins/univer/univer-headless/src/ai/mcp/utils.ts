@@ -32,6 +32,12 @@ export function resolveSheet(workbook: any, sheetId?: string, sheetName?: string
 		const byName = workbook.getSheetByName?.(sheetName)
 		if (byName) return byName
 	}
+	if (sheetId || sheetName) {
+		const id = sheetId ? String(sheetId) : ''
+		const name = sheetName ? String(sheetName) : ''
+		const details = [id ? `sheetId=${id}` : null, name ? `sheetName=${name}` : null].filter(Boolean).join(', ')
+		throw new Error(details ? `[univer] sheet not found (${details})` : '[univer] sheet not found')
+	}
 	const active = workbook.getActiveSheet?.()
 	if (active) return active
 	const sheets = workbook.getSheets?.() ?? []
@@ -47,7 +53,7 @@ export function getSheetId(sheet: any): string {
 
 export function getSheetName(sheet: any): string {
 	const name = typeof sheet?.getName === 'function' ? String(sheet.getName()) : ''
-	return name || 'Sheet'
+	return name.trim() || 'Sheet'
 }
 
 export function toMatrix(input: unknown): unknown[][] {

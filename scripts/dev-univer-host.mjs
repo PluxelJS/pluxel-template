@@ -8,4 +8,3 @@ const runner = createDevRunner({ env: { PLUXEL_HMR_PROFILE: hmrProfile } })
 runner.runSync('node', ['scripts/predev.mjs'])
 
 runner.run('host', 'node', ['--conditions=@pluxel/hmr', 'src/index.ts'])
-runner.run('univer-web', 'pnpm', ['--filter', 'pluxel-univer-web', 'dev'])

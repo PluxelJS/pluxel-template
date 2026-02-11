@@ -21,6 +21,7 @@
     "!**/*.map"
   ],
   "scripts": {
+    "test": "pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-canvas-worker",
     "build": "pluxel build"
   },
   "dependencies": {

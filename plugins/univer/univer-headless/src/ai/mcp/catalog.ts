@@ -13,10 +13,13 @@ type McpToolCatalogEntry = Readonly<{
 }>
 
 export const MCP_TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
-	{ name: 'set_range_data', description: 'Set values in a cell range.', group: 'core' },
+	{ name: 'set_range_data', description: 'Set values in a cell range (matrix must match range size; formulas require per-cell strings).', group: 'core' },
+	{ name: 'set_ranges_data', description: 'Batch set values for multiple ranges in one call (each matrix must match its range).', group: 'core' },
 	{ name: 'get_range_data', description: 'Read raw values in a cell range.', group: 'core' },
+	{ name: 'get_ranges_data', description: 'Batch read raw values for multiple ranges in one call (returns order + byA1 map).', group: 'core' },
 	{ name: 'search_cells', description: 'Search for content in a cell range.', group: 'core' },
-	{ name: 'auto_fill', description: 'Auto-fill target range by tiling source values.', group: 'data' },
+	{ name: 'auto_fill', description: 'Fill target range by tiling (repeating) source values (does NOT shift formula refs).', group: 'data' },
+	{ name: 'fill_formula', description: 'Fill a formula across a target range by shifting relative refs per-cell.', group: 'data' },
 	{ name: 'get_sheets', description: 'List all worksheets.', group: 'sheet' },
 	{ name: 'get_active_unit_id', description: 'Get current workbook id and active sheet id.', group: 'sheet' },
 	{ name: 'get_activity_status', description: 'Get workbook status and info.', group: 'sheet' },
@@ -173,7 +176,14 @@ export function buildMcpToolIndexText(
 	const ordered = sortGroupsByPriority(normalizeGroups(groups))
 	if (!ordered.length) return ''
 
-	if (mode === 'groups') return `groups: ${ordered.join(', ')}`
+	if (mode === 'groups') {
+		const lines: string[] = [`groups: ${ordered.join(', ')}`]
+		if (opts?.includePresets) {
+			const presetLine = MCP_TOOL_PRESETS.map((p) => `${p.id}=${p.groups.join('+')}`).join('; ')
+			lines.push(`presets: ${presetLine}`)
+		}
+		return lines.join('\n')
+	}
 
 	const lines: string[] = ordered.map((g) => `${g}: ${listMcpToolNames([g]).join(', ')}`)
 	if (opts?.includePresets) {

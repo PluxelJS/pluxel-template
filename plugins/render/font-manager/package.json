@@ -20,6 +20,7 @@
     "!**/*.map"
   ],
   "scripts": {
+    "test": "pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-font-manager",
     "build": "pluxel build"
   },
   "peerDependencies": {

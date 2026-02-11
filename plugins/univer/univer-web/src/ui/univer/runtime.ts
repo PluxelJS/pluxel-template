@@ -24,6 +24,13 @@ export type UniverRuntime = {
 	applyWatermark(config: unknown): void
 	clearWatermark(): void
 	clearOverlay(): void
+	setOverlayHighlights(input: {
+		items: ReadonlyArray<{
+			sheetId?: string | null
+			range: { startRow: number; startCol: number; endRow: number; endCol: number }
+			style?: unknown
+		}>
+	}): void
 	highlightRange(input: {
 		sheetId?: string | null
 		range: { startRow: number; startCol: number; endRow: number; endCol: number }
@@ -61,9 +68,10 @@ export function createUniverRuntime(input: {
 
 	const api = FUniver.newAPI(univer)
 	const aiEnabled = Boolean(input.aiEntryEnabled && input.onAiOpen)
-	const aiCommandDisposable = aiEnabled && input.onAiOpen ? registerAiMenu(univer, input.onAiOpen) : null
 	const fWorkbook = api.createWorkbook(normalizeWorkbookSnapshot(input))
 	const workbookId = fWorkbook.getId()
+	const aiCommandDisposable =
+		aiEnabled && input.onAiOpen ? registerAiMenu(univer, { api, workbookId: input.workbookId, onOpen: input.onAiOpen }) : null
 
 	// Ensure the created workbook becomes the focused/current unit in embedding environments (e.g. Storybook iframe),
 	// otherwise keyboard-driven editing may not be activated even though selection works.
@@ -156,6 +164,7 @@ export function createUniverRuntime(input: {
 		applyWatermark: watermark.apply,
 		clearWatermark: watermark.clear,
 		clearOverlay: overlay.clear,
+		setOverlayHighlights: overlay.setHighlights,
 		highlightRange: overlay.highlight,
 		withUndoBatch,
 		saveSnapshotJson,

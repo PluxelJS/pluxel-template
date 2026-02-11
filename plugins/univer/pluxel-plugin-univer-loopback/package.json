@@ -1,8 +1,8 @@
 {
 	"$schema": "https://market.pluxel.dev/schema/package.json",
-	"name": "pluxel-plugin-univer-workbooks",
+	"name": "pluxel-plugin-univer-loopback",
 	"version": "0.1.0",
-	"description": "Univer workbook data/control plane (RPC + HTTP) for snapshots and save workflow.",
+	"description": "Univer loopback service: runs headless Univer + Ax tools via LLMHub, commits snapshots via UniverWorkbooks.",
 	"type": "module",
 	"exports": {
 		".": {
@@ -17,11 +17,15 @@
 		"!**/*.map"
 	],
 	"scripts": {
-		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-univer-workbooks",
+		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-univer-loopback",
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json"
 	},
-	"dependencies": {},
+	"dependencies": {
+		"@pluxel/univer-headless": "workspace:^",
+		"pluxel-plugin-llm-hub": "workspace:^",
+		"pluxel-plugin-univer-workbooks": "workspace:^"
+	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
@@ -29,3 +33,4 @@
 		}
 	}
 }
+

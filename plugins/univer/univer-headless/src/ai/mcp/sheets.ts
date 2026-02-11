@@ -94,7 +94,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const get_sheets: AxFunction = {
 		name: 'get_sheets',
 		description: getMcpToolDescription('get_sheets'),
-		parameters: EmptySchema,
+		parameters: EmptySchema as any,
 		func: async (): Promise<UniverToolGetSheetsResult> => {
 			ctx.stats.toolCalls++
 			return { sheets: listSheets(ctx.workbook) }
@@ -104,7 +104,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const get_active_unit_id: AxFunction = {
 		name: 'get_active_unit_id',
 		description: getMcpToolDescription('get_active_unit_id'),
-		parameters: EmptySchema,
+		parameters: EmptySchema as any,
 		func: async (): Promise<UniverToolGetActiveUnitIdResult> => {
 			ctx.stats.toolCalls++
 			const workbookId = typeof ctx.workbook?.getId === 'function' ? String(ctx.workbook.getId()) : null
@@ -117,7 +117,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const get_activity_status: AxFunction = {
 		name: 'get_activity_status',
 		description: getMcpToolDescription('get_activity_status'),
-		parameters: EmptySchema,
+		parameters: EmptySchema as any,
 		func: async (): Promise<UniverToolGetActivityStatusResult> => {
 			ctx.stats.toolCalls++
 			const workbookId = typeof ctx.workbook?.getId === 'function' ? String(ctx.workbook.getId()) : null
@@ -131,10 +131,10 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const create_sheet: AxFunction = {
 		name: 'create_sheet',
 		description: getMcpToolDescription('create_sheet'),
-		parameters: CreateSheetSchema,
+		parameters: CreateSheetSchema as any,
 		func: async (input: UniverToolCreateSheetInput): Promise<UniverToolCreateSheetResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 			ctx.checkWriteSheet()
 
 			const name = typeof input?.name === 'string' && input.name.trim() ? input.name.trim() : undefined
@@ -145,13 +145,17 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 				callFirst(ctx.workbook, ['createSheet', 'addSheet', 'insertSheet', 'createWorksheet', 'insertWorksheet'], name)
 
 			if (sheet) {
+				ctx.bumpChange()
 				return { sheetId: getSheetId(sheet), name: getSheetName(sheet) }
 			}
 
 			// Fallback: best-effort lookup by name.
 			if (name) {
 				const byName = ctx.workbook?.getSheetByName?.(name)
-				if (byName) return { sheetId: getSheetId(byName), name: getSheetName(byName) }
+				if (byName) {
+					ctx.bumpChange()
+					return { sheetId: getSheetId(byName), name: getSheetName(byName) }
+				}
 			}
 
 			throw new Error('[univer] create sheet not supported')
@@ -161,10 +165,10 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const delete_sheet: AxFunction = {
 		name: 'delete_sheet',
 		description: getMcpToolDescription('delete_sheet'),
-		parameters: DeleteSheetSchema,
+		parameters: DeleteSheetSchema as any,
 		func: async (input: UniverToolDeleteSheetInput): Promise<UniverToolDeleteSheetResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(getSheetId(sheet), getSheetName(sheet))
@@ -176,6 +180,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 				if (typeof sheet?.dispose === 'function') sheet.dispose()
 				else throw new Error('[univer] delete sheet not supported')
 			}
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -183,10 +188,10 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const rename_sheet: AxFunction = {
 		name: 'rename_sheet',
 		description: getMcpToolDescription('rename_sheet'),
-		parameters: RenameSheetSchema,
+		parameters: RenameSheetSchema as any,
 		func: async (input: UniverToolRenameSheetInput): Promise<UniverToolRenameSheetResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(getSheetId(sheet), getSheetName(sheet))
@@ -198,6 +203,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 				callFirst(ctx.workbook, ['renameSheet', 'setSheetName'], getSheetId(sheet), newName)
 			if (res === undefined) throw new Error('[univer] rename sheet not supported')
 
+			ctx.bumpChange()
 			return { sheetId: getSheetId(sheet), name: getSheetName(sheet) }
 		},
 	}
@@ -205,7 +211,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const activate_sheet: AxFunction = {
 		name: 'activate_sheet',
 		description: getMcpToolDescription('activate_sheet'),
-		parameters: ActivateSheetSchema,
+		parameters: ActivateSheetSchema as any,
 		func: async (input: UniverToolActivateSheetInput): Promise<UniverToolActivateSheetResult> => {
 			ctx.stats.toolCalls++
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
@@ -219,10 +225,10 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const move_sheet: AxFunction = {
 		name: 'move_sheet',
 		description: getMcpToolDescription('move_sheet'),
-		parameters: MoveSheetSchema,
+		parameters: MoveSheetSchema as any,
 		func: async (input: UniverToolMoveSheetInput): Promise<UniverToolMoveSheetResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(getSheetId(sheet), getSheetName(sheet))
@@ -231,6 +237,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 				callFirst(ctx.workbook, ['moveSheet', 'moveWorksheet'], getSheetId(sheet), index) ??
 				callFirst(ctx.workbook, ['moveSheet', 'moveWorksheet'], sheet, index)
 			if (res === undefined) throw new Error('[univer] move sheet not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -238,10 +245,10 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const set_sheet_display_status: AxFunction = {
 		name: 'set_sheet_display_status',
 		description: getMcpToolDescription('set_sheet_display_status'),
-		parameters: SetSheetDisplayStatusSchema,
+		parameters: SetSheetDisplayStatusSchema as any,
 		func: async (input: UniverToolSetSheetDisplayStatusInput): Promise<UniverToolSetSheetDisplayStatusResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(getSheetId(sheet), getSheetName(sheet))
@@ -251,6 +258,7 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 				callFirst(ctx.workbook, ['setSheetHidden'], getSheetId(sheet), hidden) ??
 				callFirst(ctx.workbook, [hidden ? 'hideSheet' : 'showSheet'], getSheetId(sheet))
 			if (res === undefined) throw new Error('[univer] set sheet display status not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}

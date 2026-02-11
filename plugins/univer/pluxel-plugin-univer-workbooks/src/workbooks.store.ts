@@ -117,6 +117,7 @@ type FolderDoc = {
 
 type SnapshotDoc = {
 	id: string
+	workbookId: string
 	key: string
 	rev: number
 	etag: string
@@ -176,7 +177,7 @@ export class UniverWorkbooksStore {
 		const snapshots = new Collection<SnapshotDoc>({
 			name: COLLECTION_SNAPSHOTS,
 			persistence: await ctx.pluginData.persistenceForCollection<SnapshotDoc>(COLLECTION_SNAPSHOTS),
-			indices: [createIndex('id'), createIndex('key')],
+			indices: [createIndex('id'), createIndex('key'), createIndex('workbookId')],
 		})
 		const uploads = new Collection<UploadDoc>({
 			name: COLLECTION_UPLOADS,
@@ -206,6 +207,16 @@ export class UniverWorkbooksStore {
 				for (const f of fds) {
 					if (typeof (f as { parentId?: unknown }).parentId === 'undefined') {
 						this.folders.updateOne({ id: f.id }, { $set: { parentId: null } })
+					}
+				}
+			})
+
+			const snaps = this.snapshots.find().fetch()
+			this.snapshots.batch(() => {
+				for (const snap of snaps) {
+					if (typeof (snap as { workbookId?: unknown }).workbookId === 'undefined') {
+						// Legacy docs used `id` as workbookId; keep `id` stable, add workbookId for deletes.
+						this.snapshots.updateOne({ id: snap.id }, { $set: { workbookId: snap.id } })
 					}
 				}
 			})
@@ -348,6 +359,8 @@ export class UniverWorkbooksStore {
 
 	deleteWorkbook(id: string): { ok: true } {
 		this.workbooks.removeOne({ id })
+		this.snapshots.removeMany({ workbookId: id })
+		// Back-compat: older snapshots used `id` as workbookId.
 		this.snapshots.removeMany({ id })
 		this.uploads.removeMany({ workbookId: id })
 		return { ok: true }
@@ -426,7 +439,8 @@ export class UniverWorkbooksStore {
 		const now = Date.now()
 		const key = snapshotKey(meta.id, newRev)
 		this.snapshots.insert({
-			id: meta.id,
+			id: key,
+			workbookId: meta.id,
 			key,
 			rev: newRev,
 			etag,
@@ -471,7 +485,8 @@ export class UniverWorkbooksStore {
 		const now = Date.now()
 		const key = snapshotKey(meta.id, newRev)
 		this.snapshots.insert({
-			id: meta.id,
+			id: key,
+			workbookId: meta.id,
 			key,
 			rev: newRev,
 			etag,

@@ -5,6 +5,17 @@ export type UniverRangeLike = {
 	endCol: number
 }
 
+function shouldQuoteSheetName(name: string) {
+	return !/^[A-Za-z0-9_]+$/.test(name)
+}
+
+export function formatSheetNameForA1(name: string) {
+	const raw = String(name ?? '').trim()
+	if (!raw) return ''
+	if (!shouldQuoteSheetName(raw)) return raw
+	return `'${raw.replace(/'/g, "''")}'`
+}
+
 export function colToA1Letters(col0: number) {
 	let n = Math.max(0, Math.floor(col0)) + 1
 	let letters = ''
@@ -25,4 +36,3 @@ export function rangeToA1(range: UniverRangeLike) {
 	const end = cellToA1(range.endRow, range.endCol)
 	return start === end ? start : `${start}:${end}`
 }
-

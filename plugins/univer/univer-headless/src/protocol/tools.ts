@@ -2,9 +2,12 @@ import type { A1Notation, SheetId, UniverRange, UniverRangeRef } from './primiti
 
 export type UniverToolName =
 	| 'set_range_data'
+	| 'set_ranges_data'
 	| 'get_range_data'
+	| 'get_ranges_data'
 	| 'search_cells'
 	| 'auto_fill'
+	| 'fill_formula'
 	| 'format_brush'
 	| 'set_range_style'
 	| 'create_sheet'
@@ -57,6 +60,15 @@ export type UniverToolSetRangeDataResult = Readonly<{
 	updatedCells: number
 }>
 
+export type UniverToolSetRangesDataInput = Readonly<{
+	updates: ReadonlyArray<UniverToolSetRangeDataInput>
+}>
+
+export type UniverToolSetRangesDataResult = Readonly<{
+	updates: number
+	updatedCells: number
+}>
+
 export type UniverToolGetRangeDataInput = Readonly<
 	UniverToolRangeInput & {
 		includeDisplay?: boolean
@@ -65,10 +77,28 @@ export type UniverToolGetRangeDataInput = Readonly<
 
 export type UniverToolGetRangeDataResult = Readonly<{
 	sheetId: SheetId
-	a1?: A1Notation
+	sheetName?: string
+	/** Returned A1 (matches `range`/`values` payload; may be clipped). */
+	a1: A1Notation
+	/** Requested A1 (when the original request was larger than the returned clipped range). */
+	requestedA1?: A1Notation
 	range: UniverRange
 	values: unknown[][]
 	displayValues?: string[][]
+	truncated?: boolean
+	origRange?: UniverRange
+}>
+
+export type UniverToolGetRangesDataInput = Readonly<{
+	ranges: ReadonlyArray<UniverToolGetRangeDataInput>
+	includeDisplay?: boolean
+}>
+
+export type UniverToolGetRangesDataResult = Readonly<{
+	/** Requested A1 keys, in a stable order (deduped). Prefer this over iterating object keys. */
+	order: ReadonlyArray<A1Notation>
+	/** Canonical payload, keyed by requested A1 (or the derived requested A1 when caller omitted a1). */
+	byA1: Record<string, UniverToolGetRangeDataResult>
 }>
 
 export type UniverToolSearchCellsInput = Readonly<
@@ -90,6 +120,17 @@ export type UniverToolAutoFillInput = Readonly<{
 }>
 
 export type UniverToolAutoFillResult = Readonly<{
+	updatedCells: number
+}>
+
+export type UniverToolFillFormulaInput = Readonly<
+	UniverToolRangeInput & {
+		/** A1 formula string. Must start with '='. Relative refs will be shifted per-cell. */
+		formula: string
+	}
+>
+
+export type UniverToolFillFormulaResult = Readonly<{
 	updatedCells: number
 }>
 

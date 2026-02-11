@@ -11,6 +11,7 @@ import { parseWorkbookId } from '../shared'
 import { AiPanel } from '../ai/ai-panel'
 import { AiFloatWindow } from '../ai/ai-float-window'
 import type { LoopbackBackend } from '../ai/loopback-backend'
+import { createHttpLoopbackBackend } from '../ai/loopback-http'
 import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '../univer/plugins-sse'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
 import {
@@ -136,7 +137,8 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 	const loopbackBackend = useMemo<LoopbackBackend | null>(() => {
 		if (!univerLoopbackRpc) return null
-		return { runLoopback: univerLoopbackRpc.runLoopback.bind(univerLoopbackRpc) }
+		// Prefer HTTP for long-running LLM tasks (RPC client may have short timeouts).
+		return createHttpLoopbackBackend()
 	}, [univerLoopbackRpc])
 
 	useEffect(() => {

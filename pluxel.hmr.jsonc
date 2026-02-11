@@ -4,7 +4,7 @@
 // Manual edits are allowed but may be overwritten by the generator.
 {
 	"version": 1,
-	"profile": "dev",
+	"profile": "univer",
 	"defaults": {
 		"roots": [
 			"packages",
@@ -61,9 +61,9 @@
 		"univer": {
 			"enabled": [
 				"@pluxel/cmd",
-				"@pluxel/toolkit",
 				"@pluxel/promptkit",
-				"pluxel-plugin-llm-hub",
+				"@pluxel/toolkit",
+				"@pluxel/univer-headless",
 				"pluxel-plugin-bullmq",
 				"pluxel-plugin-cmd-catalog",
 				"pluxel-plugin-drizzle-orm",
@@ -72,12 +72,15 @@
 				"pluxel-plugin-kv",
 				"pluxel-plugin-ledger",
 				"pluxel-plugin-ledger-mikro-orm",
+				"pluxel-plugin-llm-hub",
 				"pluxel-plugin-mikro-orm",
 				"pluxel-plugin-otlp",
 				"pluxel-plugin-poll-kernel",
 				"pluxel-plugin-redis",
 				"pluxel-plugin-s3mini",
 				"pluxel-plugin-univer",
+				"pluxel-plugin-univer-ai",
+				"pluxel-plugin-univer-loopback",
 				"pluxel-plugin-univer-workbooks"
 			],
 			"builtin": [

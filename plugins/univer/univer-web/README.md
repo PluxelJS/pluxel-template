@@ -5,8 +5,9 @@ Univer 的独立前端（Vite/React）。
 ## 开发
 
 - 后端（默认 `dev` profile）：在仓库根目录运行 `pnpm dev`
-- 一键全量（后端 `univer` profile + 前端）：`pnpm dev:univer`（`dev:full` 仍可用）
-- 单独启动前端：`pnpm --filter pluxel-univer-web dev`（需另开一个终端启动后端）
+- 后端（`univer` profile）：`pnpm dev:univer`
+- 前端：`pnpm dev:univer:web`（需另开一个终端启动后端）
+- 一键全量（后端 `univer` profile + 前端）：`pnpm dev:full`
 
 如果你是单独启动前端，推荐后端用 `univer` profile：
 

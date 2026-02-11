@@ -12,7 +12,7 @@ import {
 	Tag,
 	Typography,
 } from '@douyinfe/semi-ui-19'
-import { IconPin, IconRefresh, IconX } from '@tabler/icons-react'
+import { IconX } from '@tabler/icons-react'
 import { useMemo } from 'react'
 
 import { CodeInline, Muted, SectionTitle } from '../kit'
@@ -35,24 +35,13 @@ export function AiPanel(props: AiPanelProps) {
 	}, [props.backend, props.dirty])
 
 	return (
-		<div className="univer-ai-panel">
-			<div className="univer-ai-panel__top">
-				<div className="univer-ai-panel__title">
-					<SectionTitle>AI Assistant</SectionTitle>
-					{backendTag}
+			<div className="univer-ai-panel">
+				<div className="univer-ai-panel__top">
+					<div className="univer-ai-panel__title">
+						<SectionTitle>AI Assistant</SectionTitle>
+						{backendTag}
+					</div>
 				</div>
-				<Space spacing="tight">
-					<Button
-						size="small"
-						theme="borderless"
-						icon={<IconRefresh size={16} />}
-						onClick={ctrl.refreshSelection}
-						disabled={!props.ready || ctrl.busy}
-					>
-						刷新选区
-					</Button>
-				</Space>
-			</div>
 
 			{ctrl.warn ? <Banner fullMode={false} type="warning" title="提示" description={ctrl.warn} /> : null}
 			{ctrl.error ? <Banner fullMode={false} type="danger" title="错误" description={ctrl.error} /> : null}
@@ -60,24 +49,14 @@ export function AiPanel(props: AiPanelProps) {
 			<Card bordered={false} className="univer-ai-panel__context" bodyStyle={{ padding: 12 }}>
 				<div className="univer-ai-context">
 					<div className="univer-ai-context__current">
-						<Typography.Text type="tertiary">当前选区</Typography.Text>
+						<Typography.Text type="tertiary">AI 情境</Typography.Text>
 						<div className="univer-ai-context__row">
-							{ctrl.currentSelection?.selection.range ? (
-								<>
-									<CodeInline>{ctrl.currentSelection.selection.a1 ?? '(A1 unknown)'}</CodeInline>
-									<Typography.Text type="tertiary">{ctrl.selectionLabel(ctrl.currentSelection)}</Typography.Text>
-								</>
-							) : (
-								<Typography.Text type="tertiary">（未选中）</Typography.Text>
-							)}
+							<Muted>在表格里右键“AI → 添加到 AI 情境”管理上下文（支持 Ctrl 多选）。</Muted>
 						</div>
 					</div>
 					<div className="univer-ai-context__actions">
-						<Button size="small" icon={<IconPin size={16} />} onClick={ctrl.pinCurrentSelection} disabled={!props.ready || ctrl.busy}>
-							固定为上下文
-						</Button>
 						<Button size="small" theme="borderless" disabled={!ctrl.pinnedSelections.length || ctrl.busy} onClick={ctrl.clearPins}>
-							清空上下文
+							清空
 						</Button>
 					</div>
 				</div>
@@ -104,20 +83,47 @@ export function AiPanel(props: AiPanelProps) {
 						})}
 					</div>
 				) : (
-					<Muted>（未固定额外上下文。可固定多个选区，用于跨片段对比/汇总。）</Muted>
+					<Muted>（未添加情境）</Muted>
 				)}
 
-				{ctrl.editableScopes.length ? (
-					<div style={{ marginTop: 8 }}>
-						<Typography.Text type="tertiary">可编辑范围</Typography.Text>
-						<div className="univer-ai-context__row">
+				<div style={{ marginTop: 8 }}>
+					<Typography.Text type="tertiary">写入范围</Typography.Text>
+					<div className="univer-ai-context__row" style={{ marginTop: 6 }}>
+						<Space spacing="tight" align="center">
+							<Tag color={ctrl.writeScopeMode === 'sheet' ? 'green' : 'orange'}>
+								{ctrl.writeScopeMode === 'sheet' ? '整表' : '限制'}
+							</Tag>
+							<Muted>在表格里右键“AI → 写入范围 …”调整。</Muted>
+						</Space>
+					</div>
+
+					{ctrl.editableScopes.length ? (
+						<div className="univer-ai-context__row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
 							{ctrl.editableScopes.map((a1) => (
-								<CodeInline key={a1}>{a1}</CodeInline>
+								<span key={a1} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+									<CodeInline>{a1}</CodeInline>
+									{ctrl.writeScopeMode === 'ranges' ? (
+										<Button
+											theme="borderless"
+											size="small"
+											icon={<IconX size={14} />}
+											onClick={() => ctrl.removeWriteScope(a1)}
+											disabled={ctrl.busy}
+										/>
+									) : null}
+								</span>
 							))}
 						</div>
-						<Muted>写入会记录在历史里，可撤销。</Muted>
-					</div>
-				) : null}
+					) : (
+						<Muted>
+							{ctrl.writeScopeMode === 'ranges'
+								? '（未设置写入范围；请在表格里右键“AI → 写入范围：限制为选区”。）'
+								: '（未能获取写入范围）'}
+						</Muted>
+					)}
+					<Muted>写入会记录在历史里，可撤销。</Muted>
+					<Muted>高亮：紫色=AI 情境（预取/发送） · 橙色=写入限制（仅“限制”模式）</Muted>
+				</div>
 
 				<Divider margin="12px 0" />
 
@@ -126,11 +132,11 @@ export function AiPanel(props: AiPanelProps) {
 						<div>
 							<Typography.Text type="tertiary">Loopback</Typography.Text>
 							<Space spacing="tight" align="center" style={{ marginTop: 8 }}>
-								<Typography.Text type="tertiary">rounds≤</Typography.Text>
+								<Typography.Text type="tertiary">steps≤</Typography.Text>
 								<InputNumber
 									size="small"
 									min={1}
-									max={10}
+									max={80}
 									style={{ width: 88 }}
 									value={ctrl.loopMaxRounds}
 									disabled={!props.ready || ctrl.busy}
@@ -149,7 +155,7 @@ export function AiPanel(props: AiPanelProps) {
 								/>
 							</Space>
 							<div style={{ marginTop: 8 }}>
-								<Muted>本面板只发指令+范围到后端；后端用 Headless Univer 执行 loopback，最终提交新快照并刷新编辑器。</Muted>
+								<Muted>steps 只是安全上限，模型会在完成任务并验证后提前结束。本面板只发指令+范围到后端；后端用 Headless Univer 执行 loopback，最终提交新快照并刷新编辑器。</Muted>
 							</div>
 						</div>
 					</Collapse.Panel>
@@ -167,7 +173,7 @@ export function AiPanel(props: AiPanelProps) {
 					className="univer-ai-chat__dialogue"
 				/>
 				<AIChatInput
-					placeholder="在表格里选区后，描述你希望 AI 完成的修改…"
+					placeholder="右键将选区添加到 AI 情境后，描述你希望 AI 完成的修改…"
 					keepSkillAfterSend={false}
 					onMessageSend={ctrl.handleAiSend}
 					canSend={Boolean(props.backend) && !props.dirty && !ctrl.busy}
@@ -194,12 +200,12 @@ export function AiPanel(props: AiPanelProps) {
 					sendHotKey="enter"
 					className="univer-ai-chat__input"
 				/>
-				<div className="univer-ai-chat__footer">
-					<Typography.Text type="tertiary">
-						上下文：<CodeInline>A1 scopes</CodeInline> · 后端：<CodeInline>TOON</CodeInline>
-					</Typography.Text>
+					<div className="univer-ai-chat__footer">
+						<Typography.Text type="tertiary">
+							上下文：<CodeInline>A1 scopes</CodeInline> · 后端：<CodeInline>Ax+Tools</CodeInline>
+						</Typography.Text>
+					</div>
 				</div>
-			</div>
 		</div>
 	)
 }

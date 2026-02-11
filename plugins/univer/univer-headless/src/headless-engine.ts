@@ -18,14 +18,14 @@ export function createHeadlessUniverEngine(opts?: { locale?: LocaleType }) {
 
 	const withWorkbook: HeadlessUniverEngine['withWorkbook'] = async (snapshot, fn) => {
 		if (disposed) throw new Error('[univer] headless engine disposed')
-		const workbook = univerAPI.createWorkbook(snapshot as any)
+		const workbook = (univerAPI as any).createWorkbook(snapshot as any)
 		if (!workbook) throw new Error('[univer] failed to create workbook')
 		const unitId = typeof workbook.getId === 'function' ? String(workbook.getId()) : ''
 		try {
 			return await fn(workbook)
 		} finally {
 			try {
-				if (unitId) univerAPI.disposeUnit?.(unitId)
+				if (unitId) (univerAPI as any).disposeUnit?.(unitId)
 			} catch {}
 		}
 	}
@@ -41,4 +41,3 @@ export function createHeadlessUniverEngine(opts?: { locale?: LocaleType }) {
 		},
 	} satisfies HeadlessUniverEngine
 }
-

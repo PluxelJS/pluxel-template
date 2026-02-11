@@ -30,11 +30,13 @@
 
 - 后端 HMR Host：`http://localhost:3000`（API 在 `/api/*`）
 
-需要同时启动 Univer 前端时：
+需要 Univer 相关能力时：
 
-- `pnpm dev:univer`（`dev:full` 仍可用）
-  - 后端 HMR Host（默认使用 `univer` profile）：`http://localhost:3000`（API 在 `/api/*`）
-  - Univer 前端（Vite）：`http://localhost:5174`（通过代理访问 `/api/*`）
+- 仅后端（`univer` profile）：`pnpm dev:univer`
+  - 后端 HMR Host：`http://localhost:3000`（API 在 `/api/*`）
+- 仅前端（Vite）：`pnpm dev:univer:web`
+  - Univer 前端：`http://localhost:5174`（通过代理访问 `/api/*`）
+- 同时启动（保留旧的一键全量）：`pnpm dev:full`
 
 ### 约定
 

@@ -9,7 +9,11 @@ export type AiPanelDevState = {
 	chats?: AiMessage[]
 	pinnedSelections?: UniverAiContext[]
 	currentSelection?: UniverAiContext | null
-	/** Loopback max rounds (server-side). */
+	/** Write scope mode in the UI. */
+	writeScopeMode?: 'sheet' | 'ranges'
+	/** Explicit write scopes when writeScopeMode='ranges'. */
+	writeScopes?: string[]
+	/** Loopback max tool-call steps (server-side; maps to Ax maxSteps). */
 	loopMaxRounds?: number
 	mode?: 'safe' | 'aggressive'
 }

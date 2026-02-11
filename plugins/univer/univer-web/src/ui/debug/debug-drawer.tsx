@@ -134,7 +134,7 @@ export function DebugDrawer(props: {
 					const snap = parseAiSnapshot(msg.payload)
 					if (!snap) return
 					setAiSnap(snap)
-					setAiEvents(snap.events)
+					setAiEvents([...snap.events])
 					const last = snap.events.at(-1)
 					lastAiOffsetRef.current = last ? last.offset : -1
 					return

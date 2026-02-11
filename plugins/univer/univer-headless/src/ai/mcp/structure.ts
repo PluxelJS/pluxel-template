@@ -113,10 +113,10 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const insert_rows: AxFunction = {
 		name: 'insert_rows',
 		description: getMcpToolDescription('insert_rows'),
-		parameters: InsertRowsSchema,
+		parameters: InsertRowsSchema as any,
 		func: async (input: UniverToolInsertRowsInput): Promise<UniverToolInsertRowsResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(input.sheetId, input.name)
@@ -126,6 +126,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 				callFirst(sheet, ['insertRows', 'insertRow'], index, count) ??
 				callFirst(sheet, ['insertRows', 'insertRow'], index)
 			if (res === undefined) throw new Error('[univer] insert rows not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -133,10 +134,10 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const insert_columns: AxFunction = {
 		name: 'insert_columns',
 		description: getMcpToolDescription('insert_columns'),
-		parameters: InsertColumnsSchema,
+		parameters: InsertColumnsSchema as any,
 		func: async (input: UniverToolInsertColumnsInput): Promise<UniverToolInsertColumnsResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(input.sheetId, input.name)
@@ -146,6 +147,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 				callFirst(sheet, ['insertColumns', 'insertColumn'], index, count) ??
 				callFirst(sheet, ['insertColumns', 'insertColumn'], index)
 			if (res === undefined) throw new Error('[univer] insert columns not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -153,10 +155,10 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const delete_rows: AxFunction = {
 		name: 'delete_rows',
 		description: getMcpToolDescription('delete_rows'),
-		parameters: DeleteRowsSchema,
+		parameters: DeleteRowsSchema as any,
 		func: async (input: UniverToolDeleteRowsInput): Promise<UniverToolDeleteRowsResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(input.sheetId, input.name)
@@ -166,6 +168,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 				callFirst(sheet, ['deleteRows', 'removeRows', 'deleteRow'], index, count) ??
 				callFirst(sheet, ['deleteRows', 'removeRows', 'deleteRow'], index)
 			if (res === undefined) throw new Error('[univer] delete rows not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -173,10 +176,10 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const delete_columns: AxFunction = {
 		name: 'delete_columns',
 		description: getMcpToolDescription('delete_columns'),
-		parameters: DeleteColumnsSchema,
+		parameters: DeleteColumnsSchema as any,
 		func: async (input: UniverToolDeleteColumnsInput): Promise<UniverToolDeleteColumnsResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(input.sheetId, input.name)
@@ -186,6 +189,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 				callFirst(sheet, ['deleteColumns', 'removeColumns', 'deleteColumn'], index, count) ??
 				callFirst(sheet, ['deleteColumns', 'removeColumns', 'deleteColumn'], index)
 			if (res === undefined) throw new Error('[univer] delete columns not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -193,10 +197,10 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const set_cell_dimensions: AxFunction = {
 		name: 'set_cell_dimensions',
 		description: getMcpToolDescription('set_cell_dimensions'),
-		parameters: SetCellDimensionsSchema,
+		parameters: SetCellDimensionsSchema as any,
 		func: async (input: UniverToolSetCellDimensionsInput): Promise<UniverToolSetCellDimensionsResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(input.sheetId, input.name)
@@ -223,6 +227,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 				}
 			}
 
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}
@@ -230,10 +235,10 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const set_merge: AxFunction = {
 		name: 'set_merge',
 		description: getMcpToolDescription('set_merge'),
-		parameters: SetMergeSchema,
+		parameters: SetMergeSchema as any,
 		func: async (input: UniverToolSetMergeInput): Promise<UniverToolSetMergeResult> => {
 			ctx.stats.toolCalls++
-			ctx.bumpChange()
+			ctx.checkCanChange()
 
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			ctx.checkWriteSheet(input.sheetId, input.name)
@@ -251,6 +256,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 				? callFirst(r, ['merge', 'mergeCells'])
 				: callFirst(r, ['unmerge', 'unmergeCells']) ?? callFirst(sheet, ['unmergeCells'], range)
 			if (res === undefined) throw new Error('[univer] merge not supported')
+			ctx.bumpChange()
 			return { ok: true }
 		},
 	}

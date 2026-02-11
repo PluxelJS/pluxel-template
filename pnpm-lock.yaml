@@ -469,6 +469,30 @@ importers:
         specifier: workspace:^
         version: link:../univer-headless
 
+  plugins/univer/pluxel-plugin-univer-ai:
+    dependencies:
+      '@pluxel/univer-headless':
+        specifier: workspace:^
+        version: link:../univer-headless
+      pluxel-plugin-llm-hub:
+        specifier: workspace:^
+        version: link:../../ai/llm-hub
+      pluxel-plugin-univer:
+        specifier: workspace:^
+        version: link:../pluxel-plugin-univer
+
+  plugins/univer/pluxel-plugin-univer-loopback:
+    dependencies:
+      '@pluxel/univer-headless':
+        specifier: workspace:^
+        version: link:../univer-headless
+      pluxel-plugin-llm-hub:
+        specifier: workspace:^
+        version: link:../../ai/llm-hub
+      pluxel-plugin-univer-workbooks:
+        specifier: workspace:^
+        version: link:../pluxel-plugin-univer-workbooks
+
   plugins/univer/pluxel-plugin-univer-workbooks: {}
 
   plugins/univer/univer-headless:

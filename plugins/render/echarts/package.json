@@ -19,6 +19,7 @@
     "!**/*.map"
   ],
   "scripts": {
+    "test": "pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-echarts",
     "build": "pluxel build"
   },
   "dependencies": {
