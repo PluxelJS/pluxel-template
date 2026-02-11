@@ -29,7 +29,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-llm-hub"
+		"test": "pnpm run typecheck && pnpm exec vitest run -c ./vitest.config.ts"
 	},
 	"peerDependencies": {
 		"@ax-llm/ax": "^15.0.0"

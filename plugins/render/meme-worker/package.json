@@ -24,7 +24,7 @@
     "!**/*.map"
   ],
   "scripts": {
-    "test": "pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-meme-worker",
+    "test": "pnpm exec vitest run -c ./vitest.config.ts",
     "build": "pluxel build"
   },
   "dependencies": {

@@ -20,7 +20,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-vectors"
+		"test": "pnpm run typecheck && pnpm exec vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@lancedb/lancedb": "^0.26.2"

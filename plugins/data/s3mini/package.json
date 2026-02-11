@@ -17,7 +17,7 @@
 		"!**/*.map"
 	],
 	"scripts": {
-		"test": "pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-s3mini",
+		"test": "pnpm exec vitest run -c ./vitest.config.ts",
 		"build": "pluxel build"
 	},
 	"dependencies": {

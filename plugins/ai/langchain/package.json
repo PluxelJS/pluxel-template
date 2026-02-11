@@ -24,7 +24,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-langchain"
+		"test": "pnpm run typecheck && pnpm exec vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@langchain/core": "^1.1.20",
