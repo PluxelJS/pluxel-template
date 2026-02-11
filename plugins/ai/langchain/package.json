@@ -27,8 +27,8 @@
 		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-langchain"
 	},
 	"dependencies": {
-		"@langchain/core": "^1.1.19",
-		"@langchain/openai": "^1.2.5"
+		"@langchain/core": "^1.1.20",
+		"@langchain/openai": "^1.2.6"
 	},
 	"peerDependencies": {
 		"pluxel-plugin-llm-hub": "workspace:^"
@@ -43,7 +43,9 @@
 	"pluxel": {
 		"dependOn": {
 			"required": [],
-			"optional": ["pluxel-plugin-llm-hub"]
+			"optional": [
+				"pluxel-plugin-llm-hub"
+			]
 		}
 	}
 }

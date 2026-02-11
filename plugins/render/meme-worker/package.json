@@ -27,7 +27,7 @@
     "build": "pluxel build"
   },
   "dependencies": {
-    "tinypool": "^1.0.1"
+    "tinypool": "^2.1.0"
   },
   "peerDependencies": {
     "pluxel-plugin-napi-rs": "workspace:^"

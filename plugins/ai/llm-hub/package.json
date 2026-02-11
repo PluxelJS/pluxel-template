@@ -40,7 +40,7 @@
 		}
 	},
 	"devDependencies": {
-		"@ax-llm/ax": "^15.0.0"
+		"@ax-llm/ax": "^16.1.6"
 	},
 	"publishConfig": {
 		"exports": {

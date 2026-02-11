@@ -18,7 +18,7 @@
     "pluxel-napi-rs": "./dist/cli.mjs"
   },
   "dependencies": {
-    "modern-tar": "^0.7.2"
+    "modern-tar": "^0.7.3"
   },
   "exports": {
     ".": "./dist/index.mjs",

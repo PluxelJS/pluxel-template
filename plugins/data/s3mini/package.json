@@ -20,7 +20,7 @@
 		"build": "pluxel build"
 	},
 	"dependencies": {
-		"s3mini": "^0.9.0"
+		"s3mini": "^0.9.1"
 	},
 	"publishConfig": {
 		"exports": {

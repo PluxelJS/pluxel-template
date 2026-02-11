@@ -21,7 +21,7 @@
     "test": "bun test --conditions=@pluxel/hmr"
   },
   "dependencies": {
-    "tigerbeetle-node": "^0.16.68"
+    "tigerbeetle-node": "^0.16.72"
   },
   "peerDependencies": {
     "pluxel-plugin-ledger": "workspace:^",

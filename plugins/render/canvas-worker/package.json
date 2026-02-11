@@ -24,8 +24,8 @@
     "build": "pluxel build"
   },
   "dependencies": {
-    "@leafer-ui/node": "^1.11.2",
-    "tinypool": "^1.0.1"
+    "@leafer-ui/node": "^2.0.1",
+    "tinypool": "^2.1.0"
   },
   "devDependencies": {
     "echarts": "^6.0.0",

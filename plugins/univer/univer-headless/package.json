@@ -26,8 +26,8 @@
 		"typecheck": "tsc -p tsconfig.typecheck.json"
 	},
 	"dependencies": {
-		"@ax-llm/ax": "^15.1.1",
-		"@sinclair/typebox": "^0.34.8",
+		"@ax-llm/ax": "^16.1.6",
+		"@sinclair/typebox": "^0.34.48",
 		"@univerjs/core": "^0.15.4",
 		"@univerjs/preset-sheets-node-core": "^0.15.4",
 		"@univerjs/presets": "^0.15.4"

@@ -37,10 +37,10 @@
     "test": "bun test --conditions=@pluxel/hmr"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15",
-    "@mikro-orm/core": "^6.6.2",
-    "@mikro-orm/knex": "^6.6.2",
-    "@mikro-orm/libsql": "^6.6.2"
+    "@libsql/client": "^0.17.0",
+    "@mikro-orm/core": "^6.6.6",
+    "@mikro-orm/knex": "^6.6.6",
+    "@mikro-orm/libsql": "^6.6.6"
   },
   "publishConfig": {
     "exports": {

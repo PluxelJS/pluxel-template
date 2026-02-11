@@ -20,7 +20,7 @@
     "build": "pluxel build"
   },
   "dependencies": {
-    "ioredis": "^5.7.0"
+    "ioredis": "^5.9.2"
   },
   "peerDependencies": {
     "pluxel-plugin-kv": "workspace:*"

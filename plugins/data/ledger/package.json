@@ -20,7 +20,7 @@
 		"build": "pluxel build"
 	},
 	"dependencies": {
-		"tigerbeetle-node": "^0.16.68"
+		"tigerbeetle-node": "^0.16.72"
 	},
 	"publishConfig": {
 		"exports": {

@@ -23,7 +23,7 @@
 		"test": "pnpm run typecheck && pnpm -C ../../.. exec vitest run -c vitest.config.ts --project pluxel-plugin-vectors"
 	},
 	"dependencies": {
-		"@lancedb/lancedb": "^0.24.1"
+		"@lancedb/lancedb": "^0.26.2"
 	},
 	"publishConfig": {
 		"exports": {
