@@ -46,11 +46,11 @@ function toContext(input: {
 	const displayValues = fRange.getDisplayValues()
 	return {
 		workbookId,
-		sheetId: fWorksheet.getSheetId(),
-		range: sliceRange,
-		a1,
-		displayValues,
-		meta: {
+		selection: {
+			sheetId: fWorksheet.getSheetId(),
+			a1,
+			range: sliceRange,
+			display: displayValues,
 			truncated: origRows > maxRows || origCols > maxCols,
 			orig: {
 				startRow: range.startRow,
@@ -93,7 +93,7 @@ export function collectActiveSelectionContexts(input: {
 	if (!contexts.length) return null
 
 	const activeA1 = active.getA1Notation?.(true)
-	const current = contexts.find((c) => c.a1 === activeA1) ?? contexts[0]!
+	const current = contexts.find((c) => c.selection.a1 === activeA1) ?? contexts[0]!
 	const selections = contexts.filter((c) => c !== current)
 	return { current, selections }
 }

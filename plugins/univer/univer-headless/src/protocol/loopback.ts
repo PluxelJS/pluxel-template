@@ -1,20 +1,29 @@
+import type { UniverAiContractLimits } from './ai'
+import type { UniverToolPolicy } from './tools'
+
+export type UniverLoopbackScopes = Readonly<{
+	read: readonly string[]
+	write?: readonly string[]
+	current?: string
+}>
+
 export type UniverLoopbackRunInput = Readonly<{
 	workbookId: string
-	/** When omitted, uses latestRev. */
 	baseRev?: number
 	instruction: string
-	/** Read scopes (A1). Must be non-empty. */
-	read: readonly string[]
-	/** Write scopes (A1). When omitted, defaults to `read`. */
-	write?: readonly string[]
-	/** Current/primary scope (A1). Defaults to first `read`. */
-	current?: string
-	/** Max agent rounds (default: 4). */
+	scopes: UniverLoopbackScopes
 	maxRounds?: number
 	mode?: 'safe' | 'aggressive'
 	llmProfileId?: string
+	toolPolicy?: UniverToolPolicy
 	limits?: { maxRows?: number; maxCols?: number }
-	contractLimits?: { maxOps?: number; maxChanges?: number }
+	contract?: UniverAiContractLimits
+}>
+
+export type UniverLoopbackConflict = Readonly<{
+	currentRev: number
+	snapshotUrl: string | null
+	etag: string | null
 }>
 
 export type UniverLoopbackRunResult = Readonly<
@@ -22,8 +31,8 @@ export type UniverLoopbackRunResult = Readonly<
 			ok: true
 			baseRev: number
 			newRev: number
-			newSnapshotUrl: string
-			newEtag: string
+			snapshotUrl: string
+			etag: string
 			rounds: number
 			appliedOps: number
 			summary?: string
@@ -31,7 +40,6 @@ export type UniverLoopbackRunResult = Readonly<
 	| {
 			ok: false
 			error: string
-			/** Conflict when baseRev doesn't match latestRev. */
-			conflict?: { currentRev: number; latestSnapshotUrl: string | null; latestEtag: string | null }
+			conflict?: UniverLoopbackConflict
 	  }
 >

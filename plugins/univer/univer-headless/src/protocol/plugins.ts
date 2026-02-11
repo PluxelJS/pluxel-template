@@ -1,28 +1,23 @@
-/**
- * Serializable spec: Host/Service -> SSE -> Browser.
- *
- * Frontend bundles all supported Univer plugins in a compile-time catalog.
- * Runtime only sends: which plugin key + config.
- */
-export type UniverConfiguredPlugin = Readonly<{
+export const UNIVER_PLUGINS_SSE_NS = 'univer:plugins' as const
+
+export type UniverPluginRegistration = Readonly<{
 	id?: string
-	plugin: string
+	key: string
 	config?: unknown
 }>
 
 export type UniverPluginSpec = Readonly<{
 	id: string
-	kind: 'univer-plugin'
-	plugin: string
+	key: string
 	config?: unknown
 }>
 
 export type UniverPluginsSnapshotPayload = Readonly<{
-	plugins: readonly UniverPluginSpec[]
+	items: readonly UniverPluginSpec[]
 }>
 
 export type UniverPluginsUpsertPayload = Readonly<{
-	plugin: UniverPluginSpec
+	item: UniverPluginSpec
 }>
 
 export type UniverPluginsRemovePayload = Readonly<{

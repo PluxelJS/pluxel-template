@@ -1,4 +1,4 @@
-import type { UniverAiRange } from '../../protocol'
+import type { UniverRange } from '../../protocol'
 import type { UniverAiBridge } from '../bridge'
 
 export type McpStats = {
@@ -11,7 +11,7 @@ export type McpStats = {
 export type A1Scope = {
 	a1: string
 	sheetName?: string
-	range: UniverAiRange
+	range: UniverRange
 	sheetId?: string
 }
 
@@ -33,8 +33,8 @@ export type McpContext = {
 	stats: McpStats
 	logger?: McpLogger
 	bumpChange(): void
-	checkReadRange(range: UniverAiRange, sheetId?: string, sheetName?: string): void
-	checkWriteRange(range: UniverAiRange, sheetId?: string, sheetName?: string): void
+	checkReadRange(range: UniverRange, sheetId?: string, sheetName?: string): void
+	checkWriteRange(range: UniverRange, sheetId?: string, sheetName?: string): void
 	checkWriteCell(row: number, col: number, sheetId?: string, sheetName?: string): void
 	checkWriteSheet(sheetId?: string, sheetName?: string): void
 }

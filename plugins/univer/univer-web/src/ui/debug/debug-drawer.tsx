@@ -94,17 +94,17 @@ export function DebugDrawer(props: {
 
 	const raw = useMemo(() => {
 		const list = props.rawPlugins().slice()
-		list.sort((a, b) => a.plugin.localeCompare(b.plugin) || a.id.localeCompare(b.id))
+		list.sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id))
 		return list
 	}, [props])
 
 	const effective = useMemo(() => {
 		const list = props.effectivePlugins().slice()
-		list.sort((a, b) => a.plugin.localeCompare(b.plugin) || a.id.localeCompare(b.id))
+		list.sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id))
 		return list
 	}, [props])
 
-	const unsupported = useMemo(() => raw.filter((p) => !isSupportedUniverPluginKey(p.plugin)), [raw])
+	const unsupported = useMemo(() => raw.filter((p) => !isSupportedUniverPluginKey(p.key)), [raw])
 	const caps = props.capabilities ?? null
 
 	const [aiSnap, setAiSnap] = useState<UniverAiThreadSnapshot | null>(null)
@@ -284,7 +284,7 @@ export function DebugDrawer(props: {
 						<div style={{ width: '100%' }}>
 							<SectionTitle>Capabilities</SectionTitle>
 							<Typography.Text type="tertiary">
-								updatedAt: <CodeInline>{String(caps.updatedAt)}</CodeInline>
+								at: <CodeInline>{String(caps.at)}</CodeInline>
 							</Typography.Text>
 							<pre className="univer-codeblock" style={{ marginTop: 8 }}>
 								{stableJson(caps.items)}

@@ -1,20 +1,21 @@
 import type { AxFunction } from '@ax-llm/ax'
 import { Type } from '@sinclair/typebox'
 import type {
-	UniverMcpDeleteColumnsInput,
-	UniverMcpDeleteColumnsResult,
-	UniverMcpDeleteRowsInput,
-	UniverMcpDeleteRowsResult,
-	UniverMcpInsertColumnsInput,
-	UniverMcpInsertColumnsResult,
-	UniverMcpInsertRowsInput,
-	UniverMcpInsertRowsResult,
-	UniverMcpSetCellDimensionsInput,
-	UniverMcpSetCellDimensionsResult,
-	UniverMcpSetMergeInput,
-	UniverMcpSetMergeResult,
+	UniverToolDeleteColumnsInput,
+	UniverToolDeleteColumnsResult,
+	UniverToolDeleteRowsInput,
+	UniverToolDeleteRowsResult,
+	UniverToolInsertColumnsInput,
+	UniverToolInsertColumnsResult,
+	UniverToolInsertRowsInput,
+	UniverToolInsertRowsResult,
+	UniverToolSetCellDimensionsInput,
+	UniverToolSetCellDimensionsResult,
+	UniverToolSetMergeInput,
+	UniverToolSetMergeResult,
 } from '../../protocol'
 
+import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { callFirst, normalizeCount, resolveRangeInput, resolveSheet } from './utils'
 const InsertRowsSchema = Type.Object(
@@ -111,9 +112,9 @@ function resolveSheetFromInput(workbook: any, sheetId?: string, name?: string) {
 export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const insert_rows: AxFunction = {
 		name: 'insert_rows',
-		description: 'Insert rows into a worksheet.',
+		description: getMcpToolDescription('insert_rows'),
 		parameters: InsertRowsSchema,
-		func: async (input: UniverMcpInsertRowsInput): Promise<UniverMcpInsertRowsResult> => {
+		func: async (input: UniverToolInsertRowsInput): Promise<UniverToolInsertRowsResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -131,9 +132,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 
 	const insert_columns: AxFunction = {
 		name: 'insert_columns',
-		description: 'Insert columns into a worksheet.',
+		description: getMcpToolDescription('insert_columns'),
 		parameters: InsertColumnsSchema,
-		func: async (input: UniverMcpInsertColumnsInput): Promise<UniverMcpInsertColumnsResult> => {
+		func: async (input: UniverToolInsertColumnsInput): Promise<UniverToolInsertColumnsResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -151,9 +152,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 
 	const delete_rows: AxFunction = {
 		name: 'delete_rows',
-		description: 'Delete rows in a worksheet.',
+		description: getMcpToolDescription('delete_rows'),
 		parameters: DeleteRowsSchema,
-		func: async (input: UniverMcpDeleteRowsInput): Promise<UniverMcpDeleteRowsResult> => {
+		func: async (input: UniverToolDeleteRowsInput): Promise<UniverToolDeleteRowsResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -171,9 +172,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 
 	const delete_columns: AxFunction = {
 		name: 'delete_columns',
-		description: 'Delete columns in a worksheet.',
+		description: getMcpToolDescription('delete_columns'),
 		parameters: DeleteColumnsSchema,
-		func: async (input: UniverMcpDeleteColumnsInput): Promise<UniverMcpDeleteColumnsResult> => {
+		func: async (input: UniverToolDeleteColumnsInput): Promise<UniverToolDeleteColumnsResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -191,9 +192,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 
 	const set_cell_dimensions: AxFunction = {
 		name: 'set_cell_dimensions',
-		description: 'Set row heights and column widths.',
+		description: getMcpToolDescription('set_cell_dimensions'),
 		parameters: SetCellDimensionsSchema,
-		func: async (input: UniverMcpSetCellDimensionsInput): Promise<UniverMcpSetCellDimensionsResult> => {
+		func: async (input: UniverToolSetCellDimensionsInput): Promise<UniverToolSetCellDimensionsResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -228,9 +229,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 
 	const set_merge: AxFunction = {
 		name: 'set_merge',
-		description: 'Merge or unmerge a cell range.',
+		description: getMcpToolDescription('set_merge'),
 		parameters: SetMergeSchema,
-		func: async (input: UniverMcpSetMergeInput): Promise<UniverMcpSetMergeResult> => {
+		func: async (input: UniverToolSetMergeInput): Promise<UniverToolSetMergeResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 

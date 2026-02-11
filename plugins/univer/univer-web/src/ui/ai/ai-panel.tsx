@@ -62,9 +62,9 @@ export function AiPanel(props: AiPanelProps) {
 					<div className="univer-ai-context__current">
 						<Typography.Text type="tertiary">当前选区</Typography.Text>
 						<div className="univer-ai-context__row">
-							{ctrl.currentSelection?.range ? (
+							{ctrl.currentSelection?.selection.range ? (
 								<>
-									<CodeInline>{ctrl.currentSelection.a1 ?? '(A1 unknown)'}</CodeInline>
+									<CodeInline>{ctrl.currentSelection.selection.a1 ?? '(A1 unknown)'}</CodeInline>
 									<Typography.Text type="tertiary">{ctrl.selectionLabel(ctrl.currentSelection)}</Typography.Text>
 								</>
 							) : (
@@ -107,73 +107,49 @@ export function AiPanel(props: AiPanelProps) {
 					<Muted>（未固定额外上下文。可固定多个选区，用于跨片段对比/汇总。）</Muted>
 				)}
 
+				{ctrl.editableScopes.length ? (
+					<div style={{ marginTop: 8 }}>
+						<Typography.Text type="tertiary">可编辑范围</Typography.Text>
+						<div className="univer-ai-context__row">
+							{ctrl.editableScopes.map((a1) => (
+								<CodeInline key={a1}>{a1}</CodeInline>
+							))}
+						</div>
+						<Muted>写入会记录在历史里，可撤销。</Muted>
+					</div>
+				) : null}
+
 				<Divider margin="12px 0" />
 
 				<Collapse accordion>
 					<Collapse.Panel header="高级选项" itemKey="advanced">
-						<div style={{ display: 'grid', gap: 10 }}>
-							<div>
-								<Typography.Text type="tertiary">写入策略</Typography.Text>
-								<Space spacing="tight" align="center" style={{ marginTop: 8 }}>
-									<Typography.Text type="tertiary">WRITE</Typography.Text>
-									<Select
-										size="small"
-										style={{ width: 180 }}
-										value={ctrl.writeMode}
-										disabled={!props.ready || ctrl.busy}
-										onChange={(v) => ctrl.setWriteMode((v as any) ?? 'scoped')}
-										optionList={[
-											{ label: '仅选区（安全）', value: 'scoped' },
-											{ label: '等于 READ（宽松）', value: 'table' },
-										]}
-									/>
-									<Tag color={ctrl.writeMode === 'table' ? 'violet' : 'light-blue'}>{ctrl.writeMode}</Tag>
-								</Space>
-								<Space spacing="tight" align="center" style={{ marginTop: 8 }}>
-									<Typography.Text type="tertiary">FillDown</Typography.Text>
-									<InputNumber
-										size="small"
-										min={0}
-										max={ctrl.maxFillDownRows}
-										style={{ width: 88 }}
-										value={ctrl.fillDownRows}
-										disabled={!props.ready || ctrl.busy || ctrl.writeMode !== 'scoped' || ctrl.maxFillDownRows <= 0}
-										onChange={(v) => ctrl.setFillDownRows(typeof v === 'number' ? v : Number(v))}
-									/>
-									<Typography.Text type="tertiary">行</Typography.Text>
-								</Space>
-							</div>
-
-							<div>
-								<Typography.Text type="tertiary">Loopback</Typography.Text>
-								<Space spacing="tight" align="center" style={{ marginTop: 8 }}>
-									<Typography.Text type="tertiary">rounds≤</Typography.Text>
-									<InputNumber
-										size="small"
-										min={1}
-										max={10}
-										style={{ width: 88 }}
-										value={ctrl.loopMaxRounds}
-										disabled={!props.ready || ctrl.busy}
-										onChange={(v) => ctrl.setLoopMaxRounds(typeof v === 'number' ? v : Number(v))}
-									/>
-									<Select
-										size="small"
-										style={{ width: 140 }}
-										value={ctrl.mode}
-										disabled={!props.ready || ctrl.busy}
-										onChange={(v) => ctrl.setMode((v as any) ?? 'safe')}
-										optionList={[
-											{ label: 'safe', value: 'safe' },
-											{ label: 'aggressive', value: 'aggressive' },
-										]}
-									/>
-								</Space>
-								<div style={{ marginTop: 8 }}>
-									<Muted>
-										本面板只发指令+范围到后端；后端用 Headless Univer 执行 loopback，最终提交新快照并刷新编辑器。
-									</Muted>
-								</div>
+						<div>
+							<Typography.Text type="tertiary">Loopback</Typography.Text>
+							<Space spacing="tight" align="center" style={{ marginTop: 8 }}>
+								<Typography.Text type="tertiary">rounds≤</Typography.Text>
+								<InputNumber
+									size="small"
+									min={1}
+									max={10}
+									style={{ width: 88 }}
+									value={ctrl.loopMaxRounds}
+									disabled={!props.ready || ctrl.busy}
+									onChange={(v) => ctrl.setLoopMaxRounds(typeof v === 'number' ? v : Number(v))}
+								/>
+								<Select
+									size="small"
+									style={{ width: 140 }}
+									value={ctrl.mode}
+									disabled={!props.ready || ctrl.busy}
+									onChange={(v) => ctrl.setMode((v as any) ?? 'safe')}
+									optionList={[
+										{ label: 'safe', value: 'safe' },
+										{ label: 'aggressive', value: 'aggressive' },
+									]}
+								/>
+							</Space>
+							<div style={{ marginTop: 8 }}>
+								<Muted>本面板只发指令+范围到后端；后端用 Headless Univer 执行 loopback，最终提交新快照并刷新编辑器。</Muted>
 							</div>
 						</div>
 					</Collapse.Panel>

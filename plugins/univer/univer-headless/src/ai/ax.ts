@@ -8,26 +8,33 @@ import type {
 	UniverAiClearRangeResult,
 	UniverAiListSheetsResult,
 	UniverAiOpsV1,
-	UniverAiRange,
 	UniverAiReadRangeDisplayInput,
 	UniverAiReadRangeDisplayResult,
+	UniverRange,
+	UniverToolGroup,
+	UniverToolIndexMode,
+	UniverToolPolicy,
+	UniverAiContractLimits,
 } from '../protocol'
 
 import type { UniverAiBridge } from './bridge'
 import { parseA1Range } from './a1'
-import { createMcpTools, listMcpToolNames, type McpToolGroup } from './mcp'
+import { buildMcpToolIndexText, createMcpTools, listMcpToolSpecs, resolveMcpToolGroups } from './mcp'
 import type { A1Scope, McpContext, McpLogger, McpStats } from './mcp/context'
 
 type Logger = McpLogger
 
 export type UniverAxLoopbackInput = Readonly<{
 	instruction: string
-	read: readonly string[]
-	write?: readonly string[]
-	current?: string
+	scopes: Readonly<{
+		read: readonly string[]
+		write?: readonly string[]
+		current?: string
+	}>
+	maxRounds?: number
 	mode?: 'safe' | 'aggressive'
 	limits?: { maxRows?: number; maxCols?: number }
-	contractLimits?: { maxOps?: number; maxChanges?: number }
+	contract?: UniverAiContractLimits
 	toolPolicy?: UniverAxToolPolicy
 }>
 
@@ -40,14 +47,7 @@ export type UniverAxLoopbackResult = Readonly<
 
 type AxToolsResult = Readonly<{ tools: AxFunction[]; stats: UniverAxLoopbackStats }>
 
-export type UniverAxToolPolicy = Readonly<{
-	goal?: string
-	prefer?: readonly McpToolGroup[]
-	allow?: readonly McpToolGroup[]
-	exclude?: readonly McpToolGroup[]
-	maxGroups?: number
-	includeLegacy?: boolean
-}>
+export type UniverAxToolPolicy = UniverToolPolicy
 
 function normalizeA1List(list: readonly string[] | undefined): string[] {
 	const out: string[] = []
@@ -68,11 +68,7 @@ function toScopes(list: readonly string[]): A1Scope[] {
 	})
 }
 
-function rangeContainsCell(range: UniverAiRange, row: number, col: number) {
-	return row >= range.startRow && row <= range.endRow && col >= range.startCol && col <= range.endCol
-}
-
-function rangeWithin(a: UniverAiRange, b: UniverAiRange) {
+function rangeWithin(a: UniverRange, b: UniverRange) {
 	return a.startRow >= b.startRow && a.endRow <= b.endRow && a.startCol >= b.startCol && a.endCol <= b.endCol
 }
 
@@ -93,7 +89,7 @@ function clampInt(n: unknown, min: number, max: number) {
 	return Math.max(min, Math.min(max, Math.floor(v)))
 }
 
-function resolveContractLimits(input?: { maxOps?: number; maxChanges?: number }) {
+function resolveContractLimits(input?: UniverAiContractLimits) {
 	const maxOps =
 		typeof input?.maxOps === 'number' && Number.isFinite(input.maxOps)
 			? clampInt(input.maxOps, 1, 50_000)
@@ -129,63 +125,11 @@ function attachSheetIds(scopes: A1Scope[], sheetNameToId: Map<string, string>) {
 	}
 }
 
-const TOOL_GROUP_PRIORITY: ReadonlyArray<McpToolGroup> = ['core', 'data', 'sheet', 'structure', 'style']
-
-const KEYWORDS: Record<McpToolGroup, ReadonlyArray<string>> = {
-	core: ['read', 'write', 'search', 'lookup', 'find', 'get', 'set', '查询', '搜索', '读取', '写入'],
-	data: ['fill', 'autofill', '填充', '填满', 'auto fill'],
-	sheet: ['sheet', 'worksheet', 'tab', '工作表', '表单', '新建表', '重命名', '删除表', '隐藏', '显示', '切换'],
-	structure: ['row', 'rows', 'column', 'columns', '行', '列', '插入', '删除行', '删除列', '合并', 'merge', '宽度', '高度'],
-	style: ['format', 'style', 'color', 'font', 'bold', 'italic', 'underline', '对齐', '边框', '颜色', '字体', '样式'],
-}
-
-function normalizeGroups(list?: readonly McpToolGroup[]): McpToolGroup[] {
-	if (!list?.length) return []
-	const out: McpToolGroup[] = []
-	const seen = new Set<McpToolGroup>()
-	for (const g of list) {
-		if (seen.has(g)) continue
-		seen.add(g)
-		out.push(g)
-	}
-	return out
-}
-
 export function resolveUniverAxToolGroups(
 	instruction: string,
 	policy?: UniverAxToolPolicy,
-): { groups: McpToolGroup[]; reason: string } {
-	const text = `${instruction ?? ''} ${policy?.goal ?? ''}`.toLowerCase()
-	const selected = new Set<McpToolGroup>(['core'])
-
-	for (const g of TOOL_GROUP_PRIORITY) {
-		const keywords = KEYWORDS[g]
-		if (!keywords?.length) continue
-		if (keywords.some((k) => text.includes(k))) selected.add(g)
-	}
-
-	for (const g of normalizeGroups(policy?.prefer)) selected.add(g)
-
-	const allow = new Set(normalizeGroups(policy?.allow))
-	if (allow.size) {
-		for (const g of [...selected]) {
-			if (!allow.has(g) && g !== 'core') selected.delete(g)
-		}
-	}
-
-	for (const g of normalizeGroups(policy?.exclude)) selected.delete(g)
-
-	let groups = TOOL_GROUP_PRIORITY.filter((g) => selected.has(g))
-	const maxGroups =
-		typeof policy?.maxGroups === 'number' && Number.isFinite(policy.maxGroups)
-			? Math.max(1, Math.floor(policy.maxGroups))
-			: groups.length
-	if (groups.length > maxGroups) groups = groups.slice(0, maxGroups)
-
-	if (!groups.includes('core')) groups = ['core', ...groups]
-
-	const reason = policy?.goal ? `goal:${policy.goal}` : 'auto'
-	return { groups, reason }
+): { groups: UniverToolGroup[]; reason: string } {
+	return resolveMcpToolGroups(instruction, policy)
 }
 
 export function createUniverAxTools(
@@ -195,24 +139,24 @@ export function createUniverAxTools(
 		readScopes: readonly string[]
 		writeScopes: readonly string[]
 		limits?: { maxRows?: number; maxCols?: number }
-		contractLimits?: { maxOps?: number; maxChanges?: number }
+		contract?: UniverAiContractLimits
 		toolPolicy?: UniverAxToolPolicy
 		logger?: Logger
 	},
 ): AxToolsResult {
 	const readList = normalizeA1List(opts.readScopes)
 	const writeList = normalizeA1List(opts.writeScopes)
+	const effectiveWrite = writeList.length ? writeList : readList
 	if (!readList.length) throw new Error('[univer] read scopes must be non-empty')
-	if (!writeList.length) throw new Error('[univer] write scopes must be non-empty')
 
 	const readScopes = toScopes(readList)
-	const writeScopes = toScopes(writeList)
+	const writeScopes = toScopes(effectiveWrite)
 
 	const { sheetIdToName, sheetNameToId } = buildSheetMaps(bridge)
 	attachSheetIds(readScopes, sheetNameToId)
 	attachSheetIds(writeScopes, sheetNameToId)
 
-	const limits = resolveContractLimits(opts.contractLimits)
+	const limits = resolveContractLimits(opts.contract)
 	let changeCount = 0
 	const stats: McpStats = {
 		toolCalls: 0,
@@ -254,16 +198,10 @@ export function createUniverAxTools(
 		const ops = Array.isArray(input?.ops) ? (input.ops as UniverAiOpsV1[]) : []
 		if (!ops.length) return { appliedOps: 0 }
 
-		const sheetName = sheetIdToName.get(sheetId)
-		const scopes = scopeListForSheet(writeScopes, sheetId, sheetName)
-		if (!scopes.length) throw new Error('[univer] write scope not allowed')
-
 		for (const op of ops) {
 			const row = (op as any).row
 			const col = (op as any).col
 			if (!Number.isInteger(row) || !Number.isInteger(col)) throw new Error('[univer] op row/col must be integers')
-			const allowed = scopes.some((s) => rangeContainsCell(s.range, row, col))
-			if (!allowed) throw new Error('[univer] op out of write scope')
 		}
 
 		changeCount += 1
@@ -280,14 +218,8 @@ export function createUniverAxTools(
 		stats.toolCalls++
 		const sheetId = String(input?.sheetId ?? '').trim()
 		if (!sheetId) throw new Error('[univer] sheetId required')
-		const range = input?.range as UniverAiRange
+		const range = input?.range as UniverRange
 		if (!range) throw new Error('[univer] range required')
-
-		const sheetName = sheetIdToName.get(sheetId)
-		const scopes = scopeListForSheet(writeScopes, sheetId, sheetName)
-		if (!scopes.length) throw new Error('[univer] write scope not allowed')
-		const allowed = scopes.some((s) => rangeWithin(range, s.range))
-		if (!allowed) throw new Error('[univer] clear range out of write scope')
 
 		changeCount += 1
 		if (changeCount > limits.maxChanges) throw new Error(`[univer] changes exceed limit: ${changeCount} > ${limits.maxChanges}`)
@@ -300,34 +232,29 @@ export function createUniverAxTools(
 		if (changeCount > limits.maxChanges) throw new Error(`[univer] changes exceed limit: ${changeCount} > ${limits.maxChanges}`)
 	}
 
-	const checkReadRange = (range: UniverAiRange, sheetId?: string, sheetName?: string) => {
+	const checkReadRange = (range: UniverRange, sheetId?: string, sheetName?: string) => {
 		const scopes = scopeListForSheet(readScopes, sheetId, sheetName)
 		if (!scopes.length) throw new Error('[univer] read scope not allowed')
 		const allowed = scopes.some((s) => rangeWithin(range, s.range))
 		if (!allowed) throw new Error('[univer] read range out of scope')
 	}
 
-	const checkWriteRange = (range: UniverAiRange, sheetId?: string, sheetName?: string) => {
-		const scopes = scopeListForSheet(writeScopes, sheetId, sheetName)
-		if (!scopes.length) throw new Error('[univer] write scope not allowed')
-		const allowed = scopes.some((s) => rangeWithin(range, s.range))
-		if (!allowed) throw new Error('[univer] write range out of scope')
+	const checkWriteRange = (range: UniverRange, sheetId?: string, sheetName?: string) => {
+		void range
+		void sheetId
+		void sheetName
 	}
 
 	const checkWriteCell = (row: number, col: number, sheetId?: string, sheetName?: string) => {
-		const scopes = scopeListForSheet(writeScopes, sheetId, sheetName)
-		if (!scopes.length) throw new Error('[univer] write scope not allowed')
-		const allowed = scopes.some((s) => rangeContainsCell(s.range, row, col))
-		if (!allowed) throw new Error('[univer] op out of write scope')
+		void row
+		void col
+		void sheetId
+		void sheetName
 	}
 
 	const checkWriteSheet = (sheetId?: string, sheetName?: string) => {
-		if (!sheetId && !sheetName) {
-			if (!writeScopes.length) throw new Error('[univer] write scope not allowed')
-			return
-		}
-		const scopes = scopeListForSheet(writeScopes, sheetId, sheetName)
-		if (!scopes.length) throw new Error('[univer] write scope not allowed')
+		void sheetId
+		void sheetName
 	}
 
 	const ctx: McpContext = {
@@ -435,8 +362,10 @@ export function createUniverAxToolSpecs(
 	policy?: UniverAxToolPolicy,
 ): ReadonlyArray<UniverAxToolSpec> {
 	const selection = resolveUniverAxToolGroups(instruction, policy)
-	const names = listMcpToolNames(selection.groups)
-	const specs = names.map((name) => ({ name, description: name.replace(/_/g, ' ') }))
+	const specs = listMcpToolSpecs(selection.groups).map((spec) => ({
+		name: spec.name,
+		description: spec.description,
+	}))
 	if (policy?.includeLegacy) {
 		specs.unshift(
 			{ name: 'univer.listSheets', description: 'List workbook sheets (sheetId + name).' },
@@ -454,9 +383,9 @@ export async function runUniverAxLoopback(
 	input: UniverAxLoopbackInput,
 	opts?: { logger?: Logger },
 ): Promise<UniverAxLoopbackResult> {
-	const read = normalizeA1List(input.read)
-	const write = normalizeA1List(input.write ?? input.read)
-	const current = String(input.current ?? read[0] ?? '').trim()
+	const read = normalizeA1List(input.scopes.read)
+	const write = normalizeA1List(input.scopes.write ?? input.scopes.read)
+	const current = String(input.scopes.current ?? read[0] ?? '').trim()
 	if (!read.length) throw new Error('[univer] read scopes must be non-empty')
 	if (!current) throw new Error('[univer] current scope must be provided')
 
@@ -465,19 +394,28 @@ export async function runUniverAxLoopback(
 		readScopes: read,
 		writeScopes: write,
 		limits: input.limits,
-		contractLimits: input.contractLimits,
+		contract: input.contract,
 		toolPolicy: input.toolPolicy,
 		logger: opts?.logger,
 	})
 
 	const mode = input.mode ?? 'safe'
 	const selection = resolveUniverAxToolGroups(input.instruction, input.toolPolicy)
+	const toolIndexMode: UniverToolIndexMode = input.toolPolicy?.toolIndex ?? 'tools'
+	const toolIndexText = buildMcpToolIndexText(selection.groups, {
+		mode: toolIndexMode,
+		includePresets: true,
+	})
 	const description = [
 		'You are a spreadsheet agent operating on a Univer workbook.',
 		'Use tools to read ranges and apply edits. Do not guess cell values.',
 		`Tool groups: ${selection.groups.join(', ')}.`,
-		`Stay within writeScopes. Mode=${mode}.`,
-	].join(' ')
+		toolIndexText ? `Tool index:\n${toolIndexText}` : null,
+		write.length ? `Editable ranges (user review): ${write.join(', ')}.` : null,
+		`Mode=${mode}.`,
+	]
+		.filter(Boolean)
+		.join('\n')
 
 	try {
 		const program = ax(

@@ -1,17 +1,18 @@
 import type { AxFunction } from '@ax-llm/ax'
 import { Type } from '@sinclair/typebox'
 import type {
-	UniverAiRange,
-	UniverMcpAutoFillInput,
-	UniverMcpAutoFillResult,
-	UniverMcpGetRangeDataInput,
-	UniverMcpGetRangeDataResult,
-	UniverMcpSearchCellsInput,
-	UniverMcpSearchCellsResult,
-	UniverMcpSetRangeDataInput,
-	UniverMcpSetRangeDataResult,
+	UniverRange,
+	UniverToolAutoFillInput,
+	UniverToolAutoFillResult,
+	UniverToolGetRangeDataInput,
+	UniverToolGetRangeDataResult,
+	UniverToolSearchCellsInput,
+	UniverToolSearchCellsResult,
+	UniverToolSetRangeDataInput,
+	UniverToolSetRangeDataResult,
 } from '../../protocol'
 
+import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { resolveRangeInput, resolveSheet, getSheetId, toMatrix, toStringMatrix, normalizeCount } from './utils'
 const RangeSchema = Type.Object(
@@ -84,7 +85,7 @@ function tileMatrix(source: unknown[][], targetRows: number, targetCols: number)
 	return out
 }
 
-function computeRangeSize(range: UniverAiRange) {
+function computeRangeSize(range: UniverRange) {
 	return {
 		rows: Math.max(0, range.endRow - range.startRow + 1),
 		cols: Math.max(0, range.endCol - range.startCol + 1),
@@ -94,9 +95,9 @@ function computeRangeSize(range: UniverAiRange) {
 export function createDataTools(ctx: McpContext): AxFunction[] {
 	const set_range_data: AxFunction = {
 		name: 'set_range_data',
-		description: 'Set values in a cell range.',
+		description: getMcpToolDescription('set_range_data'),
 		parameters: SetRangeDataSchema,
-		func: async (input: UniverMcpSetRangeDataInput): Promise<UniverMcpSetRangeDataResult> => {
+		func: async (input: UniverToolSetRangeDataInput): Promise<UniverToolSetRangeDataResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -123,9 +124,9 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 	const get_range_data: AxFunction = {
 		name: 'get_range_data',
-		description: 'Read raw values in a cell range.',
+		description: getMcpToolDescription('get_range_data'),
 		parameters: GetRangeDataSchema,
-		func: async (input: UniverMcpGetRangeDataInput): Promise<UniverMcpGetRangeDataResult> => {
+		func: async (input: UniverToolGetRangeDataInput): Promise<UniverToolGetRangeDataResult> => {
 			ctx.stats.toolCalls++
 			ctx.stats.readCalls++
 
@@ -142,7 +143,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 				endColumn: range.endCol,
 			})
 			const values = typeof r.getValues === 'function' ? r.getValues() : r.getDisplayValues()
-			const res: UniverMcpGetRangeDataResult = {
+			const res: UniverToolGetRangeDataResult = {
 				sheetId,
 				a1,
 				range,
@@ -155,9 +156,9 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 	const search_cells: AxFunction = {
 		name: 'search_cells',
-		description: 'Search for content in a cell range.',
+		description: getMcpToolDescription('search_cells'),
 		parameters: SearchCellsSchema,
-		func: async (input: UniverMcpSearchCellsInput): Promise<UniverMcpSearchCellsResult> => {
+		func: async (input: UniverToolSearchCellsInput): Promise<UniverToolSearchCellsResult> => {
 			ctx.stats.toolCalls++
 			ctx.stats.readCalls++
 
@@ -219,9 +220,9 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 	const auto_fill: AxFunction = {
 		name: 'auto_fill',
-		description: 'Auto-fill target range by tiling source values.',
+		description: getMcpToolDescription('auto_fill'),
 		parameters: AutoFillSchema,
-		func: async (input: UniverMcpAutoFillInput): Promise<UniverMcpAutoFillResult> => {
+		func: async (input: UniverToolAutoFillInput): Promise<UniverToolAutoFillResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 

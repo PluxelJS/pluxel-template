@@ -1,7 +1,8 @@
+import type { SheetId, WorkbookId } from './primitives'
+
 export type UniverWorkbookSheetInfo = Readonly<{
-	sheetId: string
+	sheetId: SheetId
 	name: string
-	/** 0-based order in workbook.getSheets(). */
 	index: number
 	rowCount?: number
 	colCount?: number
@@ -9,7 +10,7 @@ export type UniverWorkbookSheetInfo = Readonly<{
 
 export type UniverWorkbookInspection = Readonly<{
 	schema: 1
-	workbookId: string
-	activeSheetId: string | null
+	workbookId: WorkbookId
+	activeSheetId: SheetId | null
 	sheets: readonly UniverWorkbookSheetInfo[]
 }>

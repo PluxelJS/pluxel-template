@@ -108,7 +108,7 @@ function UniverAiPlayground() {
 				const sheet = workbook?.getActiveSheet()
 				if (!rt || !workbook || !sheet) return { ok: false, error: 'runtime not ready' }
 
-				const range = sheet.getRange(input.current ?? input.read?.[0] ?? 'A1')
+				const range = sheet.getRange(input.scopes.current ?? input.scopes.read?.[0] ?? 'A1')
 				const source = toStringMatrix(range.getDisplayValues())
 				const next = source.map((row, r) =>
 					row.map((cell, c) => {
@@ -136,8 +136,8 @@ function UniverAiPlayground() {
 					ok: true,
 					baseRev,
 					newRev,
-					newSnapshotUrl: `mock://snapshot/${newRev}`,
-					newEtag: `mock-etag-${newRev}`,
+					snapshotUrl: `mock://snapshot/${newRev}`,
+					etag: `mock-etag-${newRev}`,
 					rounds: 1,
 					appliedOps,
 					summary: 'Storybook mock loopback applied to the active range.',

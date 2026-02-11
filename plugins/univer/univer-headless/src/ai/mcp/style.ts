@@ -1,12 +1,13 @@
 import type { AxFunction } from '@ax-llm/ax'
 import { Type } from '@sinclair/typebox'
 import type {
-	UniverMcpFormatBrushInput,
-	UniverMcpFormatBrushResult,
-	UniverMcpSetRangeStyleInput,
-	UniverMcpSetRangeStyleResult,
+	UniverToolFormatBrushInput,
+	UniverToolFormatBrushResult,
+	UniverToolSetRangeStyleInput,
+	UniverToolSetRangeStyleResult,
 } from '../../protocol'
 
+import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { resolveRangeInput, resolveSheet } from './utils'
 const RangeSchema = Type.Object(
@@ -47,9 +48,9 @@ const FormatBrushSchema = Type.Object(
 export function createStyleTools(ctx: McpContext): AxFunction[] {
 	const set_range_style: AxFunction = {
 		name: 'set_range_style',
-		description: 'Apply cell styling to a range.',
+		description: getMcpToolDescription('set_range_style'),
 		parameters: SetRangeStyleSchema,
-		func: async (input: UniverMcpSetRangeStyleInput): Promise<UniverMcpSetRangeStyleResult> => {
+		func: async (input: UniverToolSetRangeStyleInput): Promise<UniverToolSetRangeStyleResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -71,9 +72,9 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 
 	const format_brush: AxFunction = {
 		name: 'format_brush',
-		description: 'Copy and apply cell formatting from source to target.',
+		description: getMcpToolDescription('format_brush'),
 		parameters: FormatBrushSchema,
-		func: async (input: UniverMcpFormatBrushInput): Promise<UniverMcpFormatBrushResult> => {
+		func: async (input: UniverToolFormatBrushInput): Promise<UniverToolFormatBrushResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 

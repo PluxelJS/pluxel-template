@@ -20,15 +20,12 @@ plugins/univer
   univer-headless/
     src/
       protocol/
-        ai/
-          types.ts        # AI 合约、change set、LLM 元信息
-          stream.ts       # AI SSE 事件结构
-          validate.ts     # 合约运行时校验
-          bridge.ts       # tool-call 表面类型（list/read/apply/clear）
-          index.ts        # AI 子模块导出
+        primitives.ts     # Workbook/Sheet/Range 等基础类型
+        tools.ts          # 工具组/预设/策略 + MCP 工具输入输出类型
+        ai.ts             # AI 能力、上下文与 SSE 事件结构
         capabilities.ts   # 能力快照通用结构
+        plugins.ts        # Univer 插件 spec + SSE payload
         loopback.ts       # loopback 执行入参/出参
-        plugins.ts        # Univer 插件 spec 序列化结构
         rpc.ts            # RPC surface 定义
         workbook.ts       # workbook 检查结构
         index.ts          # protocol 导出（子路径）
@@ -59,9 +56,8 @@ plugins/univer/
 
 ## 最近的整理点
 
-- AI 相关协议统一放入 `univer-headless/src/protocol/ai/`，并通过子路径
-  `@pluxel/univer-headless/protocol` 暴露，保持单一来源。
-- headless 的 AI 工具统一放入 `univer-headless/src/ai/`，与引擎主体分离。
+- protocol 重整为扁平结构：`primitives/tools/ai/plugins/loopback`，降低跨文件跳转成本。
+- headless 的 AI 工具仍统一放在 `univer-headless/src/ai/`，与引擎主体分离。
 
 ## Headless MCP 已实现的工具（精选）
 
@@ -87,13 +83,17 @@ plugins/univer/
 - `get_activity_status`
 
 默认只注入最常用工具（`set_range_data` / `get_range_data` / `search_cells`）。
-工具选择由 `toolPolicy` 依据目标与指令自动挑选（按领域扩展）：
+工具选择由 `toolPolicy` 依据目标与指令自动挑选（按领域扩展），并支持显式 preset：
 - `core`：读写/搜索
 - `data`：自动填充
 - `sheet`：工作表管理
 - `structure`：行列/合并/尺寸
 - `style`：样式/格式刷
-复杂任务推荐多轮逐步扩展工具集合，避免单轮 context 爆棚。
+- `all`：全部工具组
+工具目录与关键词/preset 统一在 `univer-headless/src/ai/mcp/catalog.ts`。
+默认在 LLM context 中注入工具索引（按当前选中组列出工具），可用
+`toolPolicy.toolIndex = 'none' | 'groups' | 'tools'` 控制注入强度。
+复杂任务仍推荐逐步扩展工具组，避免单轮 context 爆棚。
 
 示例（按目标选择工具组）：
 ```ts

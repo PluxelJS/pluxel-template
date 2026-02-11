@@ -9,9 +9,6 @@ export type AiPanelDevState = {
 	chats?: AiMessage[]
 	pinnedSelections?: UniverAiContext[]
 	currentSelection?: UniverAiContext | null
-	fillDownRows?: number
-	/** Where AI is allowed to write. */
-	writeMode?: 'scoped' | 'table'
 	/** Loopback max rounds (server-side). */
 	loopMaxRounds?: number
 	mode?: 'safe' | 'aggressive'

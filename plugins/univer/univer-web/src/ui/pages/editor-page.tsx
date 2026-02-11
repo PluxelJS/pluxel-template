@@ -14,7 +14,7 @@ import type { LoopbackBackend } from '../ai/loopback-backend'
 import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '../univer/plugins-sse'
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
 import {
-	UNIVER_CAP_KEY_AI,
+	UNIVER_CAP_AI,
 	UNIVER_PLUGINS_SSE_NS,
 	type UniverAiCapability,
 	type UniverCapabilitiesSnapshot,
@@ -123,7 +123,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	}, [])
 
 	const decodeAiCapability = useCallback((snap: UniverCapabilitiesSnapshot): UniverAiCapability => {
-		const raw = snap.items[UNIVER_CAP_KEY_AI]
+		const raw = snap.items[UNIVER_CAP_AI]
 		if (!raw) return { available: false, reason: 'AI capability missing' }
 		if (!raw.ok) return { available: false, reason: raw.error || 'AI capability error' }
 		if (!isAiCapability(raw.value)) return { available: false, reason: 'AI capability invalid' }
@@ -201,8 +201,8 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		const best = new Map<string, { spec: UniverPluginSpec; seq: number }>()
 		for (const [id, spec] of byId) {
 			const seq = seqById.get(id) ?? 0
-			const prev = best.get(spec.plugin)
-			if (!prev || seq > prev.seq) best.set(spec.plugin, { spec, seq })
+			const prev = best.get(spec.key)
+			if (!prev || seq > prev.seq) best.set(spec.key, { spec, seq })
 		}
 
 		const effective = new Map<string, UniverPluginSpec>()
@@ -514,7 +514,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 					if (!p) return
 					pluginsByIdRef.current.clear()
 					pluginSeqByIdRef.current.clear()
-					for (const spec of p.plugins) {
+					for (const spec of p.items) {
 						pluginsByIdRef.current.set(spec.id, spec)
 						pluginSeqByIdRef.current.set(spec.id, ++pluginSeqRef.current)
 					}
@@ -526,8 +526,8 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				if (event === 'upsert') {
 					const p = parsePluginsUpsert(payload)
 					if (!p) return
-					pluginsByIdRef.current.set(p.plugin.id, p.plugin)
-					pluginSeqByIdRef.current.set(p.plugin.id, ++pluginSeqRef.current)
+					pluginsByIdRef.current.set(p.item.id, p.item)
+					pluginSeqByIdRef.current.set(p.item.id, ++pluginSeqRef.current)
 					recomputeEffectivePlugins()
 					ensureRuntimePlugins()
 					return

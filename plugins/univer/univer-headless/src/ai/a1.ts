@@ -1,8 +1,8 @@
-import type { UniverAiRange } from '../protocol'
+import type { UniverRange } from '../protocol'
 
 export type A1RangeParsed = {
 	sheetName?: string
-	range: UniverAiRange
+	range: UniverRange
 	a1: string
 }
 

@@ -1,9 +1,10 @@
-import type { UniverAiRange } from '../../protocol'
+import type { UniverRange } from '../../protocol'
 import { parseA1Range } from '../a1'
 
 export type RangeInput = {
 	a1?: string
-	range?: UniverAiRange
+	sheetName?: string
+	range?: UniverRange
 }
 
 export type SheetRef = {
@@ -11,7 +12,7 @@ export type SheetRef = {
 	sheetName?: string
 }
 
-export function resolveRangeInput(input: RangeInput): { range: UniverAiRange; a1?: string; sheetName?: string } {
+export function resolveRangeInput(input: RangeInput): { range: UniverRange; a1?: string; sheetName?: string } {
 	const a1 = String(input.a1 ?? '').trim()
 	if (a1) {
 		const parsed = parseA1Range(a1)

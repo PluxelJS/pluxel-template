@@ -2,7 +2,7 @@ import { BasePlugin, Config, Plugin, type Config as PluxelConfig } from '@pluxel
 import { v } from '@pluxel/hmr/config'
 import { RpcTarget } from '@pluxel/hmr/capnweb'
 import type {
-	UniverConfiguredPlugin,
+	UniverPluginRegistration,
 	UniverCapabilitiesSnapshot,
 	UniverCapabilityResult,
 	UniverPluginSpec,
@@ -97,12 +97,12 @@ export class UniverPlugin extends BasePlugin {
 				}
 			}),
 		)
-		return { updatedAt: Date.now(), items: Object.fromEntries(results) }
+		return { at: Date.now(), items: Object.fromEntries(results) }
 	}
 
 	public async capabilitiesSnapshot(): Promise<UniverCapabilitiesSnapshot> {
 		const cur = this.capabilitiesCache
-		if (cur && Date.now() - cur.updatedAt < this.capabilitiesTtlMs) return cur
+		if (cur && Date.now() - cur.at < this.capabilitiesTtlMs) return cur
 		if (this.capabilitiesInFlight) return this.capabilitiesInFlight
 		this.capabilitiesInFlight = this.computeCapabilities().finally(() => {
 			this.capabilitiesInFlight = null
@@ -118,21 +118,20 @@ export class UniverPlugin extends BasePlugin {
 	 * - Host/Service side only manages serializable specs + lifecycle.
 	 * - If called from another plugin, auto-collected into `ctx.caller.effects`.
 	 */
-	public use(input: UniverConfiguredPlugin): () => void {
+	public use(input: UniverPluginRegistration): () => void {
 		const owner = this.ctx.caller?.pluginInfo?.id ?? 'core'
-		const id = input.id ?? `${owner}:${input.plugin}`
+		const id = input.id ?? `${owner}:${input.key}`
 
 		const spec: UniverPluginSpec = {
 			id,
-			kind: 'univer-plugin',
-			plugin: input.plugin,
+			key: input.key,
 			config: input.config,
 		}
 
 		this.specs.set(id, spec)
 		for (const push of this.ssePushers) {
 			try {
-				push('upsert', { plugin: spec } satisfies UniverPluginsUpsertPayload)
+				push('upsert', { item: spec } satisfies UniverPluginsUpsertPayload)
 			} catch (error) {
 				this.ctx.logger.warn('Univer plugin SSE push failed', { error })
 			}
@@ -163,7 +162,7 @@ export class UniverPlugin extends BasePlugin {
 			if (content) {
 				this.use({
 					id: 'univer:watermark',
-					plugin: 'watermark',
+					key: 'watermark',
 					config: { textWatermarkSettings: { content, fontSize: wm?.fontSize } },
 				})
 			}
@@ -171,7 +170,7 @@ export class UniverPlugin extends BasePlugin {
 	}
 
 	private snapshot(): UniverPluginsSnapshotPayload {
-		return { plugins: [...this.specs.values()] }
+		return { items: [...this.specs.values()] }
 	}
 
 	private registerRpc() {
@@ -205,7 +204,7 @@ export class UniverPlugin extends BasePlugin {
 
 export default UniverPlugin
 
-export type { UniverConfiguredPlugin } from '@pluxel/univer-headless/protocol'
+export type { UniverPluginRegistration } from '@pluxel/univer-headless/protocol'
 
 declare module '@pluxel/hmr/services' {
 	namespace UI {

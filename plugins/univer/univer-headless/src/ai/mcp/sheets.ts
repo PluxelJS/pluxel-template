@@ -1,23 +1,24 @@
 import type { AxFunction } from '@ax-llm/ax'
 import { Type } from '@sinclair/typebox'
 import type {
-	UniverMcpActivateSheetInput,
-	UniverMcpActivateSheetResult,
-	UniverMcpCreateSheetInput,
-	UniverMcpCreateSheetResult,
-	UniverMcpDeleteSheetInput,
-	UniverMcpDeleteSheetResult,
-	UniverMcpGetActiveUnitIdResult,
-	UniverMcpGetActivityStatusResult,
-	UniverMcpGetSheetsResult,
-	UniverMcpMoveSheetInput,
-	UniverMcpMoveSheetResult,
-	UniverMcpRenameSheetInput,
-	UniverMcpRenameSheetResult,
-	UniverMcpSetSheetDisplayStatusInput,
-	UniverMcpSetSheetDisplayStatusResult,
+	UniverToolActivateSheetInput,
+	UniverToolActivateSheetResult,
+	UniverToolCreateSheetInput,
+	UniverToolCreateSheetResult,
+	UniverToolDeleteSheetInput,
+	UniverToolDeleteSheetResult,
+	UniverToolGetActiveUnitIdResult,
+	UniverToolGetActivityStatusResult,
+	UniverToolGetSheetsResult,
+	UniverToolMoveSheetInput,
+	UniverToolMoveSheetResult,
+	UniverToolRenameSheetInput,
+	UniverToolRenameSheetResult,
+	UniverToolSetSheetDisplayStatusInput,
+	UniverToolSetSheetDisplayStatusResult,
 } from '../../protocol'
 
+import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { callFirst, getSheetId, getSheetName, resolveSheet } from './utils'
 const EmptySchema = Type.Object({}, { additionalProperties: false })
@@ -92,9 +93,9 @@ function resolveSheetFromInput(workbook: any, sheetId?: string, name?: string) {
 export function createSheetTools(ctx: McpContext): AxFunction[] {
 	const get_sheets: AxFunction = {
 		name: 'get_sheets',
-		description: 'List all worksheets.',
+		description: getMcpToolDescription('get_sheets'),
 		parameters: EmptySchema,
-		func: async (): Promise<UniverMcpGetSheetsResult> => {
+		func: async (): Promise<UniverToolGetSheetsResult> => {
 			ctx.stats.toolCalls++
 			return { sheets: listSheets(ctx.workbook) }
 		},
@@ -102,9 +103,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const get_active_unit_id: AxFunction = {
 		name: 'get_active_unit_id',
-		description: 'Get current workbook id and active sheet id.',
+		description: getMcpToolDescription('get_active_unit_id'),
 		parameters: EmptySchema,
-		func: async (): Promise<UniverMcpGetActiveUnitIdResult> => {
+		func: async (): Promise<UniverToolGetActiveUnitIdResult> => {
 			ctx.stats.toolCalls++
 			const workbookId = typeof ctx.workbook?.getId === 'function' ? String(ctx.workbook.getId()) : null
 			const active = ctx.workbook?.getActiveSheet?.()
@@ -115,9 +116,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const get_activity_status: AxFunction = {
 		name: 'get_activity_status',
-		description: 'Get workbook status and info.',
+		description: getMcpToolDescription('get_activity_status'),
 		parameters: EmptySchema,
-		func: async (): Promise<UniverMcpGetActivityStatusResult> => {
+		func: async (): Promise<UniverToolGetActivityStatusResult> => {
 			ctx.stats.toolCalls++
 			const workbookId = typeof ctx.workbook?.getId === 'function' ? String(ctx.workbook.getId()) : null
 			const active = ctx.workbook?.getActiveSheet?.()
@@ -129,9 +130,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const create_sheet: AxFunction = {
 		name: 'create_sheet',
-		description: 'Create a new worksheet.',
+		description: getMcpToolDescription('create_sheet'),
 		parameters: CreateSheetSchema,
-		func: async (input: UniverMcpCreateSheetInput): Promise<UniverMcpCreateSheetResult> => {
+		func: async (input: UniverToolCreateSheetInput): Promise<UniverToolCreateSheetResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 			ctx.checkWriteSheet()
@@ -159,9 +160,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const delete_sheet: AxFunction = {
 		name: 'delete_sheet',
-		description: 'Delete an existing worksheet.',
+		description: getMcpToolDescription('delete_sheet'),
 		parameters: DeleteSheetSchema,
-		func: async (input: UniverMcpDeleteSheetInput): Promise<UniverMcpDeleteSheetResult> => {
+		func: async (input: UniverToolDeleteSheetInput): Promise<UniverToolDeleteSheetResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -181,9 +182,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const rename_sheet: AxFunction = {
 		name: 'rename_sheet',
-		description: 'Rename an existing sheet.',
+		description: getMcpToolDescription('rename_sheet'),
 		parameters: RenameSheetSchema,
-		func: async (input: UniverMcpRenameSheetInput): Promise<UniverMcpRenameSheetResult> => {
+		func: async (input: UniverToolRenameSheetInput): Promise<UniverToolRenameSheetResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -203,9 +204,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const activate_sheet: AxFunction = {
 		name: 'activate_sheet',
-		description: 'Switch active worksheet.',
+		description: getMcpToolDescription('activate_sheet'),
 		parameters: ActivateSheetSchema,
-		func: async (input: UniverMcpActivateSheetInput): Promise<UniverMcpActivateSheetResult> => {
+		func: async (input: UniverToolActivateSheetInput): Promise<UniverToolActivateSheetResult> => {
 			ctx.stats.toolCalls++
 			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
 			const sheetId = getSheetId(sheet)
@@ -217,9 +218,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const move_sheet: AxFunction = {
 		name: 'move_sheet',
-		description: 'Move sheet to a new index.',
+		description: getMcpToolDescription('move_sheet'),
 		parameters: MoveSheetSchema,
-		func: async (input: UniverMcpMoveSheetInput): Promise<UniverMcpMoveSheetResult> => {
+		func: async (input: UniverToolMoveSheetInput): Promise<UniverToolMoveSheetResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 
@@ -236,9 +237,9 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 
 	const set_sheet_display_status: AxFunction = {
 		name: 'set_sheet_display_status',
-		description: 'Show or hide a worksheet.',
+		description: getMcpToolDescription('set_sheet_display_status'),
 		parameters: SetSheetDisplayStatusSchema,
-		func: async (input: UniverMcpSetSheetDisplayStatusInput): Promise<UniverMcpSetSheetDisplayStatusResult> => {
+		func: async (input: UniverToolSetSheetDisplayStatusInput): Promise<UniverToolSetSheetDisplayStatusResult> => {
 			ctx.stats.toolCalls++
 			ctx.bumpChange()
 

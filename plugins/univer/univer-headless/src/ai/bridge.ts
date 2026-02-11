@@ -5,12 +5,12 @@ import type {
 	UniverAiClearRangeResult,
 	UniverAiListSheetsResult,
 	UniverAiOpsV1,
-	UniverAiRange,
 	UniverAiReadRangeDisplayInput,
 	UniverAiReadRangeDisplayResult,
 	UniverAiToolCall,
 	UniverAiToolResult,
 	UniverAiToolSpec,
+	UniverRange,
 } from '../protocol'
 import { parseA1Range } from './a1'
 
@@ -26,7 +26,7 @@ function normalizeMatrixToString(input: unknown): string[][] {
 	return input.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []))
 }
 
-function clipRange(range: UniverAiRange, limits?: { maxRows?: number; maxCols?: number }) {
+function clipRange(range: UniverRange, limits?: { maxRows?: number; maxCols?: number }) {
 	const maxRows = clampInt(limits?.maxRows, 1, 2000)
 	const maxCols = clampInt(limits?.maxCols, 1, 2000)
 	const rows = range.endRow - range.startRow + 1
@@ -34,7 +34,7 @@ function clipRange(range: UniverAiRange, limits?: { maxRows?: number; maxCols?: 
 	const clippedRows = Math.min(rows, maxRows)
 	const clippedCols = Math.min(cols, maxCols)
 	const truncated = clippedRows !== rows || clippedCols !== cols
-	const clipped: UniverAiRange = {
+	const clipped: UniverRange = {
 		startRow: range.startRow,
 		startCol: range.startCol,
 		endRow: range.startRow + clippedRows - 1,
@@ -248,7 +248,7 @@ export function createUniverAiBridge(workbook: any, opts?: { logger?: Logger }):
 	const clearRange = (input: UniverAiClearRangeInput): UniverAiClearRangeResult => {
 		const sheetId = String(input?.sheetId ?? '').trim()
 		if (!sheetId) throw new Error('[univer] sheetId required')
-		const r = input?.range as UniverAiRange
+		const r = input?.range as UniverRange
 		if (!r) throw new Error('[univer] range required')
 		const sheet = resolveSheet(workbook, sheetId, undefined)
 		sheet
