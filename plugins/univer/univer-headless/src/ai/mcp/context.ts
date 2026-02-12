@@ -6,6 +6,21 @@ export type McpStats = {
 	appliedOps: number
 	appliedClears: number
 	readCalls: number
+	/**
+	 * Optional execution telemetry for observability / post-checks.
+	 * Updated by tool wrappers (best-effort; not required by all callers).
+	 */
+	callSeq?: number
+	lastReadSeq?: number
+	lastWriteSeq?: number
+	/** Optional verification marker for "write + readback in same tool call". */
+	lastVerifySeq?: number
+	lastErrorSeq?: number
+	lastReadTool?: string
+	lastWriteTool?: string
+	lastVerifyTool?: string
+	lastErrorTool?: string
+	toolErrors?: number
 }
 
 export type A1Scope = {
@@ -18,12 +33,6 @@ export type A1Scope = {
 export type McpLimits = {
 	maxOps: number
 	maxChanges: number
-}
-
-export type McpLogger = {
-	debug?: (message: string, props?: Record<string, unknown>) => void
-	info?: (message: string, props?: Record<string, unknown>) => void
-	warn?: (message: string, props?: Record<string, unknown>) => void
 }
 
 export type McpCache = {
@@ -48,7 +57,6 @@ export type McpContext = {
 	viewLimits?: Readonly<{ maxRows: number; maxCols: number }>
 	limits: McpLimits
 	stats: McpStats
-	logger?: McpLogger
 	cache?: McpCache
 	/** Validate change budget (does not mutate state). */
 	checkCanChange(): void

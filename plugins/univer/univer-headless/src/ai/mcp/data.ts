@@ -22,6 +22,7 @@ import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { formatA1Range } from '../a1'
 import { resolveRangeInput, resolveSheet, getSheetId, getSheetName, toMatrix, toStringMatrix, normalizeCount } from './utils'
+import { asAxParams } from '../ax-params'
 const RangeSchema = Type.Object(
 	{
 		startRow: Type.Integer(),
@@ -32,37 +33,82 @@ const RangeSchema = Type.Object(
 	{ additionalProperties: false },
 )
 
-const RangeInputProps = {
+const RangeInputBaseProps = {
 	sheetId: Type.Optional(Type.String()),
 	sheetName: Type.Optional(Type.String()),
-	a1: Type.Optional(Type.String()),
-	range: Type.Optional(RangeSchema),
 } as const
 
-const RangeInputSchema = Type.Object(RangeInputProps, { additionalProperties: false })
-
-const SetRangeDataSchema = Type.Object(
+const A1RangeRefSchema = Type.Object(
 	{
-		...RangeInputProps,
-		values: Type.Array(Type.Array(Type.Any())),
+		...RangeInputBaseProps,
+		a1: Type.String(),
 	},
 	{ additionalProperties: false },
 )
 
-const SetRangesDataSchema = Type.Object(
+const IndexRangeRefSchema = Type.Object(
 	{
-		updates: Type.Array(SetRangeDataSchema),
+		...RangeInputBaseProps,
+		range: RangeSchema,
 	},
 	{ additionalProperties: false },
 )
 
-const GetRangeDataSchema = Type.Object(
-	{
-		...RangeInputProps,
-		includeDisplay: Type.Optional(Type.Boolean()),
-	},
-	{ additionalProperties: false },
-)
+const RangeInputSchema = Type.Union([A1RangeRefSchema, IndexRangeRefSchema])
+
+const SetRangeDataSchema = Type.Union([
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			a1: Type.String(),
+			values: Type.Array(Type.Array(Type.Any())),
+			readback: Type.Optional(
+				Type.Object(
+					{
+						includeDisplay: Type.Optional(Type.Boolean()),
+					},
+					{ additionalProperties: false },
+				),
+			),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			range: RangeSchema,
+			values: Type.Array(Type.Array(Type.Any())),
+			readback: Type.Optional(
+				Type.Object(
+					{
+						includeDisplay: Type.Optional(Type.Boolean()),
+					},
+					{ additionalProperties: false },
+				),
+			),
+		},
+		{ additionalProperties: false },
+	),
+])
+
+const GetRangeDataSchema = Type.Union([
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			a1: Type.String(),
+			includeDisplay: Type.Optional(Type.Boolean()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			range: RangeSchema,
+			includeDisplay: Type.Optional(Type.Boolean()),
+		},
+		{ additionalProperties: false },
+	),
+])
 
 const GetRangesDataSchema = Type.Object(
 	{
@@ -72,32 +118,97 @@ const GetRangesDataSchema = Type.Object(
 	{ additionalProperties: false },
 )
 
-const SearchCellsSchema = Type.Object(
+const SetRangesDataSchema = Type.Object(
 	{
-		...RangeInputProps,
-		query: Type.String(),
-		match: Type.Optional(Type.Union([Type.Literal('contains'), Type.Literal('exact'), Type.Literal('regex')])),
-		caseSensitive: Type.Optional(Type.Boolean()),
-		maxResults: Type.Optional(Type.Integer()),
+		updates: Type.Array(SetRangeDataSchema),
+		readback: Type.Optional(
+			Type.Object(
+				{
+					includeDisplay: Type.Optional(Type.Boolean()),
+					ranges: Type.Optional(Type.Array(GetRangeDataSchema)),
+				},
+				{ additionalProperties: false },
+			),
+		),
 	},
 	{ additionalProperties: false },
 )
+
+const SearchCellsSchema = Type.Union([
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			a1: Type.String(),
+			query: Type.String(),
+			match: Type.Optional(Type.Union([Type.Literal('contains'), Type.Literal('exact'), Type.Literal('regex')])),
+			caseSensitive: Type.Optional(Type.Boolean()),
+			maxResults: Type.Optional(Type.Integer()),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			range: RangeSchema,
+			query: Type.String(),
+			match: Type.Optional(Type.Union([Type.Literal('contains'), Type.Literal('exact'), Type.Literal('regex')])),
+			caseSensitive: Type.Optional(Type.Boolean()),
+			maxResults: Type.Optional(Type.Integer()),
+		},
+		{ additionalProperties: false },
+	),
+])
 
 const AutoFillSchema = Type.Object(
 	{
 		source: RangeInputSchema,
 		target: RangeInputSchema,
+		readback: Type.Optional(
+			Type.Object(
+				{
+					includeDisplay: Type.Optional(Type.Boolean()),
+				},
+				{ additionalProperties: false },
+			),
+		),
 	},
 	{ additionalProperties: false },
 )
 
-const FillFormulaSchema = Type.Object(
-	{
-		...RangeInputProps,
-		formula: Type.String(),
-	},
-	{ additionalProperties: false },
-)
+const FillFormulaSchema = Type.Union([
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			a1: Type.String(),
+			formula: Type.String(),
+			readback: Type.Optional(
+				Type.Object(
+					{
+						includeDisplay: Type.Optional(Type.Boolean()),
+					},
+					{ additionalProperties: false },
+				),
+			),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			range: RangeSchema,
+			formula: Type.String(),
+			readback: Type.Optional(
+				Type.Object(
+					{
+						includeDisplay: Type.Optional(Type.Boolean()),
+					},
+					{ additionalProperties: false },
+				),
+			),
+		},
+		{ additionalProperties: false },
+	),
+])
 
 function tileMatrix(source: unknown[][], targetRows: number, targetCols: number): unknown[][] {
 	const srcRows = source.length
@@ -298,7 +409,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 	const set_range_data: AxFunction = {
 		name: 'set_range_data',
 		description: getMcpToolDescription('set_range_data'),
-		parameters: SetRangeDataSchema as any,
+		parameters: asAxParams(SetRangeDataSchema),
 		func: async (input: UniverToolSetRangeDataInput): Promise<UniverToolSetRangeDataResult> => {
 			ctx.stats.toolCalls++
 
@@ -313,7 +424,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			const { rows, cols } = computeRangeSize(range)
 			if (!rows || !cols) return { updatedCells: 0 }
 
-			const values = validateAndNormalizeValues((input as any)?.values, rows, cols)
+			const values = validateAndNormalizeValues(input.values, rows, cols)
 
 			ctx.checkCanChange()
 			ctx.checkCanApplyOps(rows * cols)
@@ -323,26 +434,42 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 				endRow: range.endRow,
 				endColumn: range.endCol,
 			})
-			r.setValues(values as any)
+			r.setValues(values)
 			ctx.bumpChange()
 			const updatedCells = rows * cols
 			ctx.stats.appliedOps += updatedCells
-			return { updatedCells }
+			const wantReadback = !!input.readback
+			if (!wantReadback) return { updatedCells }
+
+			const includeDisplay = Boolean(input.readback?.includeDisplay)
+			const effSheetId = input.sheetId ?? ctx.defaultSheetId
+			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
+			ctx.stats.readCalls++
+			const item = await getRangeDataOnce({
+				...(effSheetId ? { sheetId: effSheetId } : {}),
+				...(effSheetName ? { sheetName: effSheetName } : {}),
+				range,
+				...(includeDisplay ? { includeDisplay: true } : {}),
+			})
+			const key = String(item.requestedA1 ?? item.a1)
+			return { updatedCells, readback: { order: [key], byA1: { [key]: item } } }
 		},
 	}
 
 	const set_ranges_data: AxFunction = {
 		name: 'set_ranges_data',
 		description: getMcpToolDescription('set_ranges_data'),
-		parameters: SetRangesDataSchema as any,
+		parameters: asAxParams(SetRangesDataSchema),
 		func: async (input: UniverToolSetRangesDataInput): Promise<UniverToolSetRangesDataResult> => {
 			ctx.stats.toolCalls++
-			const updates = Array.isArray((input as any)?.updates) ? ((input as any).updates as UniverToolSetRangeDataInput[]) : []
+			const updates = Array.isArray(input.updates) ? input.updates : []
 			if (!updates.length) return { updates: 0, updatedCells: 0 }
 
 			type ResolvedUpdate = {
 				range: UniverRange
 				sheet: any
+				sheetId: string
+				sheetName: string
 				values: unknown[][]
 				updatedCells: number
 			}
@@ -351,18 +478,20 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 			for (const u of updates) {
 				const { range, sheetName } = resolveRangeInput(u)
-				ctx.checkWriteRange(range, (u as any).sheetId, sheetName ?? (u as any).sheetName)
+				ctx.checkWriteRange(range, u.sheetId, sheetName ?? u.sheetName)
 				const sheet = resolveSheet(
 					ctx.workbook,
-					(u as any).sheetId ?? ctx.defaultSheetId,
-					sheetName ?? (u as any).sheetName ?? ctx.defaultSheetName,
+					u.sheetId ?? ctx.defaultSheetId,
+					sheetName ?? u.sheetName ?? ctx.defaultSheetName,
 				)
+				const resolvedSheetId = getSheetId(sheet)
+				const resolvedSheetName = getSheetName(sheet)
 				const { rows, cols } = computeRangeSize(range)
 				if (!rows || !cols) continue
-				const values = validateAndNormalizeValues((u as any)?.values, rows, cols)
+				const values = validateAndNormalizeValues(u.values, rows, cols)
 				const updatedCells = rows * cols
 				totalCells += updatedCells
-				resolved.push({ range, sheet, values, updatedCells })
+				resolved.push({ range, sheet, sheetId: resolvedSheetId, sheetName: resolvedSheetName, values, updatedCells })
 			}
 
 			if (!resolved.length) return { updates: 0, updatedCells: 0 }
@@ -377,19 +506,50 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 					endRow: u.range.endRow,
 					endColumn: u.range.endCol,
 				})
-				r.setValues(u.values as any)
+				r.setValues(u.values)
 			}
 
 			ctx.bumpChange()
 			ctx.stats.appliedOps += totalCells
-			return { updates: resolved.length, updatedCells: totalCells }
+			const wantReadback = !!input.readback
+			if (!wantReadback) return { updates: resolved.length, updatedCells: totalCells }
+
+			const includeDisplay = Boolean(input.readback?.includeDisplay)
+			const requested = Array.isArray(input.readback?.ranges) && input.readback?.ranges.length ? input.readback.ranges : []
+
+			const defaultReadbackRanges: UniverToolGetRangeDataInput[] = resolved.map((u) => ({
+				sheetId: u.sheetId,
+				sheetName: u.sheetName,
+				range: u.range,
+			}))
+
+			const ranges = (requested.length ? requested : defaultReadbackRanges).map((r) => ({
+				...r,
+				...(includeDisplay ? { includeDisplay: true } : {}),
+			}))
+
+			const order: string[] = []
+			const byA1: Record<string, UniverToolGetRangeDataResult> = {}
+			const seen = new Set<string>()
+			for (const r of ranges) {
+				ctx.stats.readCalls++
+				const item = await getRangeDataOnce(r)
+				const key = String(item.requestedA1 ?? item.a1)
+				byA1[key] = item
+				if (!seen.has(key)) {
+					seen.add(key)
+					order.push(key)
+				}
+			}
+
+			return { updates: resolved.length, updatedCells: totalCells, readback: { order, byA1 } }
 		},
 	}
 
 	const get_range_data: AxFunction = {
 		name: 'get_range_data',
 		description: getMcpToolDescription('get_range_data'),
-		parameters: GetRangeDataSchema as any,
+		parameters: asAxParams(GetRangeDataSchema),
 		func: async (input: UniverToolGetRangeDataInput): Promise<UniverToolGetRangeDataResult> => {
 			ctx.stats.toolCalls++
 			ctx.stats.readCalls++
@@ -400,21 +560,21 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 	const get_ranges_data: AxFunction = {
 		name: 'get_ranges_data',
 		description: getMcpToolDescription('get_ranges_data'),
-		parameters: GetRangesDataSchema as any,
+		parameters: asAxParams(GetRangesDataSchema),
 		func: async (input: UniverToolGetRangesDataInput): Promise<UniverToolGetRangesDataResult> => {
 			ctx.stats.toolCalls++
 			ctx.stats.readCalls++
 
-			const ranges = Array.isArray((input as any)?.ranges) ? ((input as any).ranges as UniverToolGetRangeDataInput[]) : []
+			const ranges = Array.isArray(input.ranges) ? input.ranges : []
 			if (!ranges.length) return { order: [], byA1: {} }
-			const includeDisplay = typeof (input as any)?.includeDisplay === 'boolean' ? !!(input as any).includeDisplay : undefined
+			const includeDisplay = typeof input.includeDisplay === 'boolean' ? input.includeDisplay : undefined
 
 			const order: string[] = []
 			const byA1: Record<string, UniverToolGetRangeDataResult> = {}
 			const seen = new Set<string>()
 			for (const r of ranges) {
-				const item = await getRangeDataOnce({ ...(r as any), ...(includeDisplay !== undefined ? { includeDisplay } : {}) })
-				const key = String((item as any).requestedA1 ?? item.a1)
+				const item = await getRangeDataOnce({ ...r, ...(includeDisplay !== undefined ? { includeDisplay } : {}) })
+				const key = String(item.requestedA1 ?? item.a1)
 				byA1[key] = item
 				if (!seen.has(key)) {
 					seen.add(key)
@@ -428,7 +588,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 	const search_cells: AxFunction = {
 		name: 'search_cells',
 		description: getMcpToolDescription('search_cells'),
-		parameters: SearchCellsSchema as any,
+		parameters: asAxParams(SearchCellsSchema),
 		func: async (input: UniverToolSearchCellsInput): Promise<UniverToolSearchCellsResult> => {
 			ctx.stats.toolCalls++
 			ctx.stats.readCalls++
@@ -440,6 +600,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 			const sheetId = getSheetId(sheet)
+			const resolvedSheetName = getSheetName(sheet)
 			const query = String(input.query ?? '')
 			if (!query.trim()) throw new Error('[univer] query must be non-empty')
 			const match = input.match ?? 'contains'
@@ -457,7 +618,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			})
 			const matrix = toStringMatrix(r.getDisplayValues())
 
-			const res: Array<{ sheetId: string; row: number; col: number; value: string }> = []
+			const res: Array<{ sheetId: string; sheetName: string; a1: string; row: number; col: number; value: string }> = []
 			let rx: RegExp | null = null
 			if (match === 'regex') {
 				try {
@@ -480,10 +641,14 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 								? !!rx?.test(raw)
 								: text.includes(q)
 					if (hit) {
+						const absRow = range.startRow + rIdx
+						const absCol = range.startCol + cIdx
 						res.push({
 							sheetId,
-							row: range.startRow + rIdx,
-							col: range.startCol + cIdx,
+							sheetName: resolvedSheetName,
+							a1: formatA1Range(resolvedSheetName, { startRow: absRow, startCol: absCol, endRow: absRow, endCol: absCol }),
+							row: absRow,
+							col: absCol,
 							value: raw,
 						})
 						if (res.length >= maxResults) return { matches: res }
@@ -500,7 +665,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 	const auto_fill: AxFunction = {
 		name: 'auto_fill',
 		description: getMcpToolDescription('auto_fill'),
-		parameters: AutoFillSchema as any,
+		parameters: asAxParams(AutoFillSchema),
 		func: async (input: UniverToolAutoFillInput): Promise<UniverToolAutoFillResult> => {
 			ctx.stats.toolCalls++
 
@@ -534,25 +699,39 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			const tiled = tileMatrix(sourceValues, rows, cols)
 			ctx.checkCanChange()
 			ctx.checkCanApplyOps(rows * cols)
-			targetRange.setValues(tiled as any)
+			targetRange.setValues(tiled)
 			ctx.bumpChange()
 			const updatedCells = rows * cols
 			ctx.stats.appliedOps += updatedCells
-			return { updatedCells }
+			const wantReadback = !!input.readback
+			if (!wantReadback) return { updatedCells }
+
+			const includeDisplay = Boolean(input.readback?.includeDisplay)
+			const sheetId = getSheetId(sheet)
+			const resolvedSheetName = getSheetName(sheet)
+			ctx.stats.readCalls++
+			const item = await getRangeDataOnce({
+				sheetId,
+				sheetName: resolvedSheetName,
+				range: target.range,
+				...(includeDisplay ? { includeDisplay: true } : {}),
+			})
+			const key = String(item.requestedA1 ?? item.a1)
+			return { updatedCells, readback: { order: [key], byA1: { [key]: item } } }
 		},
 	}
 
 	const fill_formula: AxFunction = {
 		name: 'fill_formula',
 		description: getMcpToolDescription('fill_formula'),
-		parameters: FillFormulaSchema as any,
+		parameters: asAxParams(FillFormulaSchema),
 		func: async (input: UniverToolFillFormulaInput): Promise<UniverToolFillFormulaResult> => {
 			ctx.stats.toolCalls++
 
 			const { range, sheetName } = resolveRangeInput(input)
 			ctx.checkWriteRange(range, input.sheetId, sheetName ?? input.sheetName)
 
-			const formula = String((input as any)?.formula ?? '')
+			const formula = String(input.formula ?? '')
 			if (!formula.trim()) throw new Error('[univer] fill_formula formula must be non-empty')
 			if (!formula.trim().startsWith('=')) throw new Error('[univer] fill_formula formula must start with "="')
 
@@ -582,11 +761,25 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 				endRow: range.endRow,
 				endColumn: range.endCol,
 			})
-			targetRange.setValues(matrix as any)
+			targetRange.setValues(matrix)
 			ctx.bumpChange()
 			const updatedCells = rows * cols
 			ctx.stats.appliedOps += updatedCells
-			return { updatedCells }
+			const wantReadback = !!input.readback
+			if (!wantReadback) return { updatedCells }
+
+			const includeDisplay = Boolean(input.readback?.includeDisplay)
+			const sheetId = getSheetId(sheet)
+			const resolvedSheetName = getSheetName(sheet)
+			ctx.stats.readCalls++
+			const item = await getRangeDataOnce({
+				sheetId,
+				sheetName: resolvedSheetName,
+				range,
+				...(includeDisplay ? { includeDisplay: true } : {}),
+			})
+			const key = String(item.requestedA1 ?? item.a1)
+			return { updatedCells, readback: { order: [key], byA1: { [key]: item } } }
 		},
 	}
 

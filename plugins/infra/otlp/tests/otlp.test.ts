@@ -5,6 +5,7 @@ import { BasePlugin, Plugin, withHost } from '@pluxel/test'
 
 import { Otlp, OtlpHub } from '../src/index.js'
 import { OtlpSpan } from '../src/decorators.js'
+import { createOtlpOtelMeter, createOtlpOtelTracer } from '../src/otel.js'
 
 async function startCollector() {
 	const received: Array<{ path: string; text: string; json: any | null }> = []
@@ -161,6 +162,107 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 			expect(span.name).toBe('Decorated.run')
 		} finally {
 			await stop()
+		}
+	})
+
+	it('OpenTelemetry bridge (Tracer/Meter) exports spans + metrics synchronously', async () => {
+		const { stop, received, endpoint } = await startCollector()
+		@Plugin({ name: 'OtelCaller', type: 'service' })
+		class OtelCaller extends BasePlugin {
+			constructor(private readonly otlp: Otlp) {
+				super()
+			}
+
+			emit() {
+				const tracer = createOtlpOtelTracer(this.otlp, { tracerName: 'axflow' })
+				const meter = createOtlpOtelMeter(this.otlp, { meterName: 'axflow' })
+				const span = tracer.startSpan('otel.span')
+				span.setAttribute('ok', true as any)
+				span.addEvent('evt', { a: 1 } as any)
+				span.end()
+
+				const reqTotal = meter.createCounter('otel_req_total')
+				reqTotal.add(1, { route: '/ping' } as any)
+			}
+		}
+
+		try {
+			await withHost(async (host) => {
+				await host.ctx.configService.ready
+				host.cfg('OtlpHub').set({
+					core: { enabled: true, endpoint },
+					signals: { logs: false, traces: true, metrics: true },
+					batch: { flushIntervalMs: 5, maxBatchRecords: 256, maxInflight: 1 },
+					queueCfg: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+				})
+
+				host.add([OtlpHub, OtelCaller])
+				await host.commit()
+
+				host.require(OtelCaller).emit()
+				await host.require(Otlp).flush()
+			})
+
+			const traces = received.find((r) => r.path === '/v1/traces')!.json
+			const span = traces.resourceSpans?.[0]?.scopeSpans?.[0]?.spans?.[0]
+			expect(span.name).toBe('otel.span')
+
+			const metricReqs = received.filter((r) => r.path === '/v1/metrics').map((r) => r.json).filter(Boolean)
+			const names = metricReqs.flatMap((j) => j.resourceMetrics?.[0]?.scopeMetrics?.[0]?.metrics?.map((m: any) => m.name) ?? [])
+			expect(names).toContain('otel_req_total')
+		} finally {
+			await stop()
+		}
+	})
+
+	it('routes by callerId to different OTLP targets', async () => {
+		const a = await startCollector()
+		const b = await startCollector()
+		try {
+			@Plugin({ name: 'CallerA', type: 'service' })
+			class CallerA extends BasePlugin {
+				constructor(private readonly otlp: Otlp) {
+					super()
+				}
+				async emit() {
+					await this.otlp.log({ level: 'info', body: 'a' })
+				}
+			}
+
+			@Plugin({ name: 'CallerB', type: 'service' })
+			class CallerB extends BasePlugin {
+				constructor(private readonly otlp: Otlp) {
+					super()
+				}
+				async emit() {
+					await this.otlp.log({ level: 'info', body: 'b' })
+				}
+			}
+
+			await withHost(async (host) => {
+				await host.ctx.configService.ready
+				host.cfg('OtlpHub').set({
+					core: { enabled: true, endpoint: a.endpoint },
+					signals: { logs: true, traces: false, metrics: false },
+					targets: [{ id: 'b', endpoint: b.endpoint }],
+					routing: { byCallerId: { CallerB: 'b' } },
+					batch: { flushIntervalMs: 5, maxBatchRecords: 1, maxInflight: 1 },
+					queueCfg: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+				})
+
+				host.add([OtlpHub, CallerA, CallerB])
+				await host.commit()
+
+				await host.require(CallerA).emit()
+				await host.require(CallerB).emit()
+				await host.require(Otlp).flush()
+			})
+
+			expect(a.received.some((r) => r.path === '/v1/logs')).toBe(true)
+			expect(b.received.some((r) => r.path === '/v1/logs')).toBe(true)
+		} finally {
+			await a.stop()
+			await b.stop()
 		}
 	})
 })

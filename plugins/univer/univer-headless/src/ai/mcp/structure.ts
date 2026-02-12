@@ -18,6 +18,7 @@ import type {
 import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { callFirst, normalizeCount, resolveRangeInput, resolveSheet } from './utils'
+import { asAxParams } from '../ax-params'
 const InsertRowsSchema = Type.Object(
 	{
 		sheetId: Type.Optional(Type.String()),
@@ -113,7 +114,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const insert_rows: AxFunction = {
 		name: 'insert_rows',
 		description: getMcpToolDescription('insert_rows'),
-		parameters: InsertRowsSchema as any,
+		parameters: asAxParams(InsertRowsSchema),
 		func: async (input: UniverToolInsertRowsInput): Promise<UniverToolInsertRowsResult> => {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
@@ -134,7 +135,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const insert_columns: AxFunction = {
 		name: 'insert_columns',
 		description: getMcpToolDescription('insert_columns'),
-		parameters: InsertColumnsSchema as any,
+		parameters: asAxParams(InsertColumnsSchema),
 		func: async (input: UniverToolInsertColumnsInput): Promise<UniverToolInsertColumnsResult> => {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
@@ -155,7 +156,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const delete_rows: AxFunction = {
 		name: 'delete_rows',
 		description: getMcpToolDescription('delete_rows'),
-		parameters: DeleteRowsSchema as any,
+		parameters: asAxParams(DeleteRowsSchema),
 		func: async (input: UniverToolDeleteRowsInput): Promise<UniverToolDeleteRowsResult> => {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
@@ -176,7 +177,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const delete_columns: AxFunction = {
 		name: 'delete_columns',
 		description: getMcpToolDescription('delete_columns'),
-		parameters: DeleteColumnsSchema as any,
+		parameters: asAxParams(DeleteColumnsSchema),
 		func: async (input: UniverToolDeleteColumnsInput): Promise<UniverToolDeleteColumnsResult> => {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
@@ -197,7 +198,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const set_cell_dimensions: AxFunction = {
 		name: 'set_cell_dimensions',
 		description: getMcpToolDescription('set_cell_dimensions'),
-		parameters: SetCellDimensionsSchema as any,
+		parameters: asAxParams(SetCellDimensionsSchema),
 		func: async (input: UniverToolSetCellDimensionsInput): Promise<UniverToolSetCellDimensionsResult> => {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
@@ -235,7 +236,7 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 	const set_merge: AxFunction = {
 		name: 'set_merge',
 		description: getMcpToolDescription('set_merge'),
-		parameters: SetMergeSchema as any,
+		parameters: asAxParams(SetMergeSchema),
 		func: async (input: UniverToolSetMergeInput): Promise<UniverToolSetMergeResult> => {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()

@@ -8,5 +8,5 @@
 		// Host entry should typecheck against dist types to avoid pulling workspace plugin sources into this program.
 		"customConditions": []
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx", "vitest.config.ts"]
+	"include": ["src/**/*.ts", "src/**/*.tsx"]
 }

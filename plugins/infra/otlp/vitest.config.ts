@@ -1,1 +1,3 @@
-export { default } from '@pluxel/test/vitest'
+import { definePluxelVitestConfig } from '@pluxel/test/vitest'
+
+export default definePluxelVitestConfig({}, { include: ['src/**/*.ts', 'tests/**/*.ts'] })

@@ -17,12 +17,13 @@
 		"!**/*.map"
 	],
 	"scripts": {
-		"test": "pnpm run typecheck && pnpm exec vitest run -c ./vitest.config.ts",
+		"test": "pnpm run typecheck && pnpm exec vitest run -c ./vitest.config.ts --passWithNoTests",
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json"
 	},
 	"dependencies": {
 		"@pluxel/univer-headless": "workspace:^",
+		"pluxel-plugin-otlp": "workspace:^",
 		"pluxel-plugin-llm-hub": "workspace:^",
 		"pluxel-plugin-univer-workbooks": "workspace:^"
 	},
@@ -33,4 +34,3 @@
 		}
 	}
 }
-

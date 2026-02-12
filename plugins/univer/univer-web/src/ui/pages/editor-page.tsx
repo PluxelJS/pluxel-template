@@ -40,27 +40,6 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		| null
 	const sse = ctx.services.hmr.sse
 
-	if (!rpc) {
-		return (
-			<Banner
-				fullMode={false}
-				type="warning"
-				title="UniverWorkbooks 未启用"
-				description={
-					<Space vertical align="start" spacing="tight">
-						<div>
-							当前后端没有提供 <CodeInline>UniverWorkbooks</CodeInline> RPC，无法打开工作簿。
-						</div>
-						<div>
-							请启用 <CodeInline>pluxel-plugin-univer-workbooks</CodeInline>（profile:{' '}
-							<CodeInline>pluxel.hmr.jsonc</CodeInline>），然后刷新页面。
-						</div>
-					</Space>
-				}
-			/>
-		)
-	}
-
 	const workbookId = parseWorkbookId(ctx.pathname) ?? ''
 	const mountRef = useRef<HTMLDivElement | null>(null)
 	const rtRef = useRef<UniverRuntime | null>(null)
@@ -284,6 +263,11 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 	const doSave = useCallback(
 		async (reason: SaveReason) => {
+			if (!rpc) {
+				setSaveState('error')
+				setSaveError('UniverWorkbooks RPC 未启用')
+				return
+			}
 			if (!dirtyRef.current && reason !== 'init') return
 			if (saveStateRef.current === 'saving') return
 			if (!workbookId) return
@@ -378,6 +362,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 	}, [doSave])
 
 	const reloadLatest = useCallback(async () => {
+		if (!rpc) return
 		if (!workbookId) return
 		setSaveState('saving')
 		setSaveError(null)
@@ -441,6 +426,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 		const mountEl = mountRef.current
 		if (!mountEl) return
 		if (!workbookId) return
+		if (!rpc) return
 
 		let disposed = false
 		;(async () => {
@@ -546,8 +532,29 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			},
 			['snapshot', 'upsert', 'remove'],
 		)
-		return () => off()
+			return () => off()
 	}, [ensureRuntimePlugins, recomputeEffectivePlugins, sse])
+
+	if (!rpc) {
+		return (
+			<Banner
+				fullMode={false}
+				type="warning"
+				title="UniverWorkbooks 未启用"
+				description={
+					<Space vertical align="start" spacing="tight">
+						<div>
+							当前后端没有提供 <CodeInline>UniverWorkbooks</CodeInline> RPC，无法打开工作簿。
+						</div>
+						<div>
+							请启用 <CodeInline>pluxel-plugin-univer-workbooks</CodeInline>（profile:{' '}
+							<CodeInline>pluxel.hmr.jsonc</CodeInline>），然后刷新页面。
+						</div>
+					</Space>
+				}
+			/>
+		)
+	}
 
 	return (
 		<div className="univer-standalone">

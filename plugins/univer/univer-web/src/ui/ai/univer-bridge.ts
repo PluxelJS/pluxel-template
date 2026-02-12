@@ -53,6 +53,40 @@ export function getSheetWholeA1(input: {
 	return { sheetId, sheetName, a1, range }
 }
 
+export function getWorkbookWholeA1List(input: {
+	api: FUniver
+	maxSheets?: number
+}): Array<{ sheetId: string; sheetName: string; a1: string; range: UniverRangeRect }> {
+	const maxSheets = typeof input.maxSheets === 'number' && Number.isFinite(input.maxSheets) ? Math.max(1, Math.floor(input.maxSheets)) : 64
+	const fWorkbook: any = input.api.getActiveWorkbook?.()
+	if (!fWorkbook) return []
+
+	const active: any = fWorkbook.getActiveSheet?.()
+	const activeId = typeof active?.getSheetId === 'function' ? String(active.getSheetId()) : ''
+
+	const rawSheets: any[] = Array.isArray(fWorkbook.getSheets?.()) ? fWorkbook.getSheets() : []
+	const ids: string[] = []
+	for (const s of rawSheets) {
+		const id = typeof s?.getSheetId === 'function' ? String(s.getSheetId()) : typeof s?.getId === 'function' ? String(s.getId()) : ''
+		if (!id) continue
+		ids.push(id)
+	}
+
+	const ordered = activeId ? [activeId, ...ids.filter((x) => x !== activeId)] : ids
+	const out: Array<{ sheetId: string; sheetName: string; a1: string; range: UniverRangeRect }> = []
+	for (const id of ordered.slice(0, maxSheets)) {
+		const item = getSheetWholeA1({ api: input.api, sheetId: id })
+		if (item) out.push(item)
+	}
+
+	// Fallback: at least return the active sheet scope.
+	if (!out.length) {
+		const one = getSheetWholeA1({ api: input.api })
+		if (one) out.push(one)
+	}
+	return out
+}
+
 function makeA1(sheetName: string, range: UniverRangeRect): string {
 	const base = rangeToA1(range)
 	return sheetName ? `${formatSheetNameForA1(sheetName)}!${base}` : base

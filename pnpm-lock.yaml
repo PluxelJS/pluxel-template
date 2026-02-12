@@ -405,7 +405,11 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/cmd
 
-  plugins/infra/otlp: {}
+  plugins/infra/otlp:
+    dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
 
   plugins/native/napi-rs:
     dependencies:
@@ -489,6 +493,9 @@ importers:
       pluxel-plugin-llm-hub:
         specifier: workspace:^
         version: link:../../ai/llm-hub
+      pluxel-plugin-otlp:
+        specifier: workspace:^
+        version: link:../../infra/otlp
       pluxel-plugin-univer-workbooks:
         specifier: workspace:^
         version: link:../pluxel-plugin-univer-workbooks
@@ -500,6 +507,9 @@ importers:
       '@ax-llm/ax':
         specifier: ^16.1.6
         version: 16.1.6
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
       '@sinclair/typebox':
         specifier: ^0.34.48
         version: 0.34.48

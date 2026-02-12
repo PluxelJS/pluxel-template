@@ -32,17 +32,6 @@ export type UniverToolPreset = 'core' | 'data' | 'sheet' | 'structure' | 'style'
 
 export type UniverToolIndexMode = 'none' | 'groups' | 'tools'
 
-export type UniverToolPolicy = Readonly<{
-	goal?: string
-	preset?: UniverToolPreset
-	prefer?: readonly UniverToolGroup[]
-	allow?: readonly UniverToolGroup[]
-	exclude?: readonly UniverToolGroup[]
-	maxGroups?: number
-	includeLegacy?: boolean
-	toolIndex?: UniverToolIndexMode
-}>
-
 export type UniverToolSpec = Readonly<{
 	name: UniverToolName
 	description: string
@@ -53,20 +42,33 @@ export type UniverToolRangeInput = UniverRangeRef
 export type UniverToolSetRangeDataInput = Readonly<
 	UniverToolRangeInput & {
 		values: unknown[][]
+		/**
+		 * Optional write-time verification readback (performed after the write).
+		 * Note: readback is still subject to readScopes.
+		 */
+		readback?: Readonly<{ includeDisplay?: boolean }>
 	}
 >
 
 export type UniverToolSetRangeDataResult = Readonly<{
 	updatedCells: number
+	readback?: UniverToolGetRangesDataResult
 }>
 
 export type UniverToolSetRangesDataInput = Readonly<{
 	updates: ReadonlyArray<UniverToolSetRangeDataInput>
+	/**
+	 * Optional write-time verification readback (performed after the write).
+	 * - If ranges is omitted/empty, defaults to reading back the updated ranges.
+	 * - Still subject to readScopes.
+	 */
+	readback?: Readonly<{ includeDisplay?: boolean; ranges?: ReadonlyArray<UniverToolGetRangeDataInput> }>
 }>
 
 export type UniverToolSetRangesDataResult = Readonly<{
 	updates: number
 	updatedCells: number
+	readback?: UniverToolGetRangesDataResult
 }>
 
 export type UniverToolGetRangeDataInput = Readonly<
@@ -111,27 +113,39 @@ export type UniverToolSearchCellsInput = Readonly<
 >
 
 export type UniverToolSearchCellsResult = Readonly<{
-	matches: ReadonlyArray<{ sheetId: SheetId; row: number; col: number; value: string }>
+	matches: ReadonlyArray<{ sheetId: SheetId; sheetName?: string; a1: A1Notation; row: number; col: number; value: string }>
 }>
 
 export type UniverToolAutoFillInput = Readonly<{
 	source: UniverToolRangeInput
 	target: UniverToolRangeInput
+	/**
+	 * Optional write-time verification readback (performed after the write).
+	 * Defaults to reading back the target range.
+	 */
+	readback?: Readonly<{ includeDisplay?: boolean }>
 }>
 
 export type UniverToolAutoFillResult = Readonly<{
 	updatedCells: number
+	readback?: UniverToolGetRangesDataResult
 }>
 
 export type UniverToolFillFormulaInput = Readonly<
 	UniverToolRangeInput & {
 		/** A1 formula string. Must start with '='. Relative refs will be shifted per-cell. */
 		formula: string
+		/**
+		 * Optional write-time verification readback (performed after the write).
+		 * Defaults to reading back the target range.
+		 */
+		readback?: Readonly<{ includeDisplay?: boolean }>
 	}
 >
 
 export type UniverToolFillFormulaResult = Readonly<{
 	updatedCells: number
+	readback?: UniverToolGetRangesDataResult
 }>
 
 export type UniverToolFormatBrushInput = Readonly<{

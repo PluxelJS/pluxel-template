@@ -13,30 +13,59 @@ type McpToolCatalogEntry = Readonly<{
 }>
 
 export const MCP_TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
-	{ name: 'set_range_data', description: 'Set values in a cell range (matrix must match range size; formulas require per-cell strings).', group: 'core' },
-	{ name: 'set_ranges_data', description: 'Batch set values for multiple ranges in one call (each matrix must match its range).', group: 'core' },
-	{ name: 'get_range_data', description: 'Read raw values in a cell range.', group: 'core' },
-	{ name: 'get_ranges_data', description: 'Batch read raw values for multiple ranges in one call (returns order + byA1 map).', group: 'core' },
-	{ name: 'search_cells', description: 'Search for content in a cell range.', group: 'core' },
-	{ name: 'auto_fill', description: 'Fill target range by tiling (repeating) source values (does NOT shift formula refs).', group: 'data' },
-	{ name: 'fill_formula', description: 'Fill a formula across a target range by shifting relative refs per-cell.', group: 'data' },
-	{ name: 'get_sheets', description: 'List all worksheets.', group: 'sheet' },
-	{ name: 'get_active_unit_id', description: 'Get current workbook id and active sheet id.', group: 'sheet' },
-	{ name: 'get_activity_status', description: 'Get workbook status and info.', group: 'sheet' },
-	{ name: 'create_sheet', description: 'Create a new worksheet.', group: 'sheet' },
-	{ name: 'rename_sheet', description: 'Rename an existing sheet.', group: 'sheet' },
-	{ name: 'delete_sheet', description: 'Delete an existing worksheet.', group: 'sheet' },
-	{ name: 'activate_sheet', description: 'Switch active worksheet.', group: 'sheet' },
-	{ name: 'move_sheet', description: 'Move sheet to a new index.', group: 'sheet' },
-	{ name: 'set_sheet_display_status', description: 'Show or hide a worksheet.', group: 'sheet' },
-	{ name: 'insert_rows', description: 'Insert rows into a worksheet.', group: 'structure' },
-	{ name: 'insert_columns', description: 'Insert columns into a worksheet.', group: 'structure' },
-	{ name: 'delete_rows', description: 'Delete rows in a worksheet.', group: 'structure' },
-	{ name: 'delete_columns', description: 'Delete columns in a worksheet.', group: 'structure' },
+	{
+		name: 'set_range_data',
+		description:
+			'Write a dense 2D matrix into a range. Provide either {a1:"Sheet1!A1:B1"} or {range:{startRow,...}} (0-based). Matrix size must exactly match the target range size; for formulas, use per-cell strings. Optional readback verifies results after the write: set_range_data({..., readback:{includeDisplay?:true}}) -> readback.byA1[...].',
+		group: 'core',
+	},
+	{
+		name: 'set_ranges_data',
+		description:
+			'Batch write multiple ranges in one call (preferred). Each update item must provide a1 or range, and a dense matrix matching that range size. Optional readback verifies in the same call: set_ranges_data({updates:[...], readback:{ /* defaults to updated ranges */ }}) -> readback.byA1.',
+		group: 'core',
+	},
+	{
+		name: 'get_range_data',
+		description:
+			'Read raw values in a range. Provide either a1 (recommended) or range (0-based). Use includeDisplay=true if you need formatted strings.',
+		group: 'core',
+	},
+	{
+		name: 'get_ranges_data',
+		description:
+			'Batch read multiple ranges (preferred). Returns {order, byA1}. Provide each item as {a1:"..."} or {range:{...}}; keep ranges small and scoped.',
+		group: 'core',
+	},
+	{
+		name: 'search_cells',
+		description:
+			'Search display text in a range for query. match: "contains" (default) | "exact" | "regex". Returns hits with {a1,row,col,value}; use a1 for precise follow-up reads/writes.',
+		group: 'core',
+	},
+	{
+		name: 'auto_fill',
+		description:
+			'Fill target range by tiling source values (repeat pattern; does NOT shift formula refs). Use fill_formula for relative ref shifting. Optional readback verifies the target after fill: auto_fill({source, target, readback:{...}}) -> readback.byA1.',
+		group: 'data',
+	},
+	{
+		name: 'fill_formula',
+		description:
+			'Fill a base formula across a target range by shifting relative refs per-cell. formula must start with "=". Use $ to lock rows/cols; for non-uniform formulas, use set_range_data. Optional readback verifies the target after fill: fill_formula({..., readback:{includeDisplay:true}}) -> readback.byA1.',
+		group: 'data',
+	},
+	{ name: 'get_sheets', description: 'List all worksheets (sheetId + name + index + hidden). Use this to resolve valid sheet refs.', group: 'sheet' },
+	{ name: 'get_active_unit_id', description: 'Get workbookId and activeSheetId (useful to confirm context).', group: 'sheet' },
+	{ name: 'get_activity_status', description: 'Get basic workbook status (workbookId, activeSheetId, sheetCount).', group: 'sheet' },
+	{ name: 'insert_rows', description: 'Insert rows into a worksheet (structural edit; sheet must be allowed by writeScopes).', group: 'structure' },
+	{ name: 'insert_columns', description: 'Insert columns into a worksheet (structural edit; sheet must be allowed by writeScopes).', group: 'structure' },
+	{ name: 'delete_rows', description: 'Delete rows in a worksheet (structural edit; sheet must be allowed by writeScopes).', group: 'structure' },
+	{ name: 'delete_columns', description: 'Delete columns in a worksheet (structural edit; sheet must be allowed by writeScopes).', group: 'structure' },
 	{ name: 'set_cell_dimensions', description: 'Set row heights and column widths.', group: 'structure' },
 	{ name: 'set_merge', description: 'Merge or unmerge a cell range.', group: 'structure' },
-	{ name: 'set_range_style', description: 'Apply cell styling to a range.', group: 'style' },
-	{ name: 'format_brush', description: 'Copy and apply cell formatting from source to target.', group: 'style' },
+	{ name: 'set_range_style', description: 'Apply styling to a range (e.g., alignment, font, fill). Provide a1 or range.', group: 'style' },
+	{ name: 'format_brush', description: 'Copy formatting from source range to target range (same sheet). Provide source/target as a1 or range.', group: 'style' },
 ]
 
 const TOOL_META = new Map<UniverToolName, McpToolCatalogEntry>(

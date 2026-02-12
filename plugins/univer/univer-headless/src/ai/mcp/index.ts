@@ -15,11 +15,9 @@ import {
 	listMcpToolSpecs,
 } from './catalog'
 import type { McpContext } from './context'
-import { resolveMcpToolGroups } from './selection'
 
 export type McpToolGroup = UniverToolGroup
 export { MCP_TOOL_GROUPS, MCP_TOOL_PRESETS, buildMcpToolIndexText, getMcpToolDescription, listMcpToolNames, listMcpToolSpecs }
-export { resolveMcpToolGroups }
 
 function filterTools(tools: AxFunction[], names: ReadonlySet<string>) {
 	return tools.filter((t) => names.has(String(t.name)))

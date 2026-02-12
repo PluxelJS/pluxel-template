@@ -14,8 +14,6 @@ import type {
 } from '../protocol'
 import { parseA1Range } from './a1'
 
-type Logger = { warn?: (...args: any[]) => void }
-
 function clampInt(n: unknown, min: number, max: number) {
 	const v = typeof n === 'number' && Number.isFinite(n) ? n : min
 	return Math.max(min, Math.min(max, Math.floor(v)))
@@ -151,9 +149,9 @@ export type UniverAiBridge = Readonly<{
 	call(call: UniverAiToolCall): Promise<UniverAiToolResult<unknown>>
 }>
 
-export function createUniverAiBridge(workbook: any, opts?: { logger?: Logger }): UniverAiBridge {
+export function createUniverAiBridge(workbook: any): UniverAiBridge {
 	const listSheets = (): UniverAiListSheetsResult => {
-		const sheets = (workbook?.getSheets?.() ?? []) as any[]
+		const sheets = (workbook?.getSheets?.() ?? []) as unknown[]
 		const out: Array<{ sheetId: string; name: string }> = []
 		for (const s of sheets) {
 			try {
@@ -209,16 +207,15 @@ export function createUniverAiBridge(workbook: any, opts?: { logger?: Logger }):
 		if (!ops.length) return { appliedOps: 0 }
 
 		const cellOps = ops.map((op) => {
-			const row = (op as any).row
-			const col = (op as any).col
-			if (!Number.isInteger(row) || row < 0)
-				throw new Error('[univer] op.row must be a non-negative integer')
-			if (!Number.isInteger(col) || col < 0)
-				throw new Error('[univer] op.col must be a non-negative integer')
-			if ((op as any).op === 'clear') return { row, col, kind: 'clear' as const }
-			if ((op as any).op === 'set')
-				return { row, col, kind: 'set' as const, value: String((op as any).value ?? '') }
-			throw new Error(`[univer] unknown ops-v1 op: ${String((op as any).op ?? '')}`)
+			const row = op.row
+			const col = op.col
+			if (!Number.isInteger(row) || row < 0) throw new Error('[univer] op.row must be a non-negative integer')
+			if (!Number.isInteger(col) || col < 0) throw new Error('[univer] op.col must be a non-negative integer')
+			if (op.op === 'clear') return { row, col, kind: 'clear' as const }
+			if (op.op === 'set') return { row, col, kind: 'set' as const, value: String(op.value ?? '') }
+			// Exhaustive: UniverAiOpsV1 is a closed union.
+			const _exhaustive: never = op
+			throw new Error(`[univer] unknown ops-v1 op: ${String((op as { op?: unknown }).op ?? '')}`)
 		})
 
 		let appliedOps = 0
@@ -233,14 +230,10 @@ export function createUniverAiBridge(workbook: any, opts?: { logger?: Logger }):
 			if (rop.kind === 'clear') {
 				range.clearContent()
 			} else {
-				range.setValues([rop.values] as any)
+				range.setValues([rop.values])
 			}
 			appliedOps += rop.endCol - rop.startCol + 1
 		}
-
-		try {
-			if (appliedOps === 0) opts?.logger?.warn?.('[univer] applyOpsV1: no ops applied', { sheetId })
-		} catch {}
 
 		return { appliedOps }
 	}
@@ -268,7 +261,7 @@ export function createUniverAiBridge(workbook: any, opts?: { logger?: Logger }):
 			if (c.tool === 'univer.readRangeDisplay') return { ok: true, value: readRangeDisplay(c.args) }
 			if (c.tool === 'univer.applyOpsV1') return { ok: true, value: applyOpsV1(c.args) }
 			if (c.tool === 'univer.clearRange') return { ok: true, value: clearRange(c.args) }
-			return { ok: false, error: `[univer] unknown tool: ${(c as any).tool}` }
+			return { ok: false, error: `[univer] unknown tool: ${String((c as { tool?: unknown }).tool ?? '')}` }
 		} catch (error) {
 			return { ok: false, error: error instanceof Error ? error.message : String(error) }
 		}

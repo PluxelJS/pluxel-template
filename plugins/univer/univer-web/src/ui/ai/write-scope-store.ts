@@ -5,7 +5,7 @@ import { rangeToA1, type UniverRangeLike } from './a1'
 
 type Listener = () => void
 
-export type UniverAiWriteScopeMode = 'sheet' | 'ranges'
+export type UniverAiWriteScopeMode = 'none' | 'workbook' | 'sheet' | 'ranges'
 
 export type UniverAiWriteScopeItem = Readonly<{
 	/** The sheetId for highlighting and validation. */
@@ -35,11 +35,11 @@ function getKey(workbookId: string) {
 function getStore(workbookId: string): Store {
 	const key = getKey(workbookId)
 	if (!key) {
-		return { state: { mode: 'sheet', items: [] }, listeners: new Set() }
+		return { state: { mode: 'none', items: [] }, listeners: new Set() }
 	}
 	let store = stores.get(key)
 	if (!store) {
-		store = { state: { mode: 'sheet', items: [] }, listeners: new Set() }
+		store = { state: { mode: 'none', items: [] }, listeners: new Set() }
 		stores.set(key, store)
 	}
 	return store
@@ -102,14 +102,28 @@ export function useUniverAiWriteScopeState(workbookId: string): UniverAiWriteSco
 	return useSyncExternalStore(
 		(cb) => subscribeUniverAiWriteScopeState(workbookId, cb),
 		() => getUniverAiWriteScopeState(workbookId),
-		() => ({ mode: 'sheet', items: [] }),
+		() => ({ mode: 'none', items: [] }),
 	)
 }
 
-export function resetUniverAiWriteScopeToSheet(workbookId: string) {
+export function disableUniverAiWriteScope(workbookId: string) {
+	const store = getStore(workbookId)
+	if (store.state.mode === 'none' && !store.state.items.length) return
+	store.state = { mode: 'none', items: [] }
+	emit(store)
+}
+
+export function allowUniverAiWriteScopeToSheet(workbookId: string) {
 	const store = getStore(workbookId)
 	if (store.state.mode === 'sheet' && !store.state.items.length) return
 	store.state = { mode: 'sheet', items: [] }
+	emit(store)
+}
+
+export function allowUniverAiWriteScopeToWorkbook(workbookId: string) {
+	const store = getStore(workbookId)
+	if (store.state.mode === 'workbook' && !store.state.items.length) return
+	store.state = { mode: 'workbook', items: [] }
 	emit(store)
 }
 
@@ -144,4 +158,3 @@ export function disposeUniverAiWriteScope(workbookId: string) {
 	if (!key) return
 	stores.delete(key)
 }
-

@@ -1,5 +1,4 @@
-import type { UniverAiContext, UniverAiContractLimits } from './ai'
-import type { UniverToolPolicy } from './tools'
+import type { UniverAiContext } from './ai'
 
 export type UniverLoopbackScopes = Readonly<{
 	read: readonly string[]
@@ -17,12 +16,7 @@ export type UniverLoopbackRunInput = Readonly<{
 	 * Typically contains current selection + pinned selections (already clipped).
 	 */
 	contexts?: Readonly<{ selections: readonly UniverAiContext[] }>
-	maxRounds?: number
-	mode?: 'safe' | 'aggressive'
 	llmProfileId?: string
-	toolPolicy?: UniverToolPolicy
-	limits?: { maxRows?: number; maxCols?: number }
-	contract?: UniverAiContractLimits
 }>
 
 export type UniverLoopbackConflict = Readonly<{

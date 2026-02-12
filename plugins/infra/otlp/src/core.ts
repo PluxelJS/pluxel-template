@@ -143,12 +143,26 @@ export abstract class Otlp extends BasePlugin {
 	}
 
 	abstract log(input: OtlpLogRecordInput | readonly OtlpLogRecordInput[]): Promise<void>
+	/**
+	 * Best-effort, non-blocking write path intended for OpenTelemetry API bridges
+	 * (where instrument methods are synchronous). Providers may override to avoid
+	 * creating backpressure-related Promises.
+	 */
+	logSync(input: OtlpLogRecordInput | readonly OtlpLogRecordInput[]): void {
+		void this.log(input)
+	}
 
 	abstract trace(input: OtlpSpanInput | readonly OtlpSpanInput[]): Promise<void>
+	traceSync(input: OtlpSpanInput | readonly OtlpSpanInput[]): void {
+		void this.trace(input)
+	}
 
 	abstract span(name: string, opts?: Omit<OtlpSpanInput, 'name'>): OtlpSpanHandle
 
 	abstract metric(input: OtlpMetricPointInput | readonly OtlpMetricPointInput[]): Promise<void>
+	metricSync(input: OtlpMetricPointInput | readonly OtlpMetricPointInput[]): void {
+		void this.metric(input)
+	}
 
 	abstract flush(): Promise<void>
 

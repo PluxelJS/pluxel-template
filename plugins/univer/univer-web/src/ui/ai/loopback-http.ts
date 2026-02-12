@@ -20,7 +20,7 @@ export function createHttpLoopbackBackend(opts?: {
 	return {
 		runLoopback: async (input: UniverLoopbackRunInput): Promise<UniverLoopbackRunResult> => {
 			const ac = typeof AbortController !== 'undefined' ? new AbortController() : null
-			const timer =
+			const timer: ReturnType<typeof setTimeout> | null =
 				ac && typeof setTimeout === 'function'
 					? setTimeout(() => {
 							ac.abort()
@@ -48,9 +48,8 @@ export function createHttpLoopbackBackend(opts?: {
 				const msg = error instanceof Error ? error.message : String(error)
 				return { ok: false, error: `loopback http failed: ${msg}` }
 			} finally {
-				if (timer) clearTimeout(timer as any)
+				if (timer) clearTimeout(timer)
 			}
 		},
 	}
 }
-

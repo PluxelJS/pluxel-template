@@ -4,10 +4,7 @@ import {
 	Banner,
 	Button,
 	Card,
-	Collapse,
 	Divider,
-	InputNumber,
-	Select,
 	Space,
 	Tag,
 	Typography,
@@ -16,13 +13,26 @@ import { IconX } from '@tabler/icons-react'
 import { useMemo } from 'react'
 
 import { CodeInline, Muted, SectionTitle } from '../kit'
-import { useAiPanelController } from './panel/controller'
+import { type AiPanelReference, useAiPanelController } from './panel/controller'
 import type { AiPanelProps } from './panel/types'
 
 const chatRoleConfig = {
 	user: { name: 'You' },
 	assistant: { name: 'AI' },
 	system: { name: 'System' },
+}
+
+function toPanelReference(ref: unknown): AiPanelReference | null {
+	if (!ref || typeof ref !== 'object') return null
+	const rec = ref as Record<string, unknown>
+	if (typeof rec.id !== 'string' || !rec.id) return null
+	return {
+		type: typeof rec.type === 'string' ? rec.type : 'univer.selection',
+		id: rec.id,
+		label: typeof rec.label === 'string' ? rec.label : rec.id,
+		meta: typeof rec.meta === 'string' ? rec.meta : undefined,
+		closable: typeof rec.closable === 'boolean' ? rec.closable : true,
+	}
 }
 
 export function AiPanel(props: AiPanelProps) {
@@ -35,13 +45,13 @@ export function AiPanel(props: AiPanelProps) {
 	}, [props.backend, props.dirty])
 
 	return (
-			<div className="univer-ai-panel">
-				<div className="univer-ai-panel__top">
-					<div className="univer-ai-panel__title">
-						<SectionTitle>AI Assistant</SectionTitle>
-						{backendTag}
-					</div>
+		<div className="univer-ai-panel">
+			<div className="univer-ai-panel__top">
+				<div className="univer-ai-panel__title">
+					<SectionTitle>AI Assistant</SectionTitle>
+					{backendTag}
 				</div>
+			</div>
 
 			{ctrl.warn ? <Banner fullMode={false} type="warning" title="提示" description={ctrl.warn} /> : null}
 			{ctrl.error ? <Banner fullMode={false} type="danger" title="错误" description={ctrl.error} /> : null}
@@ -55,7 +65,12 @@ export function AiPanel(props: AiPanelProps) {
 						</div>
 					</div>
 					<div className="univer-ai-context__actions">
-						<Button size="small" theme="borderless" disabled={!ctrl.pinnedSelections.length || ctrl.busy} onClick={ctrl.clearPins}>
+						<Button
+							size="small"
+							theme="borderless"
+							disabled={!ctrl.pinnedSelections.length || ctrl.busy}
+							onClick={ctrl.clearPins}
+						>
 							清空
 						</Button>
 					</div>
@@ -87,13 +102,81 @@ export function AiPanel(props: AiPanelProps) {
 				)}
 
 				<div style={{ marginTop: 8 }}>
+					<Typography.Text type="tertiary">读取范围</Typography.Text>
+					<div className="univer-ai-context__row" style={{ marginTop: 6 }}>
+						<Space spacing="tight" align="center">
+							<Tag color={ctrl.readScopeMode === 'ranges' ? 'orange' : 'green'}>
+								{ctrl.readScopeMode === 'workbook' ? '工作簿' : ctrl.readScopeMode === 'sheet' ? '整表' : '限制'}
+							</Tag>
+							<Muted>默认整表可读；可在表格里右键“AI → 读取范围 …”限制。</Muted>
+						</Space>
+					</div>
+
+					{ctrl.readScopes.length ? (
+						<div className="univer-ai-context__row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
+							{ctrl.readScopes.map((a1) => (
+								<span key={a1} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+									<CodeInline>{a1}</CodeInline>
+									{ctrl.readScopeMode === 'ranges' ? (
+										<Button
+											theme="borderless"
+											size="small"
+											icon={<IconX size={14} />}
+											onClick={() => ctrl.removeReadScope(a1)}
+											disabled={ctrl.busy}
+										/>
+									) : null}
+								</span>
+							))}
+						</div>
+					) : (
+						<Muted>（未能获取读取范围）</Muted>
+					)}
+
+					<div className="univer-ai-context__row" style={{ marginTop: 6, flexWrap: 'wrap', gap: 8 }}>
+						<Button size="small" theme="borderless" disabled={ctrl.busy} onClick={ctrl.resetReadToSheet}>
+							当前表可读
+						</Button>
+						<Button size="small" theme="borderless" disabled={ctrl.busy} onClick={ctrl.resetReadToWorkbook}>
+							工作簿可读
+						</Button>
+						<Button
+							size="small"
+							theme="borderless"
+							disabled={ctrl.busy || !ctrl.pinnedSelections.length}
+							onClick={ctrl.limitReadToPinned}
+						>
+							限制为情境
+						</Button>
+						<Button
+							size="small"
+							theme="borderless"
+							disabled={ctrl.busy || !ctrl.pinnedSelections.length}
+							onClick={ctrl.addReadFromPinned}
+						>
+							添加情境
+						</Button>
+					</div>
+
+					<Divider margin="12px 0" />
+				</div>
+
+				<div style={{ marginTop: 8 }}>
 					<Typography.Text type="tertiary">写入范围</Typography.Text>
 					<div className="univer-ai-context__row" style={{ marginTop: 6 }}>
 						<Space spacing="tight" align="center">
-							<Tag color={ctrl.writeScopeMode === 'sheet' ? 'green' : 'orange'}>
-								{ctrl.writeScopeMode === 'sheet' ? '整表' : '限制'}
+							<Tag
+								color={ctrl.writeScopeMode === 'none' ? 'grey' : ctrl.writeScopeMode === 'ranges' ? 'orange' : 'green'}
+							>
+								{ctrl.writeScopeMode === 'none'
+									? '只读'
+									: ctrl.writeScopeMode === 'workbook'
+										? '工作簿'
+										: ctrl.writeScopeMode === 'sheet'
+											? '整表'
+											: '限制'}
 							</Tag>
-							<Muted>在表格里右键“AI → 写入范围 …”调整。</Muted>
+							<Muted>默认只读；需要写入时在表格里右键“AI → 写入权限 …”授权。</Muted>
 						</Space>
 					</div>
 
@@ -117,49 +200,45 @@ export function AiPanel(props: AiPanelProps) {
 					) : (
 						<Muted>
 							{ctrl.writeScopeMode === 'ranges'
-								? '（未设置写入范围；请在表格里右键“AI → 写入范围：限制为选区”。）'
-								: '（未能获取写入范围）'}
+								? '（未设置写入范围；请在表格里右键“AI → 写入权限：限制为选区”。）'
+								: ctrl.writeScopeMode === 'none'
+									? '（当前为只读；写入会被后端拒绝并提示授权。）'
+									: '（未能获取写入范围）'}
 						</Muted>
 					)}
-					<Muted>写入会记录在历史里，可撤销。</Muted>
-					<Muted>高亮：紫色=AI 情境（预取/发送） · 橙色=写入限制（仅“限制”模式）</Muted>
+					{ctrl.writeScopeMode !== 'none' ? <Muted>写入会记录在历史里，可撤销。</Muted> : null}
+					<Muted>高亮：紫色=AI 情境（预取/发送） · 蓝色=读取限制 · 橙色=写入限制</Muted>
+
+					<div className="univer-ai-context__row" style={{ marginTop: 6, flexWrap: 'wrap', gap: 8 }}>
+						<Button size="small" theme="borderless" disabled={ctrl.busy} onClick={ctrl.disableWrite}>
+							只读
+						</Button>
+						<Button size="small" theme="borderless" disabled={ctrl.busy} onClick={ctrl.allowWriteSheet}>
+							允许整表写
+						</Button>
+						<Button size="small" theme="borderless" disabled={ctrl.busy} onClick={ctrl.allowWriteWorkbook}>
+							允许工作簿写
+						</Button>
+						<Button
+							size="small"
+							theme="borderless"
+							disabled={ctrl.busy || !ctrl.pinnedSelections.length}
+							onClick={ctrl.limitWriteToPinned}
+						>
+							限制为情境
+						</Button>
+						<Button
+							size="small"
+							theme="borderless"
+							disabled={ctrl.busy || !ctrl.pinnedSelections.length}
+							onClick={ctrl.addWriteFromPinned}
+						>
+							添加情境
+						</Button>
+					</div>
 				</div>
 
 				<Divider margin="12px 0" />
-
-				<Collapse accordion>
-					<Collapse.Panel header="高级选项" itemKey="advanced">
-						<div>
-							<Typography.Text type="tertiary">Loopback</Typography.Text>
-							<Space spacing="tight" align="center" style={{ marginTop: 8 }}>
-								<Typography.Text type="tertiary">steps≤</Typography.Text>
-								<InputNumber
-									size="small"
-									min={1}
-									max={80}
-									style={{ width: 88 }}
-									value={ctrl.loopMaxRounds}
-									disabled={!props.ready || ctrl.busy}
-									onChange={(v) => ctrl.setLoopMaxRounds(typeof v === 'number' ? v : Number(v))}
-								/>
-								<Select
-									size="small"
-									style={{ width: 140 }}
-									value={ctrl.mode}
-									disabled={!props.ready || ctrl.busy}
-									onChange={(v) => ctrl.setMode((v as any) ?? 'safe')}
-									optionList={[
-										{ label: 'safe', value: 'safe' },
-										{ label: 'aggressive', value: 'aggressive' },
-									]}
-								/>
-							</Space>
-							<div style={{ marginTop: 8 }}>
-								<Muted>steps 只是安全上限，模型会在完成任务并验证后提前结束。本面板只发指令+范围到后端；后端用 Headless Univer 执行 loopback，最终提交新快照并刷新编辑器。</Muted>
-							</div>
-						</div>
-					</Collapse.Panel>
-				</Collapse>
 			</Card>
 
 			<Divider margin="12px 0" />
@@ -172,6 +251,7 @@ export function AiPanel(props: AiPanelProps) {
 					roleConfig={chatRoleConfig}
 					className="univer-ai-chat__dialogue"
 				/>
+
 				<AIChatInput
 					placeholder="右键将选区添加到 AI 情境后，描述你希望 AI 完成的修改…"
 					keepSkillAfterSend={false}
@@ -181,31 +261,43 @@ export function AiPanel(props: AiPanelProps) {
 					references={ctrl.selectionReferences}
 					showReference={ctrl.selectionReferences.length > 0}
 					onReferenceDelete={(ref) => {
-						if ((ref as any).closable === false) return
-						ctrl.unpinSelection(ref.id)
+						const r = toPanelReference(ref)
+						if (!r) return
+						if (r.closable === false) return
+						ctrl.unpinSelection(r.id)
 					}}
-					renderReference={(ref) => (
-						<div key={ref.id} className="univer-ai-ref" data-closable={(ref as any).closable !== false ? 'true' : 'false'}>
-							<div className="univer-ai-ref__text">
-								<Typography.Text strong>{(ref as any).label ?? ref.id}</Typography.Text>
-								{(ref as any).meta ? <Typography.Text type="tertiary">{(ref as any).meta}</Typography.Text> : null}
+					renderReference={(ref) => {
+						const r = toPanelReference(ref)
+						if (!r) return null
+						return (
+							<div key={r.id} className="univer-ai-ref" data-closable={r.closable !== false ? 'true' : 'false'}>
+								<div className="univer-ai-ref__text">
+									<Typography.Text strong>{r.label}</Typography.Text>
+									{r.meta ? <Typography.Text type="tertiary">{r.meta}</Typography.Text> : null}
+								</div>
+								{r.closable !== false ? (
+									<Button
+										theme="borderless"
+										size="small"
+										icon={<IconX size={12} />}
+										onClick={() => ctrl.unpinSelection(r.id)}
+									/>
+								) : null}
 							</div>
-							{(ref as any).closable !== false ? (
-								<Button theme="borderless" size="small" icon={<IconX size={12} />} onClick={() => ctrl.unpinSelection(ref.id)} />
-							) : null}
-						</div>
-					)}
+						)
+					}}
 					showUploadButton={false}
 					showUploadFile={false}
 					sendHotKey="enter"
 					className="univer-ai-chat__input"
 				/>
-					<div className="univer-ai-chat__footer">
-						<Typography.Text type="tertiary">
-							上下文：<CodeInline>A1 scopes</CodeInline> · 后端：<CodeInline>Ax+Tools</CodeInline>
-						</Typography.Text>
-					</div>
+
+				<div className="univer-ai-chat__footer">
+					<Typography.Text type="tertiary">
+						上下文：<CodeInline>A1 scopes</CodeInline> · 后端：<CodeInline>Ax+Tools</CodeInline>
+					</Typography.Text>
 				</div>
+			</div>
 		</div>
 	)
 }

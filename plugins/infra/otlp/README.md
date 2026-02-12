@@ -1,6 +1,6 @@
 # pluxel-plugin-otlp
 
-Pluxel/HMR runtime 的 OTLP exporter 插件（当前实现：OTLP/HTTP JSON Logs/Traces/Metrics）。
+Pluxel/HMR runtime 的 OTLP exporter 插件（当前实现：OTLP/HTTP JSON Traces/Metrics/Logs）。
 
 设计目标：
 - **小表面积**：`Otlp.log/logger`（logs）+ `Otlp.trace/span`（traces）+ `Otlp.metric/counter/gauge/histogram`（metrics）+ `flush/stats`。
@@ -15,7 +15,7 @@ Pluxel/HMR runtime 的 OTLP exporter 插件（当前实现：OTLP/HTTP JSON Logs
 
 默认启用策略（保守默认值）：
 - `core.enabled=false`（默认禁用）
-- `signals.logs=true`、`signals.traces=false`、`signals.metrics=false`（默认只开 logs）
+- `signals.logs=false`、`signals.traces=true`、`signals.metrics=true`（默认用 traces+metrics；logs 可选）
 
 ## Register
 
@@ -40,6 +40,7 @@ await withHost(async (host) => {
 ```ts
 import { BasePlugin, Plugin } from '@pluxel/hmr'
 import { Otlp } from 'pluxel-plugin-otlp'
+import { createOtlpOtelTracer } from 'pluxel-plugin-otlp/otel'
 
 @Plugin({ name: 'MyPlugin' })
 export class MyPlugin extends BasePlugin {
@@ -48,7 +49,8 @@ export class MyPlugin extends BasePlugin {
 	}
 
 	override async init() {
-		await this.otlp.log({ level: 'info', body: 'ready', attributes: { feature: 'demo' } })
+		const tracer = createOtlpOtelTracer(this.otlp, { tracerName: 'my-plugin' })
+		tracer.startActiveSpan('MyPlugin.init', { attributes: { feature: 'demo' } }, (span) => span.end())
 	}
 }
 ```
@@ -101,13 +103,13 @@ const s = otlp.stats()
 
 ## Config
 
-默认禁用；启用后通过 OTLP/HTTP 上报到 `core.endpoint + "/v1/logs"`。
+默认禁用；启用后通过 OTLP/HTTP 上报到 `core.endpoint + "/v1/traces"`、`"/v1/metrics"`（logs 可选）。
 
 ```ts
 // tests / host bootstrap
 host.cfg('OtlpHub').set({
   core: { enabled: true, endpoint: 'http://localhost:4318' },
-  signals: { logs: true, traces: true, metrics: true },
+  signals: { traces: true, metrics: true, logs: false },
   // 可选：headers (例如鉴权 / 多租户)
   // core: { enabled: true, endpoint: 'http://localhost:4318', headers: { Authorization: 'Bearer ...' } },
   // 可选：resource/scope (用于 resourceLogs / scopeLogs)
@@ -153,6 +155,51 @@ export class MyPlugin extends BasePlugin {
 - `@WithOtlp()`：把 `otlp: Otlp` 注入到被装饰方法的第一个参数。
 - `@WithOtlpLogger({ attributes })`：把 `log: OtlpLogger` 注入到被装饰方法的第一个参数。
 - `@OtlpSpan()`：在方法成功/失败时发出一个 span（traces 开启则走 `/v1/traces`；否则降级为 logs 事件；默认不阻塞被装饰方法）。
+
+## OpenTelemetry bridge (for AxFlow / @opentelemetry/api)
+
+本包提供一个轻量 `@opentelemetry/api` bridge（不依赖 SDK），用于把：
+- tracing spans → 通过 `otlp.traceSync(...)`（best-effort, non-blocking）导出
+- metrics → 通过 `otlp.metricSync(...)`（best-effort, non-blocking）导出
+
+```ts
+import { flow } from '@ax-llm/ax'
+import { context } from '@opentelemetry/api'
+import { createOtlpOtelMeter, createOtlpOtelTracer } from 'pluxel-plugin-otlp/otel'
+
+const tracer = createOtlpOtelTracer(otlp, { tracerName: 'axflow' })
+const meter = createOtlpOtelMeter(otlp, { meterName: 'axflow' })
+
+const wf = flow<{ userQuestion: string }>()
+  .node('summarizer', 'documentText:string -> summaryText:string')
+
+const out = await wf.forward(llm, { userQuestion: 'hi' }, {
+  tracer,
+  meter,
+  traceContext: context.active(), // OpenTelemetry Context (not a Span)
+})
+```
+
+## Routing (multi-destination OTLP)
+
+单个 `OtlpHub` 可以按 caller plugin id/name 路由到多个目标端点：
+
+```ts
+host.cfg('OtlpHub').set({
+  core: { enabled: true, endpoint: 'http://localhost:4318' }, // default target
+  signals: { traces: true, metrics: true, logs: false },
+  targets: [
+    { id: 'ai', endpoint: 'http://otel-collector-ai:4318' },
+    { id: 'payments', endpoint: 'http://otel-collector-payments:4318' },
+  ],
+  routing: {
+    byCallerId: {
+      UniverAI: 'ai',
+      Billing: 'payments',
+    },
+  },
+})
+```
 
 ## Traces：用法合集
 

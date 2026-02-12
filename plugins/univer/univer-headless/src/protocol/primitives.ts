@@ -9,9 +9,17 @@ export type UniverRange = Readonly<{
 	endCol: number
 }>
 
-export type UniverRangeRef = Readonly<{
-	sheetId?: SheetId
-	sheetName?: string
-	a1?: A1Notation
-	range?: UniverRange
-}>
+export type UniverRangeRef = Readonly<
+	| {
+			sheetId?: SheetId
+			sheetName?: string
+			a1: A1Notation
+			range?: never
+	  }
+	| {
+			sheetId?: SheetId
+			sheetName?: string
+			range: UniverRange
+			a1?: never
+	  }
+>

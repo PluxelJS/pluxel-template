@@ -39,13 +39,14 @@ export class UniverWorkbooksPlugin extends BasePlugin {
 				this.ctx.logger.warn('UniverWorkbooks HTTP routes registration skipped', { error })
 			}
 
-			// Control plane (RPC).
-			try {
-				this.ctx.ext.rpc.registerExtension(() => new UniverWorkbooksRpc(this.store!))
-			} catch (error) {
-				// Allow running in minimal/test hosts without ext.rpc.
-				this.ctx.logger.warn('UniverWorkbooks RPC registration skipped', { error })
-			}
+				// Control plane (RPC).
+				try {
+					const store = this.requireStore()
+					this.ctx.ext.rpc.registerExtension(() => new UniverWorkbooksRpc(store))
+				} catch (error) {
+					// Allow running in minimal/test hosts without ext.rpc.
+					this.ctx.logger.warn('UniverWorkbooks RPC registration skipped', { error })
+				}
 
 			this.readyResolve?.()
 		} catch (error) {

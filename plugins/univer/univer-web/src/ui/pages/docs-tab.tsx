@@ -58,27 +58,6 @@ export function DocsTab() {
 		  }
 		| null
 
-	if (!rpc) {
-		return (
-			<Banner
-				fullMode={false}
-				type="warning"
-				description={
-					<Space vertical align="start" spacing="tight">
-						<div>
-							当前后端没有提供 <CodeInline>UniverWorkbooks</CodeInline> RPC，无法浏览/创建工作簿。
-						</div>
-						<div>
-							请在 <CodeInline>pluxel.hmr.jsonc</CodeInline> 的 profile 中启用{' '}
-							<CodeInline>pluxel-plugin-univer-workbooks</CodeInline>，然后刷新页面。
-						</div>
-					</Space>
-				}
-				title="UniverWorkbooks 未启用"
-			/>
-		)
-	}
-
 	const [cwdId, setCwdId] = useState<string | null>(null)
 	const [browse, setBrowse] = useState<UniverBrowseFolderResult | null>(null)
 	const [loading, setLoading] = useState(true)
@@ -103,6 +82,12 @@ export function DocsTab() {
 
 	const refresh = useCallback(
 		async (folderId: string | null) => {
+			if (!rpc) {
+				setBrowse(null)
+				setLoading(false)
+				setError('UniverWorkbooks RPC 未启用')
+				return
+			}
 			setLoading(true)
 			try {
 				const data = await rpc.browseFolder(folderId)
@@ -124,6 +109,7 @@ export function DocsTab() {
 	}, [cwdId, refresh])
 
 	const createFolder = useCallback(async () => {
+		if (!rpc) return
 		const name = newFolderName.trim()
 		if (!name) return
 		setCreatingFolder(true)
@@ -139,6 +125,7 @@ export function DocsTab() {
 	}, [cwdId, newFolderName, refresh, rpc])
 
 	const createWorkbook = useCallback(async () => {
+		if (!rpc) return
 		const name = newWorkbookName.trim()
 		if (!name) return
 		setCreatingWorkbook(true)
@@ -168,6 +155,7 @@ export function DocsTab() {
 	}, [])
 
 	const confirmRename = useCallback(async () => {
+		if (!rpc) return
 		if (!renameId) return
 		const name = renameName.trim()
 		if (!name) return
@@ -190,6 +178,7 @@ export function DocsTab() {
 
 	const deleteWorkbook = useCallback(
 		async (item: UniverWorkbookMeta) => {
+			if (!rpc) return
 			const ok = ctx.services.ui?.confirm
 				? await ctx.services.ui.confirm({
 						title: '删除工作簿',
@@ -210,6 +199,7 @@ export function DocsTab() {
 
 	const deleteFolder = useCallback(
 		async (item: UniverFolderMeta) => {
+			if (!rpc) return
 			const ok = ctx.services.ui?.confirm
 				? await ctx.services.ui.confirm({
 						title: '删除文件夹',
@@ -230,6 +220,7 @@ export function DocsTab() {
 
 	const openMove = useCallback(
 		async (item: UniverWorkbookMeta) => {
+			if (!rpc) return
 			setMoveId(item.id)
 			setMoveTo(item.folderId ?? null)
 			setMoveOpen(true)
@@ -244,6 +235,7 @@ export function DocsTab() {
 	)
 
 	const confirmMove = useCallback(async () => {
+		if (!rpc) return
 		if (!moveId) return
 		setMoving(true)
 		try {
@@ -311,7 +303,28 @@ export function DocsTab() {
 			})
 		}
 		return list
-	}, [browse])
+		}, [browse])
+
+	if (!rpc) {
+		return (
+			<Banner
+				fullMode={false}
+				type="warning"
+				description={
+					<Space vertical align="start" spacing="tight">
+						<div>
+							当前后端没有提供 <CodeInline>UniverWorkbooks</CodeInline> RPC，无法浏览/创建工作簿。
+						</div>
+						<div>
+							请在 <CodeInline>pluxel.hmr.jsonc</CodeInline> 的 profile 中启用{' '}
+							<CodeInline>pluxel-plugin-univer-workbooks</CodeInline>，然后刷新页面。
+						</div>
+					</Space>
+				}
+				title="UniverWorkbooks 未启用"
+			/>
+		)
+	}
 
 	return (
 		<div className="univer-docs">

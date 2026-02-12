@@ -1,13 +1,14 @@
 import { chatInputToMessage } from '@douyinfe/semi-ui-19'
 import type { Message as AiMessage } from '@douyinfe/semi-ui-19/lib/es/aiChatDialogue/interface'
 import type { MessageContent } from '@douyinfe/semi-ui-19/lib/es/aiChatInput/interface'
+import type { Reference as AiReference } from '@douyinfe/semi-ui-19/lib/es/aiChatInput/interface'
 import { rpcErrorMessage } from '@pluxel/hmr/web'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { UniverAiContext, UniverLoopbackRunInput, UniverLoopbackRunResult } from '@pluxel/univer-headless/protocol'
 
 import { rangeToA1 } from '../a1'
-import { getSheetWholeA1 } from '../univer-bridge'
+import { getSheetWholeA1, getWorkbookWholeA1List } from '../univer-bridge'
 import {
 	clearUniverAiSelections,
 	pinUniverAiSelections,
@@ -15,20 +16,35 @@ import {
 	useUniverAiContextState,
 } from '../context-store'
 import {
+	addUniverAiReadScopeFromSelections,
+	limitUniverAiReadScopeToSelections,
+	removeUniverAiReadScope,
+	resetUniverAiReadScopeToWorkbook,
+	resetUniverAiReadScopeToSheet,
+	useUniverAiReadScopeState,
+} from '../read-scope-store'
+import {
+	addUniverAiWriteScopeFromSelections,
+	allowUniverAiWriteScopeToSheet,
+	allowUniverAiWriteScopeToWorkbook,
+	disableUniverAiWriteScope,
+	limitUniverAiWriteScopeToSelections,
 	removeUniverAiWriteScope,
 	useUniverAiWriteScopeState,
 } from '../write-scope-store'
 import type { AiPanelProps } from './types'
 
-const MAX_LOOP_ROUNDS = 80
-const DEFAULT_LIMITS = { maxRows: 40, maxCols: 16 } as const
 const CONTEXT_STYLE = { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.08)' } as const
+const READ_STYLE = { stroke: '#3b82f6', fill: 'rgba(59, 130, 246, 0.08)' } as const
 const WRITE_STYLE = { stroke: '#f97316', fill: 'rgba(249, 115, 22, 0.10)' } as const
 
-function clampInt(n: unknown, min: number, max: number) {
-	const v = typeof n === 'number' && Number.isFinite(n) ? n : min
-	return Math.max(min, Math.min(max, Math.floor(v)))
-}
+export type AiPanelReference = Readonly<{
+	type: string
+	id: string
+	label: string
+	meta?: string
+	closable?: boolean
+}> & AiReference
 
 function makeChatId() {
 	if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
@@ -41,10 +57,9 @@ function extractInstruction(payload: MessageContent | null) {
 	return items
 		.map((item) => {
 			if (!item || typeof item !== 'object') return ''
-			const text = (item as any).text
-			if (typeof text === 'string') return text
-			const value = (item as any).value
-			if (typeof value === 'string') return value
+			const rec = item as Record<string, unknown>
+			if (typeof rec.text === 'string') return rec.text
+			if (typeof rec.value === 'string') return rec.value
 			return ''
 		})
 		.join('')
@@ -114,13 +129,16 @@ export function useAiPanelController(props: AiPanelProps) {
 	const [devPinnedState, setDevPinnedState] = useState<UniverAiContext[]>(props.dev?.pinnedSelections ?? [])
 	const pinnedSelections = props.dev ? devPinnedState : storeState.pinnedSelections
 
+	const readStoreState = useUniverAiReadScopeState(workbookId)
+	const devReadScopeMode = props.dev?.readScopeMode ?? 'sheet'
+	const devReadScopes = props.dev?.readScopes ?? []
+	const readScopeMode = props.dev ? devReadScopeMode : readStoreState.mode
+
 	const writeStoreState = useUniverAiWriteScopeState(workbookId)
-	const devWriteScopeMode = props.dev?.writeScopeMode ?? 'sheet'
+	const devWriteScopeMode = props.dev?.writeScopeMode ?? 'none'
 	const devWriteScopes = props.dev?.writeScopes ?? []
 	const writeScopeMode = props.dev ? devWriteScopeMode : writeStoreState.mode
 
-	const [loopMaxRounds, setLoopMaxRounds] = useState<number>(props.dev?.loopMaxRounds ?? MAX_LOOP_ROUNDS)
-	const [mode, setMode] = useState<'safe' | 'aggressive'>(props.dev?.mode ?? 'safe')
 	const [activeSheetId, setActiveSheetId] = useState<string | null>(null)
 
 	const appendChat = useCallback((m: AiMessage) => {
@@ -150,9 +168,14 @@ export function useAiPanelController(props: AiPanelProps) {
 	const currentSheetWholeA1 = useMemo(() => {
 		const rt = getRuntime()
 		if (!rt) return null
-		const sheetId = pinnedSelections[0]?.selection.sheetId ?? null
-		return getSheetWholeA1({ api: rt.api, sheetId })
-	}, [getRuntime, pinnedSelections, props.runtimeSeq])
+		return getSheetWholeA1({ api: rt.api, sheetId: activeSheetId })
+	}, [activeSheetId, getRuntime, props.runtimeSeq])
+
+	const currentWorkbookWholeA1 = useMemo(() => {
+		const rt = getRuntime()
+		if (!rt) return []
+		return getWorkbookWholeA1List({ api: rt.api, maxSheets: 64 })
+	}, [getRuntime, props.runtimeSeq])
 
 	useEffect(() => {
 		const rt = getRuntime()
@@ -186,44 +209,54 @@ export function useAiPanelController(props: AiPanelProps) {
 		}
 	}, [getRuntime, props.runtimeSeq])
 
-	useEffect(() => {
-		if (!props.ready) return
-		const rt = getRuntime()
-		if (!rt) return
+		useEffect(() => {
+			if (!props.ready) return
+			const rt = getRuntime()
+			if (!rt) return
 
-		const items: Array<{ sheetId?: string | null; range: any; style?: unknown }> = []
-		const activeId = activeSheetId
-		for (const s of pinnedSelections) {
-			if (!s.selection.range) continue
-			if (activeId && s.selection.sheetId && String(s.selection.sheetId) !== activeId) continue
-			items.push({ sheetId: s.selection.sheetId ?? null, range: s.selection.range, style: CONTEXT_STYLE })
-		}
-
-		if (writeScopeMode === 'ranges' && !props.dev) {
-			for (const it of writeStoreState.items) {
-				if (activeId && it.sheetId && String(it.sheetId) !== activeId) continue
-				items.push({ sheetId: it.sheetId ?? null, range: it.range, style: WRITE_STYLE })
+			const items: Array<{ sheetId?: string | null; range: any; style?: unknown }> = []
+			const activeId = activeSheetId
+			for (const s of pinnedSelections) {
+				if (!s.selection.range) continue
+				if (activeId && s.selection.sheetId && String(s.selection.sheetId) !== activeId) continue
+				items.push({ sheetId: s.selection.sheetId ?? null, range: s.selection.range, style: CONTEXT_STYLE })
 			}
-		}
 
-		rt.setOverlayHighlights({ items })
-	}, [
-		activeSheetId,
-		getRuntime,
-		pinnedSelections,
-		props.dev,
-		props.ready,
-		props.runtimeSeq,
-		writeScopeMode,
-		writeStoreState.items,
-		workbookId,
-	])
+			if (readScopeMode === 'ranges' && !props.dev) {
+				for (const it of readStoreState.items) {
+					if (activeId && it.sheetId && String(it.sheetId) !== activeId) continue
+					items.push({ sheetId: it.sheetId ?? null, range: it.range, style: READ_STYLE })
+				}
+			}
+
+			if (writeScopeMode === 'ranges' && !props.dev) {
+				for (const it of writeStoreState.items) {
+					if (activeId && it.sheetId && String(it.sheetId) !== activeId) continue
+					items.push({ sheetId: it.sheetId ?? null, range: it.range, style: WRITE_STYLE })
+				}
+			}
+
+			rt.setOverlayHighlights({ items })
+		}, [
+			activeSheetId,
+			getRuntime,
+			pinnedSelections,
+			props.dev,
+			props.ready,
+			props.runtimeSeq,
+			readScopeMode,
+			readStoreState.items,
+			writeScopeMode,
+			writeStoreState.items,
+			workbookId,
+		])
 
 	const selectionReferences = useMemo(() => {
-		const refs: any[] = []
+		const refs: AiPanelReference[] = []
 		for (const s of pinnedSelections) {
 			const id = selectionKey(s)
 			refs.push({
+				type: 'univer.selection',
 				id,
 				label: selectionLabel(s),
 				meta: selectionMeta(s),
@@ -234,18 +267,84 @@ export function useAiPanelController(props: AiPanelProps) {
 	}, [pinnedSelections])
 
 	const effectiveWriteScopes = useMemo(() => {
+		if (writeScopeMode === 'none') return []
+		if (writeScopeMode === 'workbook') return uniqueA1(currentWorkbookWholeA1.map((s) => s.a1))
 		if (writeScopeMode === 'sheet') {
 			if (currentSheetWholeA1?.a1) return [currentSheetWholeA1.a1]
 			return pinnedSelections[0] ? [selectionOrigA1(pinnedSelections[0])] : []
 		}
 		if (props.dev) return uniqueA1(devWriteScopes)
 		return uniqueA1(writeStoreState.items.map((it) => it.a1))
-	}, [currentSheetWholeA1, devWriteScopes, pinnedSelections, props.dev, writeScopeMode, writeStoreState.items])
+	}, [currentSheetWholeA1, currentWorkbookWholeA1, devWriteScopes, pinnedSelections, props.dev, writeScopeMode, writeStoreState.items])
+
+	const effectiveReadScopes = useMemo(() => {
+		if (readScopeMode === 'workbook') return uniqueA1(currentWorkbookWholeA1.map((s) => s.a1))
+		if (readScopeMode === 'sheet') {
+			if (currentSheetWholeA1?.a1) return [currentSheetWholeA1.a1]
+			return pinnedSelections[0] ? [selectionOrigA1(pinnedSelections[0])] : []
+		}
+		if (props.dev) return uniqueA1(devReadScopes)
+		return uniqueA1(readStoreState.items.map((it) => it.a1))
+	}, [currentSheetWholeA1, currentWorkbookWholeA1, devReadScopes, pinnedSelections, props.dev, readScopeMode, readStoreState.items])
 
 	const removeWriteScope = useCallback((a1: string) => {
 		if (props.dev) return
 		removeUniverAiWriteScope(workbookId, a1)
 	}, [props.dev, workbookId])
+
+	const disableWrite = useCallback(() => {
+		if (props.dev) return
+		disableUniverAiWriteScope(workbookId)
+	}, [props.dev, workbookId])
+
+	const allowWriteSheet = useCallback(() => {
+		if (props.dev) return
+		allowUniverAiWriteScopeToSheet(workbookId)
+	}, [props.dev, workbookId])
+
+	const allowWriteWorkbook = useCallback(() => {
+		if (props.dev) return
+		allowUniverAiWriteScopeToWorkbook(workbookId)
+	}, [props.dev, workbookId])
+
+	const limitWriteToPinned = useCallback(() => {
+		if (props.dev) return
+		if (!pinnedSelections.length) return
+		limitUniverAiWriteScopeToSelections(workbookId, pinnedSelections)
+	}, [props.dev, pinnedSelections, workbookId])
+
+	const addWriteFromPinned = useCallback(() => {
+		if (props.dev) return
+		if (!pinnedSelections.length) return
+		addUniverAiWriteScopeFromSelections(workbookId, pinnedSelections)
+	}, [props.dev, pinnedSelections, workbookId])
+
+	const removeReadScope = useCallback((a1: string) => {
+		if (props.dev) return
+		removeUniverAiReadScope(workbookId, a1)
+	}, [props.dev, workbookId])
+
+	const resetReadToSheet = useCallback(() => {
+		if (props.dev) return
+		resetUniverAiReadScopeToSheet(workbookId)
+	}, [props.dev, workbookId])
+
+	const resetReadToWorkbook = useCallback(() => {
+		if (props.dev) return
+		resetUniverAiReadScopeToWorkbook(workbookId)
+	}, [props.dev, workbookId])
+
+	const limitReadToPinned = useCallback(() => {
+		if (props.dev) return
+		if (!pinnedSelections.length) return
+		limitUniverAiReadScopeToSelections(workbookId, pinnedSelections)
+	}, [props.dev, pinnedSelections, workbookId])
+
+	const addReadFromPinned = useCallback(() => {
+		if (props.dev) return
+		if (!pinnedSelections.length) return
+		addUniverAiReadScopeFromSelections(workbookId, pinnedSelections)
+	}, [props.dev, pinnedSelections, workbookId])
 
 	const ensureBackend = useCallback(() => {
 		if (!props.backend) throw new Error('UniverLoopback 未启用')
@@ -254,11 +353,11 @@ export function useAiPanelController(props: AiPanelProps) {
 	}, [props.backend, props.dirty])
 
 	const runLoopback = useCallback(
-		async (text: string, userMessageId: string) => {
+		async (text: string) => {
 			setWarn(null)
 			setError(null)
 
-			let backend
+			let backend: NonNullable<AiPanelProps['backend']>
 			try {
 				backend = ensureBackend()
 			} catch (e) {
@@ -267,25 +366,27 @@ export function useAiPanelController(props: AiPanelProps) {
 			}
 
 			if (!pinnedSelections.length) {
-				setWarn('请先在表格中右键“添加到 AI 情境”（支持 Ctrl 多选）。')
-				return
+				setWarn('未添加 AI 情境：仍可运行，但模型首轮缺少你指定的上下文预览。建议右键“AI → 添加到 AI 情境”。')
 			}
 
-			const current = selectionA1(pinnedSelections[0]!)
-			const readScopes = uniqueA1(pinnedSelections.map(selectionA1))
-			const writeScopes = effectiveWriteScopes.length ? effectiveWriteScopes : readScopes
+			const readScopes = effectiveReadScopes.length ? effectiveReadScopes : (currentSheetWholeA1?.a1 ? [currentSheetWholeA1.a1] : [])
+			if (!readScopes.length) {
+				setWarn('无法获取读取范围（readScopes）。请切换到有效工作表后重试。')
+				return
+			}
+			const current = currentSheetWholeA1?.a1 ?? readScopes[0]!
+			const writeScopes = effectiveWriteScopes
 
 			const assistantId = makeChatId()
 			const scopeHint = `read: ${readScopes.length ? readScopes.join(', ') : 'none'}\nwrite: ${
 				writeScopes.length ? writeScopes.join(', ') : 'none'
 			}`
-			appendChat({
-				id: assistantId,
-				role: 'assistant',
-				content: `正在执行 loopback…\n可编辑范围: ${scopeHint}\nsteps≤${loopMaxRounds}`,
-				createdAt: Date.now(),
-				status: 'loading' as any,
-			} as AiMessage)
+				appendChat({
+					id: assistantId,
+					role: 'assistant',
+					content: `正在执行 loopback…\n可编辑范围: ${scopeHint}`,
+					createdAt: Date.now(),
+				})
 
 			setBusy(true)
 			try {
@@ -293,38 +394,35 @@ export function useAiPanelController(props: AiPanelProps) {
 				const input: UniverLoopbackRunInput = {
 					workbookId,
 					instruction: text,
-					scopes: { read: readScopes, write: writeScopes, current },
+					scopes: { read: readScopes, ...(writeScopes.length ? { write: writeScopes } : {}), current },
 					contexts: {
 						selections: selectionContexts,
 					},
-					// We keep a hard upper bound, but do not force a high minimum.
-					// The model should stop when it's done; steps is just a safety cap.
-					maxRounds: clampInt(loopMaxRounds, 1, MAX_LOOP_ROUNDS),
-					mode,
-					limits: DEFAULT_LIMITS,
 				}
 				const res = await backend.runLoopback(input)
 				const line = formatResult(res)
-				updateChat(assistantId, { content: line, status: res.ok ? undefined : ('error' as any) })
+				updateChat(assistantId, { content: line })
 				if (res.ok && res.newRev !== res.baseRev) {
 					props.onReloadLatest?.()
 				}
 			} catch (err) {
-				updateChat(assistantId, { content: rpcErrorMessage(err, 'loopback 失败'), status: 'error' as any })
+				updateChat(assistantId, { content: rpcErrorMessage(err, 'loopback 失败') })
 			} finally {
 				setBusy(false)
 			}
-			},
-			[
-				appendChat,
-				ensureBackend,
-				effectiveWriteScopes,
-				loopMaxRounds,
-				mode,
+		},
+		[
+			appendChat,
+			currentSheetWholeA1,
+			ensureBackend,
+			effectiveReadScopes,
+			effectiveWriteScopes,
 			pinnedSelections,
-			props,
+			props.onReloadLatest,
+			readScopeMode,
 			updateChat,
 			workbookId,
+			writeScopeMode,
 		],
 	)
 
@@ -344,37 +442,45 @@ export function useAiPanelController(props: AiPanelProps) {
 				setup: converted.setup,
 			}
 			appendChat(userMessage)
-			void runLoopback(text, userMessage.id)
+			void runLoopback(text)
 		},
 		[appendChat, runLoopback],
 	)
 
-	return {
-		warn,
-		error,
-		busy,
-		chats,
-		instruction,
-		setInstruction,
-		pinnedSelections,
-		writeScopeMode,
-		writeScopes: effectiveWriteScopes,
-		activeSheetWholeA1: currentSheetWholeA1,
-		removeWriteScope,
-		loopMaxRounds,
-		setLoopMaxRounds,
-		mode,
-		setMode,
-		unpinSelection,
-		clearPins,
-		selectionReferences,
-		editableScopes: effectiveWriteScopes,
-		selectionKey,
-		selectionLabel,
-		selectionMeta,
-		handleAiSend,
+		return {
+			warn,
+			error,
+			busy,
+			chats,
+			instruction,
+			setInstruction,
+			pinnedSelections,
+			readScopeMode,
+			readScopes: effectiveReadScopes,
+			writeScopeMode,
+			writeScopes: effectiveWriteScopes,
+			activeSheetWholeA1: currentSheetWholeA1,
+			resetReadToWorkbook,
+			resetReadToSheet,
+			limitReadToPinned,
+			addReadFromPinned,
+			removeReadScope,
+			disableWrite,
+			allowWriteWorkbook,
+			allowWriteSheet,
+			limitWriteToPinned,
+			addWriteFromPinned,
+			removeWriteScope,
+			unpinSelection,
+			clearPins,
+			selectionReferences,
+			editableScopes: effectiveWriteScopes,
+			selectionKey,
+			selectionLabel,
+			selectionMeta,
+			handleAiSend,
+		}
 	}
-}
 
 function formatResult(res: UniverLoopbackRunResult) {
 	if (!res.ok) {

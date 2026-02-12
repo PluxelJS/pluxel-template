@@ -16,9 +16,18 @@ export function resolveRangeInput(input: RangeInput): { range: UniverRange; a1?:
 	const a1 = String(input.a1 ?? '').trim()
 	if (a1) {
 		const parsed = parseA1Range(a1)
+		if (!parsed.sheetName) {
+			throw new Error('[univer] a1 must include sheet name (e.g. Sheet1!A1:B10)')
+		}
 		return { range: parsed.range, a1: parsed.a1, sheetName: parsed.sheetName }
 	}
-	if (input.range) return { range: input.range }
+	if (input.range) {
+		const hasSheetRef = Boolean(String(input.sheetName ?? '').trim())
+		if (!hasSheetRef) {
+			throw new Error('[univer] sheetName required when using numeric range (provide sheetName or use sheet-qualified a1)')
+		}
+		return { range: input.range, sheetName: String(input.sheetName ?? '').trim() }
+	}
 	throw new Error('[univer] range or a1 required')
 }
 

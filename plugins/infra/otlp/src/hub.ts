@@ -19,6 +19,14 @@ import { Otlp } from './core.js'
 
 type OverflowMode = 'dropNewest' | 'dropOldest' | 'block'
 type QueueItem = { json: string; bytes: number }
+type DestinationState = {
+	endpoint: string
+	headers: Record<string, string>
+	timeoutMs: number
+	logsQ: OtlpHttpJsonQueue
+	tracesQ: OtlpHttpJsonQueue
+	metricsQ: OtlpHttpJsonQueue
+}
 
 const ENCODER = new TextEncoder()
 
@@ -29,19 +37,40 @@ export const OtlpHubCoreCfgSchema = v.object({
 	timeoutMs: v.optional(v.number(), 10_000),
 })
 
+export const OtlpHubTargetCfgSchema = v.object({
+	id: v.pipe(v.string(), f.formMeta({ label: 'Target ID', description: 'Used by routing.byCallerId/byCallerName.' })),
+	endpoint: v.pipe(v.string(), f.formMeta({ label: 'Endpoint', description: 'Collector base URL (e.g. http://localhost:4318).' })),
+	headers: v.optional(v.record(v.string(), v.string()), {}),
+	timeoutMs: v.optional(v.number(), 10_000),
+})
+
+export const OtlpHubTargetsCfgSchema = v.pipe(
+	v.optional(v.array(OtlpHubTargetCfgSchema), []),
+	f.formMeta({ label: 'Targets', description: 'Additional OTLP destinations for caller-based routing.' }),
+)
+
+export const OtlpHubRoutingCfgSchema = v.pipe(
+	v.object({
+		defaultTargetId: v.optional(v.string(), ''),
+		byCallerId: v.optional(v.record(v.string(), v.string()), {}),
+		byCallerName: v.optional(v.record(v.string(), v.string()), {}),
+	}),
+	f.formMeta({ label: 'Routing', description: 'Route telemetry by caller plugin id/name to a target.' }),
+)
+
 export const OtlpHubSignalsCfgSchema = v.object({
 	logs: v.pipe(
-		v.optional(v.boolean(), true),
+		v.optional(v.boolean(), false),
 		f.formMeta({ label: '启用 Logs', description: 'OTLP /v1/logs' }),
 		f.booleanMeta({}),
 	),
 	traces: v.pipe(
-		v.optional(v.boolean(), false),
+		v.optional(v.boolean(), true),
 		f.formMeta({ label: '启用 Traces', description: 'OTLP /v1/traces' }),
 		f.booleanMeta({}),
 	),
 	metrics: v.pipe(
-		v.optional(v.boolean(), false),
+		v.optional(v.boolean(), true),
 		f.formMeta({ label: '启用 Metrics', description: 'OTLP /v1/metrics' }),
 		f.booleanMeta({}),
 	),
@@ -76,9 +105,13 @@ export type OtlpHubCoreConfig = v.InferOutput<typeof OtlpHubCoreCfgSchema>
 export type OtlpHubBatchConfig = v.InferOutput<typeof OtlpHubBatchCfgSchema>
 export type OtlpHubQueueConfig = v.InferOutput<typeof OtlpHubQueueCfgSchema>
 export type OtlpHubSignalsConfig = v.InferOutput<typeof OtlpHubSignalsCfgSchema>
+export type OtlpHubTargetConfig = v.InferOutput<typeof OtlpHubTargetCfgSchema>
+export type OtlpHubRoutingConfig = v.InferOutput<typeof OtlpHubRoutingCfgSchema>
 
 export const OtlpHubConfigSchemas = {
 	core: OtlpHubCoreCfgSchema,
+	targets: OtlpHubTargetsCfgSchema,
+	routing: OtlpHubRoutingCfgSchema,
 	signals: OtlpHubSignalsCfgSchema,
 	resourceCfg: OtlpHubResourceCfgSchema,
 	scopeCfg: OtlpHubScopeCfgSchema,
@@ -349,6 +382,7 @@ class OtlpHttpJsonQueue {
 	private lastError: OtlpSignalStats['lastError'] | undefined
 
 	private queued: QueueItem[] = []
+	private head = 0
 	private queuedBytes = 0
 	private waiting: Array<() => void> = []
 	private idleWaiters: Array<() => void> = []
@@ -376,7 +410,7 @@ class OtlpHttpJsonQueue {
 	stats(): OtlpSignalStats {
 		return {
 			enabled: this.enabled,
-			queued: this.queued.length,
+			queued: this.queuedCount(),
 			queuedBytes: this.queuedBytes,
 			inflight: this.inflight,
 			sentBatches: this.sentBatches,
@@ -420,7 +454,7 @@ class OtlpHttpJsonQueue {
 	private shouldFlushNow(): boolean {
 		const maxBatchRecords = Math.max(1, Math.floor(this.batch.maxBatchRecords))
 		const maxBatchBytes = Math.max(1, Math.floor(this.batch.maxBatchBytes))
-		return this.queued.length >= maxBatchRecords || this.queuedBytes >= maxBatchBytes
+		return this.queuedCount() >= maxBatchRecords || this.queuedBytes >= maxBatchBytes
 	}
 
 	private scheduleFlush(): void {
@@ -448,66 +482,105 @@ class OtlpHttpJsonQueue {
 
 		const batch: QueueItem[] = []
 		let bytes = 0
-		while (batch.length < maxBatchRecords && this.queued.length > 0) {
-			const next = this.queued[0]!
+		while (batch.length < maxBatchRecords && this.queuedCount() > 0) {
+			const next = this.queued[this.head]!
 			if (batch.length > 0 && bytes + next.bytes > maxBatchBytes) break
-			this.queued.shift()
+			this.head++
 			this.queuedBytes -= next.bytes
 			batch.push(next)
 			bytes += next.bytes
 		}
+		this.maybeCompact()
 		return batch
 	}
 
-	async enqueue(item: QueueItem): Promise<void> {
+	private queuedCount(): number {
+		return Math.max(0, this.queued.length - this.head)
+	}
+
+	private maybeCompact(): void {
+		if (this.head === 0) return
+		// Avoid O(n) shifts by compacting occasionally.
+		if (this.head < 1024 && this.head < this.queued.length / 2) return
+		this.queued = this.queued.slice(this.head)
+		this.head = 0
+	}
+
+	private dropOldestOne(): void {
+		if (this.queuedCount() === 0) return
+		const removed = this.queued[this.head]!
+		this.head++
+		this.queuedBytes -= removed.bytes
+		this.dropped++
+		this.droppedQueueFull++
+		this.maybeCompact()
+	}
+
+	private tryEnqueueInner(item: QueueItem, opts: { allowBlock: boolean }): { ok: boolean; shouldBlock: boolean } {
 		if (!this.enabled) {
 			this.dropped++
 			this.droppedDisabled++
-			return
+			return { ok: false, shouldBlock: false }
 		}
 
 		const maxItems = Math.max(1, Math.floor(this.queueCfg.maxQueuedRecords))
 		const maxBytes = Math.max(1, Math.floor(this.queueCfg.maxQueuedBytes))
 		const overflow = this.queueCfg.overflow as OverflowMode
 
-		const fits = () => this.queued.length < maxItems && this.queuedBytes + item.bytes <= maxBytes
+		const fits = () => this.queuedCount() < maxItems && this.queuedBytes + item.bytes <= maxBytes
 
 		if (fits()) {
 			this.queued.push(item)
 			this.queuedBytes += item.bytes
 			this.afterEnqueue()
-			return
-		}
-
-		if (overflow === 'dropNewest') {
-			this.dropped++
-			this.droppedQueueFull++
-			return
+			return { ok: true, shouldBlock: false }
 		}
 
 		if (overflow === 'dropOldest') {
-			while (this.queued.length > 0 && !fits()) {
-				const removed = this.queued.shift()!
-				this.queuedBytes -= removed.bytes
-				this.dropped++
-				this.droppedQueueFull++
-			}
+			while (this.queuedCount() > 0 && !fits()) this.dropOldestOne()
 			if (!fits()) {
 				this.dropped++
 				this.droppedQueueFull++
-				return
+				return { ok: false, shouldBlock: false }
 			}
 			this.queued.push(item)
 			this.queuedBytes += item.bytes
 			this.afterEnqueue()
-			return
+			return { ok: true, shouldBlock: false }
 		}
+
+		if (overflow === 'block') {
+			if (opts.allowBlock) return { ok: false, shouldBlock: true }
+			this.dropped++
+			this.droppedQueueFull++
+			return { ok: false, shouldBlock: false }
+		}
+
+		// dropNewest
+		this.dropped++
+		this.droppedQueueFull++
+		return { ok: false, shouldBlock: false }
+	}
+
+	tryEnqueue(item: QueueItem): boolean {
+		return this.tryEnqueueInner(item, { allowBlock: false }).ok
+	}
+
+	async enqueue(item: QueueItem): Promise<void> {
+		const res = this.tryEnqueueInner(item, { allowBlock: true })
+		if (res.ok) return
+		if (!res.shouldBlock) return
+
+		const maxItems = Math.max(1, Math.floor(this.queueCfg.maxQueuedRecords))
+		const maxBytes = Math.max(1, Math.floor(this.queueCfg.maxQueuedBytes))
+		const fits = () => this.queuedCount() < maxItems && this.queuedBytes + item.bytes <= maxBytes
 
 		await new Promise<void>((resolve) => {
 			this.waiting.push(resolve)
 			this.kickFlush()
 		})
 
+		if (!this.enabled) return
 		if (fits()) {
 			this.queued.push(item)
 			this.queuedBytes += item.bytes
@@ -524,13 +597,13 @@ class OtlpHttpJsonQueue {
 		this.clearTimers()
 
 		while (this.inflight > 0) await this.waitForIdle()
-		while (this.queued.length > 0) await this.kickFlush({ drain: true })
+		while (this.queuedCount() > 0) await this.kickFlush({ drain: true })
 	}
 
 	private async kickFlush(opts?: { drain?: boolean }): Promise<void> {
 		this.clearTimers()
 		if (!this.enabled) return
-		if (this.queued.length === 0) return
+		if (this.queuedCount() === 0) return
 
 		if (opts?.drain) {
 			if (this.inflight !== 0) return
@@ -550,17 +623,17 @@ class OtlpHttpJsonQueue {
 				this.flushPending = false
 
 				const maxInflight = Math.max(1, Math.floor(this.batch.maxInflight))
-				while (this.inflight < maxInflight && this.queued.length > 0) {
+				while (this.inflight < maxInflight && this.queuedCount() > 0) {
 					const batch = this.takeBatch()
 					this.releaseWaiters()
 					if (batch.length === 0) break
 					void this.sendBatchSafe(batch).finally(() => {
-						if (this.queued.length > 0) this.kickFlush()
+						if (this.queuedCount() > 0) this.kickFlush()
 						else this.notifyIdle()
 					})
 				}
 
-				if (this.queued.length > 0) {
+				if (this.queuedCount() > 0) {
 					if (!this.shouldFlushNow()) this.scheduleFlush()
 				}
 			}
@@ -589,7 +662,7 @@ class OtlpHttpJsonQueue {
 			if (this.inflight === 0) this.notifyIdle()
 		}
 
-		if (this.queued.length === 0) return
+		if (this.queuedCount() === 0) return
 		if (!this.shouldFlushNow()) this.scheduleFlush()
 	}
 }
@@ -597,6 +670,8 @@ class OtlpHttpJsonQueue {
 @Plugin(Otlp, { name: 'OtlpHub', type: 'service' })
 export class OtlpHub extends Otlp {
 	private core: OtlpHubCoreConfig = this.configs.use(OtlpHubCoreCfgSchema)
+	private targets: v.InferOutput<typeof OtlpHubTargetsCfgSchema> = this.configs.use(OtlpHubTargetsCfgSchema)
+	private routing: OtlpHubRoutingConfig = this.configs.use(OtlpHubRoutingCfgSchema)
 	private signals: OtlpHubSignalsConfig = this.configs.use(OtlpHubSignalsCfgSchema)
 	private resourceCfg: v.InferOutput<typeof OtlpHubResourceCfgSchema> = this.configs.use(OtlpHubResourceCfgSchema)
 	private scopeCfg: v.InferOutput<typeof OtlpHubScopeCfgSchema> = this.configs.use(OtlpHubScopeCfgSchema)
@@ -605,6 +680,8 @@ export class OtlpHub extends Otlp {
 
 	private cfg!: {
 		core: OtlpHubCoreConfig
+		targets: v.InferOutput<typeof OtlpHubTargetsCfgSchema>
+		routing: OtlpHubRoutingConfig
 		signals: OtlpHubSignalsConfig
 		resource: v.InferOutput<typeof OtlpHubResourceCfgSchema>
 		scope: v.InferOutput<typeof OtlpHubScopeCfgSchema>
@@ -612,21 +689,21 @@ export class OtlpHub extends Otlp {
 		queue: OtlpHubQueueConfig
 	}
 
-	private endpoint = ''
-	private headers: Record<string, string> = {}
+	private readonly defaultTargetId = 'default'
+	private warnedUnknownTargets = new Set<string>()
 
 	private baseAttrs: OtlpAttributes = {}
 
 	private prefix: Record<OtlpSignal, string> = { logs: '', traces: '', metrics: '' }
 	private suffix: Record<OtlpSignal, string> = { logs: '', traces: '', metrics: '' }
 
-	private logsQ: OtlpHttpJsonQueue | null = null
-	private tracesQ: OtlpHttpJsonQueue | null = null
-	private metricsQ: OtlpHttpJsonQueue | null = null
+	private destinations: Record<string, DestinationState> = {}
 
 	override async init(_abort: AbortSignal): Promise<void> {
 		this.cfg = {
 			core: this.core,
+			targets: this.targets,
+			routing: this.routing,
 			signals: this.signals,
 			resource: this.resourceCfg,
 			scope: this.scopeCfg,
@@ -635,13 +712,7 @@ export class OtlpHub extends Otlp {
 		}
 
 		this.ctx.effects.defer(() => {
-			try {
-				this.logsQ?.clearTimers()
-				this.tracesQ?.clearTimers()
-				this.metricsQ?.clearTimers()
-			} catch {
-				// ignore
-			}
+			this.clearDestinationTimers()
 		})
 
 		if (!this.cfg.core.enabled) {
@@ -649,9 +720,6 @@ export class OtlpHub extends Otlp {
 			this.buildExporters({ enabled: false })
 			return
 		}
-
-		this.endpoint = normalizeEndpoint(this.cfg.core.endpoint)
-		this.headers = { ...this.cfg.core.headers }
 
 		const resourceAttrs: OtlpAttributes = {
 			'service.name': this.cfg.resource.serviceName,
@@ -688,7 +756,8 @@ export class OtlpHub extends Otlp {
 
 		this.ctx.logger.info('OtlpHub initialized', {
 			enabled: this.cfg.core.enabled,
-			endpoint: this.endpoint,
+			endpoint: normalizeEndpoint(this.cfg.core.endpoint),
+			targets: Array.isArray(this.cfg.targets) ? this.cfg.targets.map((t) => t.id).filter(Boolean) : [],
 			signals: this.cfg.signals,
 			flushIntervalMs: this.cfg.batch.flushIntervalMs,
 		})
@@ -700,26 +769,38 @@ export class OtlpHub extends Otlp {
 		} catch {
 			// best-effort
 		} finally {
-			this.logsQ?.clearTimers()
-			this.tracesQ?.clearTimers()
-			this.metricsQ?.clearTimers()
+			this.clearDestinationTimers()
+		}
+	}
+
+	private clearDestinationTimers(): void {
+		for (const d of Object.values(this.destinations)) {
+			try {
+				d.logsQ.clearTimers()
+				d.tracesQ.clearTimers()
+				d.metricsQ.clearTimers()
+			} catch {
+				// ignore
+			}
 		}
 	}
 
 	private buildExporters(opts: { enabled: boolean }): void {
 		const enabled = !!opts.enabled
-		const timeoutMs = Math.max(1, Math.floor(this.cfg?.core?.timeoutMs ?? 10_000))
+		const coreTimeoutMs = Math.max(1, Math.floor(this.cfg?.core?.timeoutMs ?? 10_000))
 		const batch = this.cfg?.batch ?? { flushIntervalMs: 1000, maxBatchRecords: 256, maxBatchBytes: 256 * 1024, maxInflight: 1 }
 		const queue = this.cfg?.queue ?? { maxQueuedRecords: 5000, maxQueuedBytes: 2 * 1024 * 1024, overflow: 'dropNewest' }
 
-		const mkSend = (signal: OtlpSignal, path: '/v1/logs' | '/v1/traces' | '/v1/metrics') => async (body: string, tMs: number) => {
-			if (!enabled) return
-			const url = `${this.endpoint}${path}`
+		const mkSend =
+			(dest: { endpoint: string; headers: Record<string, string> }, signal: OtlpSignal, path: '/v1/logs' | '/v1/traces' | '/v1/metrics') =>
+			async (body: string, tMs: number) => {
+				if (!enabled) return
+				const url = `${dest.endpoint}${path}`
 			const headers: Record<string, string> = {
 				'content-type': 'application/json',
 				accept: 'application/json',
 				'user-agent': 'pluxel-otlp/0.1',
-				...this.headers,
+				...dest.headers,
 			}
 
 			let controller: AbortController | undefined
@@ -746,24 +827,44 @@ export class OtlpHub extends Otlp {
 			}
 		}
 
-		const mk = (signal: OtlpSignal, path: '/v1/logs' | '/v1/traces' | '/v1/metrics') =>
+		const mkQueue = (dest: { endpoint: string; headers: Record<string, string>; timeoutMs: number }, signal: OtlpSignal, path: '/v1/logs' | '/v1/traces' | '/v1/metrics') =>
 			new OtlpHttpJsonQueue({
 				signal,
 				enabled: enabled && !!this.cfg?.core?.enabled && !!this.cfg?.signals?.[signal],
 				batch,
 				queueCfg: queue,
-				timeoutMs,
+				timeoutMs: dest.timeoutMs,
 				buildBody: (items) => `${this.prefix[signal]}${items.map((i) => i.json).join(',')}${this.suffix[signal]}`,
-				sendRequest: mkSend(signal, path),
+				sendRequest: mkSend(dest, signal, path),
 				warn: (message, meta) => this.ctx.logger.warn(message, meta),
 			})
 
-		this.logsQ = mk('logs', '/v1/logs')
-		this.tracesQ = mk('traces', '/v1/traces')
-		this.metricsQ = mk('metrics', '/v1/metrics')
+		const dests: Record<string, DestinationState> = {}
+		const addDestination = (id: string, endpointRaw: string, headers: Record<string, string>, timeoutMs: number) => {
+			const endpoint = normalizeEndpoint(endpointRaw)
+			const dest = { endpoint, headers, timeoutMs }
+			dests[id] = {
+				endpoint,
+				headers,
+				timeoutMs,
+				logsQ: mkQueue(dest, 'logs', '/v1/logs'),
+				tracesQ: mkQueue(dest, 'traces', '/v1/traces'),
+				metricsQ: mkQueue(dest, 'metrics', '/v1/metrics'),
+			}
+		}
+
+		addDestination(this.defaultTargetId, this.cfg?.core?.endpoint ?? 'http://localhost:4318', { ...(this.cfg?.core?.headers ?? {}) }, coreTimeoutMs)
+
+		for (const t of (Array.isArray(this.cfg?.targets) ? this.cfg.targets : []) as OtlpHubTargetConfig[]) {
+			const id = String((t as any)?.id ?? '').trim()
+			if (!id || id === this.defaultTargetId) continue
+			addDestination(id, String((t as any)?.endpoint ?? this.cfg?.core?.endpoint ?? ''), { ...(t.headers ?? {}) }, Math.max(1, Math.floor(t.timeoutMs ?? coreTimeoutMs)))
+		}
+
+		this.destinations = dests
 	}
 
-	private callerBaseAttrs(): OtlpAttributes {
+	private callerMeta(): { attrs: OtlpAttributes; callerId: string; callerName: string } {
 		const caller = this.callerOrSelf() as unknown as Context
 		const callerId = String((caller as any)?.pluginInfo?.id ?? '').trim()
 		const callerName = String((caller as any)?.pluginInfo?.displayName ?? '').trim()
@@ -771,7 +872,29 @@ export class OtlpHub extends Otlp {
 			...(callerId ? { 'pluxel.caller.id': callerId } : {}),
 			...(callerName ? { 'pluxel.caller.name': callerName } : {}),
 		}
-		return { ...this.baseAttrs, ...callerAttrs }
+		return { attrs: { ...this.baseAttrs, ...callerAttrs }, callerId, callerName }
+	}
+
+	private resolveDestination(callerId: string, callerName: string) {
+		const routing = this.cfg?.routing
+		const byCallerId = routing?.byCallerId ?? {}
+		const byCallerName = routing?.byCallerName ?? {}
+		const defaultTargetId = String(routing?.defaultTargetId ?? '').trim()
+
+		const mapped =
+			(callerId && typeof byCallerId === 'object' ? String((byCallerId as any)[callerId] ?? '').trim() : '') ||
+			(callerName && typeof byCallerName === 'object' ? String((byCallerName as any)[callerName] ?? '').trim() : '') ||
+			defaultTargetId
+
+		const targetId = mapped || this.defaultTargetId
+		const dest = this.destinations[targetId]
+		if (dest) return dest
+
+		if (targetId && !this.warnedUnknownTargets.has(targetId)) {
+			this.warnedUnknownTargets.add(targetId)
+			this.ctx.logger.warn('[otlp] unknown routing target id (falling back to default)', { targetId, callerId, callerName })
+		}
+		return this.destinations[this.defaultTargetId] ?? Object.values(this.destinations)[0]
 	}
 
 	override stats(): OtlpStats {
@@ -786,11 +909,32 @@ export class OtlpHub extends Otlp {
 			droppedQueueFull: 0,
 			droppedDisabled: 0,
 		})
-		const signals = {
-			logs: this.logsQ?.stats() ?? empty(),
-			traces: this.tracesQ?.stats() ?? empty(),
-			metrics: this.metricsQ?.stats() ?? empty(),
+		const merge = (a: OtlpSignalStats, b: OtlpSignalStats): OtlpSignalStats => {
+			const lastError = [a.lastError, b.lastError].filter(Boolean).sort((x, y) => (Number(y!.at) ?? 0) - (Number(x!.at) ?? 0))[0]
+			return {
+				enabled: a.enabled || b.enabled,
+				queued: a.queued + b.queued,
+				queuedBytes: a.queuedBytes + b.queuedBytes,
+				inflight: a.inflight + b.inflight,
+				sentBatches: a.sentBatches + b.sentBatches,
+				sentItems: a.sentItems + b.sentItems,
+				dropped: a.dropped + b.dropped,
+				droppedQueueFull: a.droppedQueueFull + b.droppedQueueFull,
+				droppedDisabled: a.droppedDisabled + b.droppedDisabled,
+				...(lastError ? { lastError } : {}),
+			}
 		}
+
+		let logs = empty()
+		let traces = empty()
+		let metrics = empty()
+		for (const d of Object.values(this.destinations)) {
+			logs = merge(logs, d.logsQ.stats())
+			traces = merge(traces, d.tracesQ.stats())
+			metrics = merge(metrics, d.metricsQ.stats())
+		}
+
+		const signals = { logs, traces, metrics }
 
 		const list = Object.values(signals)
 		const lastError = list
@@ -814,19 +958,43 @@ export class OtlpHub extends Otlp {
 	}
 
 	override async log(input: OtlpLogRecordInput | readonly OtlpLogRecordInput[]): Promise<void> {
-		const q = this.logsQ
-		if (!q) return
-		const baseAttrs = this.callerBaseAttrs()
+		const caller = this.callerMeta()
+		const dest = this.resolveDestination(caller.callerId, caller.callerName)
+		if (!dest) return
+		const q = dest.logsQ
+		const baseAttrs = caller.attrs
 		const list = Array.isArray(input) ? input : [input]
 		for (const item of list) await q.enqueue(logRecordToItem(item, baseAttrs))
 	}
 
+	override logSync(input: OtlpLogRecordInput | readonly OtlpLogRecordInput[]): void {
+		const caller = this.callerMeta()
+		const dest = this.resolveDestination(caller.callerId, caller.callerName)
+		if (!dest) return
+		const q = dest.logsQ
+		const baseAttrs = caller.attrs
+		const list = Array.isArray(input) ? input : [input]
+		for (const item of list) q.tryEnqueue(logRecordToItem(item, baseAttrs))
+	}
+
 	override async trace(input: OtlpSpanInput | readonly OtlpSpanInput[]): Promise<void> {
-		const q = this.tracesQ
-		if (!q) return
-		const baseAttrs = this.callerBaseAttrs()
+		const caller = this.callerMeta()
+		const dest = this.resolveDestination(caller.callerId, caller.callerName)
+		if (!dest) return
+		const q = dest.tracesQ
+		const baseAttrs = caller.attrs
 		const list = Array.isArray(input) ? input : [input]
 		for (const item of list) await q.enqueue(spanToItem(item, baseAttrs))
+	}
+
+	override traceSync(input: OtlpSpanInput | readonly OtlpSpanInput[]): void {
+		const caller = this.callerMeta()
+		const dest = this.resolveDestination(caller.callerId, caller.callerName)
+		if (!dest) return
+		const q = dest.tracesQ
+		const baseAttrs = caller.attrs
+		const list = Array.isArray(input) ? input : [input]
+		for (const item of list) q.tryEnqueue(spanToItem(item, baseAttrs))
 	}
 
 	override span(name: string, opts?: Omit<OtlpSpanInput, 'name'>): OtlpSpanHandle {
@@ -905,16 +1073,30 @@ export class OtlpHub extends Otlp {
 	}
 
 	override async metric(input: OtlpMetricPointInput | readonly OtlpMetricPointInput[]): Promise<void> {
-		const q = this.metricsQ
-		if (!q) return
-		const baseAttrs = this.callerBaseAttrs()
+		const caller = this.callerMeta()
+		const dest = this.resolveDestination(caller.callerId, caller.callerName)
+		if (!dest) return
+		const q = dest.metricsQ
+		const baseAttrs = caller.attrs
 		const list = Array.isArray(input) ? input : [input]
 		for (const item of list) await q.enqueue(metricPointToItem(item, baseAttrs))
 	}
 
+	override metricSync(input: OtlpMetricPointInput | readonly OtlpMetricPointInput[]): void {
+		const caller = this.callerMeta()
+		const dest = this.resolveDestination(caller.callerId, caller.callerName)
+		if (!dest) return
+		const q = dest.metricsQ
+		const baseAttrs = caller.attrs
+		const list = Array.isArray(input) ? input : [input]
+		for (const item of list) q.tryEnqueue(metricPointToItem(item, baseAttrs))
+	}
+
 	override async flush(): Promise<void> {
-		await this.logsQ?.flush()
-		await this.tracesQ?.flush()
-		await this.metricsQ?.flush()
+		for (const d of Object.values(this.destinations)) {
+			await d.logsQ.flush()
+			await d.tracesQ.flush()
+			await d.metricsQ.flush()
+		}
 	}
 }

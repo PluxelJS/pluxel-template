@@ -9,6 +9,10 @@
 			"@pluxel/hmr": "./src/index.ts",
 			"default": "./dist/index.mjs"
 		},
+		"./otel": {
+			"@pluxel/hmr": "./src/otel.ts",
+			"default": "./dist/otel.mjs"
+		},
 		"./decorators": {
 			"@pluxel/hmr": "./src/decorators.ts",
 			"default": "./dist/decorators.mjs"
@@ -25,9 +29,13 @@
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json"
 	},
+	"dependencies": {
+		"@opentelemetry/api": "^1.9.0"
+	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
+			"./otel": "./dist/otel.mjs",
 			"./decorators": "./dist/decorators.mjs",
 			"./package.json": "./package.json"
 		},

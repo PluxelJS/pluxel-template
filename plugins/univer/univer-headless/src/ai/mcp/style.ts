@@ -10,6 +10,7 @@ import type {
 import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { resolveRangeInput, resolveSheet } from './utils'
+import { asAxParams } from '../ax-params'
 const RangeSchema = Type.Object(
 	{
 		startRow: Type.Integer(),
@@ -20,22 +21,46 @@ const RangeSchema = Type.Object(
 	{ additionalProperties: false },
 )
 
-const RangeInputProps = {
+const RangeInputBaseProps = {
 	sheetId: Type.Optional(Type.String()),
 	sheetName: Type.Optional(Type.String()),
-	a1: Type.Optional(Type.String()),
-	range: Type.Optional(RangeSchema),
 } as const
 
-const RangeInputSchema = Type.Object(RangeInputProps, { additionalProperties: false })
+const RangeInputSchema = Type.Union([
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			a1: Type.String(),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			range: RangeSchema,
+		},
+		{ additionalProperties: false },
+	),
+])
 
-const SetRangeStyleSchema = Type.Object(
-	{
-		...RangeInputProps,
-		style: Type.Object({}, { additionalProperties: true }),
-	},
-	{ additionalProperties: false },
-)
+const SetRangeStyleSchema = Type.Union([
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			a1: Type.String(),
+			style: Type.Object({}, { additionalProperties: true }),
+		},
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			...RangeInputBaseProps,
+			range: RangeSchema,
+			style: Type.Object({}, { additionalProperties: true }),
+		},
+		{ additionalProperties: false },
+	),
+])
 
 const FormatBrushSchema = Type.Object(
 	{
@@ -49,7 +74,7 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 	const set_range_style: AxFunction = {
 		name: 'set_range_style',
 		description: getMcpToolDescription('set_range_style'),
-		parameters: SetRangeStyleSchema as any,
+		parameters: asAxParams(SetRangeStyleSchema),
 		func: async (input: UniverToolSetRangeStyleInput): Promise<UniverToolSetRangeStyleResult> => {
 			ctx.stats.toolCalls++
 
@@ -68,7 +93,7 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 				endColumn: range.endCol,
 			})
 			ctx.checkCanChange()
-			const res = r.setStyle?.(input.style as any) ?? r.setCellStyle?.(input.style as any)
+			const res = r.setStyle?.(input.style) ?? r.setCellStyle?.(input.style)
 			if (res === undefined) throw new Error('[univer] set style not supported')
 			ctx.bumpChange()
 			return { ok: true }
@@ -78,7 +103,7 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 	const format_brush: AxFunction = {
 		name: 'format_brush',
 		description: getMcpToolDescription('format_brush'),
-		parameters: FormatBrushSchema as any,
+		parameters: asAxParams(FormatBrushSchema),
 		func: async (input: UniverToolFormatBrushInput): Promise<UniverToolFormatBrushResult> => {
 			ctx.stats.toolCalls++
 

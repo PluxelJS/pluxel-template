@@ -9,13 +9,14 @@ export type AiPanelDevState = {
 	chats?: AiMessage[]
 	pinnedSelections?: UniverAiContext[]
 	currentSelection?: UniverAiContext | null
+	/** Read scope mode in the UI. */
+	readScopeMode?: 'workbook' | 'sheet' | 'ranges'
+	/** Explicit read scopes when readScopeMode='ranges'. */
+	readScopes?: string[]
 	/** Write scope mode in the UI. */
-	writeScopeMode?: 'sheet' | 'ranges'
+	writeScopeMode?: 'none' | 'workbook' | 'sheet' | 'ranges'
 	/** Explicit write scopes when writeScopeMode='ranges'. */
 	writeScopes?: string[]
-	/** Loopback max tool-call steps (server-side; maps to Ax maxSteps). */
-	loopMaxRounds?: number
-	mode?: 'safe' | 'aggressive'
 }
 
 export type AiPanelProps = {

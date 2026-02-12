@@ -14,18 +14,24 @@ export function createHeadlessUniverEngine(opts?: { locale?: LocaleType }) {
 		presets: [UniverSheetsNodeCorePreset()],
 	})
 
+	type UniverApiLike = {
+		createWorkbook: (snapshot: unknown) => any
+		disposeUnit?: (unitId: string) => void
+	}
+	const api = univerAPI as unknown as UniverApiLike
+
 	let disposed = false
 
 	const withWorkbook: HeadlessUniverEngine['withWorkbook'] = async (snapshot, fn) => {
 		if (disposed) throw new Error('[univer] headless engine disposed')
-		const workbook = (univerAPI as any).createWorkbook(snapshot as any)
+		const workbook = api.createWorkbook(snapshot)
 		if (!workbook) throw new Error('[univer] failed to create workbook')
 		const unitId = typeof workbook.getId === 'function' ? String(workbook.getId()) : ''
 		try {
 			return await fn(workbook)
 		} finally {
 			try {
-				if (unitId) (univerAPI as any).disposeUnit?.(unitId)
+				if (unitId) api.disposeUnit?.(unitId)
 			} catch {}
 		}
 	}

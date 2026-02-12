@@ -20,6 +20,9 @@
 
 > AI loopback 相关的前后端细节（情境/写入范围/高亮/批量工具/hint/可观测性等）已拆到独立文档：
 > `plugins/univer/AI_LOOPBACK.md`
+>
+> Ax（`@ax-llm/ax`）上游文档较多，这里有一份按开发时常用程度整理的导读：
+> [plugins/univer/ax-llm/README.md](./ax-llm/README.md)
 
 ## 1. 系统分层与主要组件
 
@@ -178,10 +181,11 @@ AI loopback 通过：
 ```
 {
   workbookId,
+  baseRev?,
   instruction,
   scopes: { read: string[], write?: string[], current?: string },
-  maxRounds, mode, llmProfileId,
-  toolPolicy, limits, contract
+  contexts?: { selections: UniverAiContext[] },
+  llmProfileId
 }
 ```
 
@@ -194,27 +198,41 @@ AI loopback 通过：
 前端 `univer-bridge.ts` 读取当前选区与 pinned 选区：
 - 采样 display values（按 maxRows/maxCols 截断）
 - 生成 `UniverAiContext`（包含 `selection`）
-AI 面板将选区 A1 列表作为 **可编辑范围提示**，并写入 loopback input。
+AI 面板将 pinned selections 作为 **上下文（context pack）** 发送给后端（`contexts.selections`），用于首轮 prompt 提供“预览矩阵”，减少首轮工具读取。
+
+读取/写入权限不再从 pinned selections 推断，而是独立管理：
+- `scopes.read`：读取范围（默认整表；可右键限制为选区）
+- `scopes.write`：写入权限（默认只读；需要显式授权才会下发）
+> 注：一旦下发 `scopes.write`，后端会对所有写工具做 **硬校验**（out-of-scope 写入直接拒绝）。
 
 ### 6.3 Ax loopback 执行
-`univer-headless/src/ai/ax.ts`：
-- `createUniverAxTools()` 组装工具（MCP + legacy）
-- read scopes 会做硬校验：**按 sheet 白名单**（同 sheet 内允许任意范围读取；跨 sheet 仍需出现在 readScopes）
-- write scopes 仅作为 **提示上下文**，不做硬限制
-- `maxRounds` 会映射到 Ax 的 `maxSteps`（限制 tool-call iterations；仅作为安全上限，模型应在完成任务后主动停止；默认=硬上限 80，最小允许 1）
+`univer-headless/src/ai/loopback/*`（入口 re-export：`univer-headless/src/ai/ax.ts`）：
+- `createUniverAxTools()` 组装工具（MCP 工具）
+- read scopes 会做硬校验：**严格按 A1 scope 校验（range-within-scope）**
+- write scopes 会做硬校验：**严格按 A1 scope 校验（range-within-scope）**
+- 执行器使用 **AxFlow 的 iterative processing / feedback loop** 做“重试”（如：写后未回读验证、工具报错后需补救）
+- 当模型宣称已完成且满足基本不变量时，会额外跑一次 **QA evaluator**（DSPy 风格“Editor + Evaluator”分离），必要时用 *只读工具* 做最小验证；低置信度则反馈重试
+- Loopback 运行策略由后端固定（不暴露前端 knobs）：
+  - `maxAttempts=2`
+  - `maxStepsPerAttempt=40`
+  - `maxStepsTotal=80`（硬上限）
+- 额外做一条硬性可观测规则：若发生写入，则必须在最后一次写入后至少有一次读取（用于“写后验证”纪律）
 - `UNIVER_AI_DEFAULT_CONTRACT_LIMITS` 限制 ops/changes
 - **Context pack**：优先使用前端随 loopback input 传入的 `contexts.selections[].selection.display`（已截断的预览），
-  不足时才回退到后端工具读取；最终把“左上角预览 TSV”塞进 system prompt，用来减少首轮 read 工具调用与往返。
-- **工具错误可恢复**：工具异常会返回 `{ok:false,error,hint}` 给模型，避免直接让一次 forward 崩溃；模型应根据 hint 调整参数重试。
-- **读缓存（单次 loopback 内）**：对常用读工具（如 `get_range_data` / `search_cells` / `univer.readRangeDisplay`）做缓存；
-  任意写入（`bumpChange()` / `applyOpsV1` / `clearRange`）会提升 epoch 并清空缓存，避免读到旧值。
-- **limits 自动调优（可覆盖）**：当 `input.limits` 未显式提供时，后端会根据指令/工具组/模式做轻量扩展，
-  更偏数据清洗/汇总任务时自动放大读窗口；显式 `limits` 仍优先。
+  不足时才回退到后端 `readRangeDisplay` helper（带 scope 校验 + 读缓存）；最终把“左上角预览 TSV”塞进 system prompt，用来减少首轮 read 工具调用与往返。
+- **工具错误可恢复**：工具异常会通过 Ax 的 **function error** 机制返回给模型（错误信息中包含 `Hint:` 时应优先遵循），模型应据此修正参数并重试。
+- **写后回读优化（可选）**：以下写工具都支持 `readback`，可在同一次 tool-call 内完成 “写入 → 回读验证”，减少往返：
+  - `set_range_data` / `set_ranges_data`
+  - `auto_fill` / `fill_formula`
+  `readback` 统一返回 `{ order, byA1 }`，并且仍受 `readScopes` 的严格范围限制。
+- **读缓存（单次 loopback 内）**：对常用读工具（如 `get_range_data` / `search_cells` / `readRangeDisplay` helper）做缓存；
+  任意写入（`bumpChange()`）会提升 epoch 并清空缓存，避免读到旧值。
+- **limits 自动调优**：后端会根据指令/工具组做轻量扩展，更偏数据清洗/汇总任务时自动放大读窗口。
 
 ### 6.4 Prompt/Tool Index
 loopback 会把：
  - tool groups
- - tool index（按 `toolPolicy.toolIndex`，未提供时：组数少用 `tools`，组数多用 `groups`；并附带 presets 映射）
+ - tool index（固定按 groups 展示，并附带 presets 映射）
  - editable ranges
  - context pack 预览（若可读到）
 拼接为系统描述，引导模型使用工具读取/写入。
@@ -222,15 +240,12 @@ Prompt 里也会明确提示“尽量批量编辑，减少 tool-call 次数”�
 
 ---
 
-## 7. MCP 工具组与选择策略
+## 7. MCP 工具组
 
 MCP 工具按领域拆分（`univer-headless/src/ai/mcp/*`）：
 - core/data/sheet/structure/style
 
-工具选择逻辑：
-1) 前端传 `toolPolicy`（goal + prefer/allow/maxGroups）
-2) 后端 `resolveMcpToolGroups()` 计算最小工具组
-3) 按策略注入 tool index（groups 或 tools）
+当前实现中，loopback 总是启用所有 MCP 工具组（减少环境分歧、提升可预测性）。
 
 工具目录集中维护在：
 `univer-headless/src/ai/mcp/catalog.ts`
@@ -245,7 +260,7 @@ MCP 工具按领域拆分（`univer-headless/src/ai/mcp/*`）：
 
 ### 8.2 新增 AI 工具
 - `univer-headless/src/ai/mcp/*` 增加工具实现
-- 更新 `catalog.ts`/`selection.ts` 的 tool/preset 元数据
+- 更新 `catalog.ts` 的 tool/preset 元数据
 - 视需要更新 `protocol/tools.ts` 类型
 
 ### 8.3 修改保存策略
@@ -253,7 +268,9 @@ MCP 工具按领域拆分（`univer-headless/src/ai/mcp/*`）：
 - `univer-web/src/ui/pages/editor-page.tsx` 调度逻辑
 
 ### 8.4 调整 AI loopback 行为
-- `univer-headless/src/ai/ax.ts`
+- `univer-headless/src/ai/loopback/kernel.ts`
+- `univer-headless/src/ai/loopback/tools.ts`
+- `univer-headless/src/ai/loopback/tool-wrap.ts`
 - `univer-web/src/ui/ai/panel/controller.ts`
 
 ---
@@ -262,7 +279,7 @@ MCP 工具按领域拆分（`univer-headless/src/ai/mcp/*`）：
 
 `plugins/univer/univer-headless/src/protocol/`：
 - `primitives.ts`：WorkbookId/SheetId/A1/Range/RangeRef
-- `tools.ts`：MCP 工具与 tool policy
+- `tools.ts`：MCP 工具类型
 - `ai.ts`：AI context + legacy tool types + SSE thread events
 - `capabilities.ts`：capabilities 快照（`UNIVER_CAP_AI`）
 - `plugins.ts`：插件 spec + SSE payload

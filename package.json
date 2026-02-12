@@ -13,7 +13,6 @@
 		"dev:full": "node scripts/dev-univer-full.mjs",
 		"build": "turbo build",
 		"build:builtin": "turbo build:builtin --filter=./plugins/builtin/*",
-		"test:full": "node scripts/test-vitest.mjs",
 		"publish": "turbo publish",
 		"new": "pluxel new plugin",
 		"feat": "pluxel new plugin features"
