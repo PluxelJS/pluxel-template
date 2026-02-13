@@ -18,6 +18,7 @@ import type { Link, Span, SpanAttributes, SpanContext, SpanKind, SpanOptions, Sp
 import { SpanStatusCode, TraceFlags } from '@opentelemetry/api'
 
 import type { Otlp, OtlpAttributes, OtlpMetricPointInput, OtlpSpanInput, OtlpSpanKind, OtlpSpanStatus } from './core.js'
+import { randomHex } from './id.js'
 
 type MaybeSyncOtlp = Otlp & {
 	traceSync?: (input: OtlpSpanInput | readonly OtlpSpanInput[]) => void
@@ -35,18 +36,6 @@ function timeInputToUnixMs(t?: TimeInput): number | undefined {
 		return Date.now()
 	}
 	return undefined
-}
-
-function randomHex(bytes: number): string {
-	try {
-		const buf = new Uint8Array(bytes)
-		crypto.getRandomValues(buf)
-		return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('')
-	} catch {
-		let out = ''
-		for (let i = 0; i < bytes; i++) out += Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-		return out
-	}
 }
 
 function otelSpanKindToOtlp(kind: SpanKind | undefined): OtlpSpanKind {

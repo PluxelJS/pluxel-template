@@ -23,92 +23,42 @@ import type { McpContext } from './context'
 import { formatA1Range } from '../a1'
 import { resolveRangeInput, resolveSheet, getSheetId, getSheetName, toMatrix, toStringMatrix, normalizeCount } from './utils'
 import { asAxParams } from '../ax-params'
-const RangeSchema = Type.Object(
+const A1RangeSchema = Type.Object(
 	{
-		startRow: Type.Integer(),
-		startCol: Type.Integer(),
-		endRow: Type.Integer(),
-		endCol: Type.Integer(),
-	},
-	{ additionalProperties: false },
-)
-
-const RangeInputBaseProps = {
-	sheetId: Type.Optional(Type.String()),
-	sheetName: Type.Optional(Type.String()),
-} as const
-
-const A1RangeRefSchema = Type.Object(
-	{
-		...RangeInputBaseProps,
+		/**
+		 * Sheet-qualified A1 notation, e.g. `Sheet1!A1:D40` or `'My Sheet'!A1:B2`.
+		 * (Always include the sheet name to avoid ambiguity.)
+		 */
 		a1: Type.String(),
 	},
 	{ additionalProperties: false },
 )
 
-const IndexRangeRefSchema = Type.Object(
+const CellValueSchema = Type.Union([Type.String(), Type.Number(), Type.Boolean(), Type.Null()])
+
+const SetRangeDataSchema = Type.Object(
 	{
-		...RangeInputBaseProps,
-		range: RangeSchema,
+		...A1RangeSchema.properties,
+		values: Type.Array(Type.Array(CellValueSchema)),
+		readback: Type.Optional(
+			Type.Object(
+				{
+					includeDisplay: Type.Optional(Type.Boolean()),
+				},
+				{ additionalProperties: false },
+			),
+		),
 	},
 	{ additionalProperties: false },
 )
 
-const RangeInputSchema = Type.Union([A1RangeRefSchema, IndexRangeRefSchema])
-
-const SetRangeDataSchema = Type.Union([
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			a1: Type.String(),
-			values: Type.Array(Type.Array(Type.Any())),
-			readback: Type.Optional(
-				Type.Object(
-					{
-						includeDisplay: Type.Optional(Type.Boolean()),
-					},
-					{ additionalProperties: false },
-				),
-			),
-		},
-		{ additionalProperties: false },
-	),
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			range: RangeSchema,
-			values: Type.Array(Type.Array(Type.Any())),
-			readback: Type.Optional(
-				Type.Object(
-					{
-						includeDisplay: Type.Optional(Type.Boolean()),
-					},
-					{ additionalProperties: false },
-				),
-			),
-		},
-		{ additionalProperties: false },
-	),
-])
-
-const GetRangeDataSchema = Type.Union([
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			a1: Type.String(),
-			includeDisplay: Type.Optional(Type.Boolean()),
-		},
-		{ additionalProperties: false },
-	),
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			range: RangeSchema,
-			includeDisplay: Type.Optional(Type.Boolean()),
-		},
-		{ additionalProperties: false },
-	),
-])
+const GetRangeDataSchema = Type.Object(
+	{
+		...A1RangeSchema.properties,
+		includeDisplay: Type.Optional(Type.Boolean()),
+	},
+	{ additionalProperties: false },
+)
 
 const GetRangesDataSchema = Type.Object(
 	{
@@ -134,35 +84,21 @@ const SetRangesDataSchema = Type.Object(
 	{ additionalProperties: false },
 )
 
-const SearchCellsSchema = Type.Union([
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			a1: Type.String(),
-			query: Type.String(),
-			match: Type.Optional(Type.Union([Type.Literal('contains'), Type.Literal('exact'), Type.Literal('regex')])),
-			caseSensitive: Type.Optional(Type.Boolean()),
-			maxResults: Type.Optional(Type.Integer()),
-		},
-		{ additionalProperties: false },
-	),
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			range: RangeSchema,
-			query: Type.String(),
-			match: Type.Optional(Type.Union([Type.Literal('contains'), Type.Literal('exact'), Type.Literal('regex')])),
-			caseSensitive: Type.Optional(Type.Boolean()),
-			maxResults: Type.Optional(Type.Integer()),
-		},
-		{ additionalProperties: false },
-	),
-])
+const SearchCellsSchema = Type.Object(
+	{
+		...A1RangeSchema.properties,
+		query: Type.String(),
+		match: Type.Optional(Type.Union([Type.Literal('contains'), Type.Literal('exact'), Type.Literal('regex')])),
+		caseSensitive: Type.Optional(Type.Boolean()),
+		maxResults: Type.Optional(Type.Integer()),
+	},
+	{ additionalProperties: false },
+)
 
 const AutoFillSchema = Type.Object(
 	{
-		source: RangeInputSchema,
-		target: RangeInputSchema,
+		source: A1RangeSchema,
+		target: A1RangeSchema,
 		readback: Type.Optional(
 			Type.Object(
 				{
@@ -175,40 +111,21 @@ const AutoFillSchema = Type.Object(
 	{ additionalProperties: false },
 )
 
-const FillFormulaSchema = Type.Union([
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			a1: Type.String(),
-			formula: Type.String(),
-			readback: Type.Optional(
-				Type.Object(
-					{
-						includeDisplay: Type.Optional(Type.Boolean()),
-					},
-					{ additionalProperties: false },
-				),
+const FillFormulaSchema = Type.Object(
+	{
+		...A1RangeSchema.properties,
+		formula: Type.String(),
+		readback: Type.Optional(
+			Type.Object(
+				{
+					includeDisplay: Type.Optional(Type.Boolean()),
+				},
+				{ additionalProperties: false },
 			),
-		},
-		{ additionalProperties: false },
-	),
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			range: RangeSchema,
-			formula: Type.String(),
-			readback: Type.Optional(
-				Type.Object(
-					{
-						includeDisplay: Type.Optional(Type.Boolean()),
-					},
-					{ additionalProperties: false },
-				),
-			),
-		},
-		{ additionalProperties: false },
-	),
-])
+		),
+	},
+	{ additionalProperties: false },
+)
 
 function tileMatrix(source: unknown[][], targetRows: number, targetCols: number): unknown[][] {
 	const srcRows = source.length
@@ -369,8 +286,11 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 	const getRangeDataOnce = async (input: UniverToolGetRangeDataInput): Promise<UniverToolGetRangeDataResult> => {
 		const { range: origRange, sheetName, a1 } = resolveRangeInput(input)
-		const effSheetId = input.sheetId ?? ctx.defaultSheetId
 		const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
+		const effSheetId =
+			input.sheetId ??
+			(effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ??
+			ctx.defaultSheetId
 		ctx.checkReadRange(origRange, effSheetId, effSheetName)
 
 		const { clipped: range, truncated } = clipRange(origRange, ctx.viewLimits)
@@ -414,13 +334,14 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 
 			const { range, sheetName } = resolveRangeInput(input)
-			ctx.checkWriteRange(range, input.sheetId, sheetName ?? input.sheetName)
+			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
+			const effSheetId =
+				input.sheetId ??
+				(effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ??
+				ctx.defaultSheetId
+			ctx.checkWriteRange(range, effSheetId, effSheetName)
 
-			const sheet = resolveSheet(
-				ctx.workbook,
-				input.sheetId ?? ctx.defaultSheetId,
-				sheetName ?? input.sheetName ?? ctx.defaultSheetName,
-			)
+			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 			const { rows, cols } = computeRangeSize(range)
 			if (!rows || !cols) return { updatedCells: 0 }
 
@@ -442,8 +363,6 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			if (!wantReadback) return { updatedCells }
 
 			const includeDisplay = Boolean(input.readback?.includeDisplay)
-			const effSheetId = input.sheetId ?? ctx.defaultSheetId
-			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
 			ctx.stats.readCalls++
 			const item = await getRangeDataOnce({
 				...(effSheetId ? { sheetId: effSheetId } : {}),
@@ -478,12 +397,10 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 			for (const u of updates) {
 				const { range, sheetName } = resolveRangeInput(u)
-				ctx.checkWriteRange(range, u.sheetId, sheetName ?? u.sheetName)
-				const sheet = resolveSheet(
-					ctx.workbook,
-					u.sheetId ?? ctx.defaultSheetId,
-					sheetName ?? u.sheetName ?? ctx.defaultSheetName,
-				)
+				const effSheetName = sheetName ?? u.sheetName ?? ctx.defaultSheetName
+				const effSheetId = u.sheetId ?? (effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ?? ctx.defaultSheetId
+				ctx.checkWriteRange(range, effSheetId, effSheetName)
+				const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 				const resolvedSheetId = getSheetId(sheet)
 				const resolvedSheetName = getSheetName(sheet)
 				const { rows, cols } = computeRangeSize(range)
@@ -594,8 +511,8 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.readCalls++
 
 			const { range, sheetName } = resolveRangeInput(input)
-			const effSheetId = input.sheetId ?? ctx.defaultSheetId
 			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
+			const effSheetId = input.sheetId ?? (effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ?? ctx.defaultSheetId
 			ctx.checkReadRange(range, effSheetId, effSheetName)
 
 			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
@@ -671,11 +588,19 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 
 			const source = resolveRangeInput(input.source)
 			const target = resolveRangeInput(input.target)
-			const effSheetId = input.target.sheetId ?? input.source.sheetId ?? ctx.defaultSheetId
-			const effSheetName =
-				target.sheetName ?? input.target.sheetName ?? source.sheetName ?? input.source.sheetName ?? ctx.defaultSheetName
-			ctx.checkReadRange(source.range, input.source.sheetId ?? effSheetId, source.sheetName ?? input.source.sheetName ?? effSheetName)
-			ctx.checkWriteRange(target.range, input.target.sheetId ?? effSheetId, target.sheetName ?? input.target.sheetName ?? effSheetName)
+			const sourceSheetName = source.sheetName ?? input.source.sheetName
+			const targetSheetName = target.sheetName ?? input.target.sheetName
+			if (sourceSheetName && targetSheetName && sourceSheetName !== targetSheetName) {
+				throw new Error('[univer] auto_fill requires source and target to be in the same sheet')
+			}
+			const effSheetName = sourceSheetName ?? targetSheetName ?? ctx.defaultSheetName
+			const effSheetId =
+				input.source.sheetId ??
+				input.target.sheetId ??
+				(effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ??
+				ctx.defaultSheetId
+			ctx.checkReadRange(source.range, effSheetId, effSheetName)
+			ctx.checkWriteRange(target.range, effSheetId, effSheetName)
 
 			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 
@@ -729,17 +654,15 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 
 			const { range, sheetName } = resolveRangeInput(input)
-			ctx.checkWriteRange(range, input.sheetId, sheetName ?? input.sheetName)
+			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
+			const effSheetId = input.sheetId ?? (effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ?? ctx.defaultSheetId
+			ctx.checkWriteRange(range, effSheetId, effSheetName)
 
 			const formula = String(input.formula ?? '')
 			if (!formula.trim()) throw new Error('[univer] fill_formula formula must be non-empty')
 			if (!formula.trim().startsWith('=')) throw new Error('[univer] fill_formula formula must start with "="')
 
-			const sheet = resolveSheet(
-				ctx.workbook,
-				input.sheetId ?? ctx.defaultSheetId,
-				sheetName ?? input.sheetName ?? ctx.defaultSheetName,
-			)
+			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 
 			const { rows, cols } = computeRangeSize(range)
 			if (!rows || !cols) return { updatedCells: 0 }

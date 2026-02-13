@@ -162,7 +162,7 @@ RPC 仍保留用于开发/短任务（同一个 handler 逻辑）。
 3. **LLM 连接解析**：
    - 通过 `pluxel-plugin-llm-hub` 解析 profile（可指定 `llmProfileId`）
 4. **对外可观测性**：
-   - `wrapFetchWithOtel()` 产出 `llm.fetch` span（HTTP attrs + duration；URL 去掉 query/fragment）
+   - `wrapFetchWithOtel()` 产出 `univer.ax.fetch` span（HTTP attrs + duration；URL 去掉 query/fragment）
    - 整个请求运行在 `univer.loopback.request` root span 下（runId/workbookId/baseRev/scopes/llmProfileId/instructionPreview 等 attributes）
 5. **headless 执行 + 提交**：
    - `runUniverAxLoopback()` 产出修改后的 snapshot
@@ -342,10 +342,12 @@ RPC 仍保留用于开发/短任务（同一个 handler 逻辑）。
 
 ```ts
 host.cfg('OtlpHub').set({
-  core: { enabled: true, endpoint: 'http://localhost:4318' },
+  exporting: { mode: 'push', push: { endpoint: 'http://localhost:4318' } },
   signals: { traces: true, metrics: true, logs: false },
 })
 ```
+
+生产建议走 `OtlpHub -> OpenTelemetry Collector / Grafana Alloy -> 你的后端/DB`；本插件当前导出的是 **OTLP/HTTP JSON**。
 
 ### 6.1 服务端（loopback 插件）OpenTelemetry
 
@@ -356,10 +358,15 @@ host.cfg('OtlpHub').set({
   - `univer.llm_profile_id`、`univer.instruction.preview`
   - `univer.scopes.read.count`、`univer.scopes.write.count`、`univer.scopes.current`
   - `llm.provider`、`llm.model`
+  - `ax.flow`（= `univer.loopback`）、`ax.purpose`（= `loopback`）
   - `univer.rounds`、`univer.applied_ops`、`univer.conflict`、`univer.request.duration_ms`
-- 子 spans：`univer.llm.connection`、`llm.fetch`（URL 去掉 query/fragment；`http.*` attrs + duration/status）、`univer.headless.loopback`
+- 子 spans：`univer.llm.connection`、`univer.ax.fetch`（URL 去掉 query/fragment；`http.*` attrs + duration/status）、`univer.headless.loopback`
 
 文件：`plugins/univer/pluxel-plugin-univer-loopback/src/index.ts`
+
+本地开发推荐启用 `pluxel-plugin-otlp-viewer`，打开 `/otlp`，用结构化过滤查看：
+- `attr.ax.flow = univer.loopback`
+- `name contains univer.ax.fetch`
 
 ### 6.2 headless（Ax + tools）OpenTelemetry
 

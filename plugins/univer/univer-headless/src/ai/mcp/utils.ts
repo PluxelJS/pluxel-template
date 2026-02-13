@@ -3,6 +3,7 @@ import { parseA1Range } from '../a1'
 
 export type RangeInput = {
 	a1?: string
+	sheetId?: string
 	sheetName?: string
 	range?: UniverRange
 }
@@ -22,9 +23,9 @@ export function resolveRangeInput(input: RangeInput): { range: UniverRange; a1?:
 		return { range: parsed.range, a1: parsed.a1, sheetName: parsed.sheetName }
 	}
 	if (input.range) {
-		const hasSheetRef = Boolean(String(input.sheetName ?? '').trim())
+		const hasSheetRef = Boolean(String(input.sheetName ?? '').trim() || String(input.sheetId ?? '').trim())
 		if (!hasSheetRef) {
-			throw new Error('[univer] sheetName required when using numeric range (provide sheetName or use sheet-qualified a1)')
+			throw new Error('[univer] sheetName or sheetId required when using numeric range (provide sheetName/sheetId or use sheet-qualified a1)')
 		}
 		return { range: input.range, sheetName: String(input.sheetName ?? '').trim() }
 	}

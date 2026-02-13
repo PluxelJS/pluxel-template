@@ -75,12 +75,12 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 			await withHost(async (host) => {
 				await host.ctx.configService.ready
 				host.cfg('OtlpHub').set({
-					core: { enabled: true, endpoint },
+					exporting: { mode: 'push', push: { endpoint } },
 					signals: { logs: true, traces: true, metrics: true },
 					batch: { flushIntervalMs: 5, maxBatchRecords: 1, maxInflight: 1 },
-					queueCfg: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+					queue: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
 				})
-				expect(host.ctx.configService.getRawConfig<any>('OtlpHub').core?.enabled).toBe(true)
+				expect(host.ctx.configService.getRawConfig<any>('OtlpHub').exporting?.mode).toBe('push')
 
 				host.add([OtlpHub, OtlpCaller])
 				await host.commit()
@@ -88,7 +88,15 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 				const hub = host.require(OtlpHub)
 				expect(hub.ctx.pluginInfo.id).toBe('OtlpHub')
 				expect(host.ctx.configService).toBe(hub.ctx.configService)
-				expect(hub.ctx.configService.getRawConfig<any>().core?.enabled).toBe(true)
+				expect(hub.ctx.configService.getRawConfig<any>().exporting?.mode).toBe('push')
+
+				const captured = { logs: 0, traces: 0, metrics: 0 }
+				const off = hub.registerTap({
+					onLogs: (items) => (captured.logs += items.length),
+					onTraces: (items) => (captured.traces += items.length),
+					onMetrics: (items) => (captured.metrics += items.length),
+				})
+				host.ctx.effects.defer(off)
 
 				const st = host.require(Otlp).stats()
 				expect(st.enabled).toBe(true)
@@ -98,6 +106,10 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 
 				await host.require(OtlpCaller).emitAll()
 				await host.require(Otlp).flush()
+
+				expect(captured.logs).toBeGreaterThanOrEqual(1)
+				expect(captured.traces).toBeGreaterThanOrEqual(1)
+				expect(captured.metrics).toBeGreaterThanOrEqual(3)
 			})
 
 			const paths = received.map((r) => r.path)
@@ -127,18 +139,46 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 		}
 	})
 
+	it('tap works without remote push (exporting.mode=tap)', async () => {
+		await withHost(async (host) => {
+			await host.ctx.configService.ready
+			host.cfg('OtlpHub').set({
+				exporting: { mode: 'tap' },
+				signals: { logs: false, traces: true, metrics: false },
+			})
+
+			host.add([OtlpHub])
+			await host.commit()
+
+			const hub = host.require(OtlpHub)
+			const captured = { traces: 0, logs: 0 }
+			const off = hub.registerTap({
+				onTraces: (items) => (captured.traces += items.length),
+				onLogs: (items) => (captured.logs += items.length),
+			})
+			host.ctx.effects.defer(off)
+
+			const otlp = host.require(Otlp)
+			await otlp.trace({ name: 't1' })
+			await otlp.span('t2').end()
+			await otlp.flush()
+
+			expect(captured.traces).toBeGreaterThanOrEqual(2)
+		})
+	})
+
 	it('@OtlpSpan emits trace span when traces enabled', async () => {
 		const { stop, received, endpoint } = await startCollector()
 		try {
 			await withHost(async (host) => {
 				await host.ctx.configService.ready
 				host.cfg('OtlpHub').set({
-					core: { enabled: true, endpoint },
+					exporting: { mode: 'push', push: { endpoint } },
 					signals: { logs: true, traces: true, metrics: false },
 					batch: { flushIntervalMs: 5, maxBatchRecords: 1, maxInflight: 1 },
-					queueCfg: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+					queue: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
 				})
-				expect(host.ctx.configService.getRawConfig<any>('OtlpHub').core?.enabled).toBe(true)
+				expect(host.ctx.configService.getRawConfig<any>('OtlpHub').exporting?.mode).toBe('push')
 
 				host.add([OtlpHub, Decorated])
 				await host.commit()
@@ -146,7 +186,7 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 				const hub = host.require(OtlpHub)
 				expect(hub.ctx.pluginInfo.id).toBe('OtlpHub')
 				expect(host.ctx.configService).toBe(hub.ctx.configService)
-				expect(hub.ctx.configService.getRawConfig<any>().core?.enabled).toBe(true)
+				expect(hub.ctx.configService.getRawConfig<any>().exporting?.mode).toBe('push')
 
 				const st = host.require(Otlp).stats()
 				expect(st.enabled).toBe(true)
@@ -190,10 +230,10 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 			await withHost(async (host) => {
 				await host.ctx.configService.ready
 				host.cfg('OtlpHub').set({
-					core: { enabled: true, endpoint },
+					exporting: { mode: 'push', push: { endpoint } },
 					signals: { logs: false, traces: true, metrics: true },
 					batch: { flushIntervalMs: 5, maxBatchRecords: 256, maxInflight: 1 },
-					queueCfg: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+					queue: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
 				})
 
 				host.add([OtlpHub, OtelCaller])
@@ -242,12 +282,11 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 			await withHost(async (host) => {
 				await host.ctx.configService.ready
 				host.cfg('OtlpHub').set({
-					core: { enabled: true, endpoint: a.endpoint },
+					exporting: { mode: 'push', push: { endpoint: a.endpoint } },
 					signals: { logs: true, traces: false, metrics: false },
-					targets: [{ id: 'b', endpoint: b.endpoint }],
-					routing: { byCallerId: { CallerB: 'b' } },
+					routing: { mode: 'multi', targets: [{ id: 'b', endpoint: b.endpoint }], routing: { byCallerId: { CallerB: 'b' } } },
 					batch: { flushIntervalMs: 5, maxBatchRecords: 1, maxInflight: 1 },
-					queueCfg: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+					queue: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
 				})
 
 				host.add([OtlpHub, CallerA, CallerB])
@@ -263,6 +302,47 @@ describe('pluxel-plugin-otlp: logs/traces/metrics (OTLP/HTTP JSON)', () => {
 		} finally {
 			await a.stop()
 			await b.stop()
+		}
+	})
+
+	it('supports per-signal endpoints (push base)', async () => {
+		const logs = await startCollector()
+		const traces = await startCollector()
+		const metrics = await startCollector()
+		try {
+			await withHost(async (host) => {
+				await host.ctx.configService.ready
+				host.cfg('OtlpHub').set({
+					exporting: {
+						mode: 'push',
+						push: {
+							endpoint: logs.endpoint,
+							endpoints: { logs: logs.endpoint, traces: traces.endpoint, metrics: metrics.endpoint },
+						},
+					},
+					signals: { logs: true, traces: true, metrics: true },
+					batch: { flushIntervalMs: 5, maxBatchRecords: 1, maxInflight: 1 },
+					queue: { overflow: 'block', maxQueuedRecords: 10_000, maxQueuedBytes: 10_000_000 },
+				})
+
+				host.add([OtlpHub, OtlpCaller])
+				await host.commit()
+
+				await host.require(OtlpCaller).emitAll()
+				await host.require(Otlp).flush()
+			})
+
+			expect(logs.received.some((r) => r.path === '/v1/logs')).toBe(true)
+			expect(traces.received.some((r) => r.path === '/v1/traces')).toBe(true)
+			expect(metrics.received.some((r) => r.path === '/v1/metrics')).toBe(true)
+
+			expect(logs.received.some((r) => r.path === '/v1/traces' || r.path === '/v1/metrics')).toBe(false)
+			expect(traces.received.some((r) => r.path === '/v1/logs' || r.path === '/v1/metrics')).toBe(false)
+			expect(metrics.received.some((r) => r.path === '/v1/logs' || r.path === '/v1/traces')).toBe(false)
+		} finally {
+			await logs.stop()
+			await traces.stop()
+			await metrics.stop()
 		}
 	})
 })

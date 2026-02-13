@@ -14,6 +14,7 @@ Status (2026-01-23):
 - **Config-first**: enable/endpoint/batching/backpressure are driven by `configs.use(schema)` config schemas with safe defaults.
 - **Bounded memory**: queue is capped; overflow behavior is explicit (`dropNewest` / `dropOldest` / `block`).
 - **Batching on a tight loop**: flush is triggered by size and interval; at most `maxInflight` requests.
+- **Tap/observer hooks**: dev tools (e.g. `pluxel-plugin-otlp-viewer`) can register a tap to intercept ingested telemetry without affecting exporting.
 
 ## Public surface (kept intentionally small)
 

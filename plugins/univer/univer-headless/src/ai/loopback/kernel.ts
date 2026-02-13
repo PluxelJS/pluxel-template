@@ -4,6 +4,7 @@ import type { UniverToolIndexMode } from '../../protocol'
 import type { UniverAiBridge } from '../bridge'
 import { buildMcpToolIndexText } from '../mcp'
 import { parseA1Range } from '../a1'
+import type { Span } from '@opentelemetry/api'
 
 import { buildContextPackText } from './context-pack'
 import { resolveLoopLimits } from './limits'
@@ -15,6 +16,7 @@ import type { UniverAxLoopbackInput, UniverAxLoopbackResult } from './types'
 import { runUniverLoopbackAttemptFlow } from './attempt-flow'
 import { createUniverLoopbackEditorProgram, createUniverLoopbackQualityProgram, createUniverLoopbackStepHooks } from './programs'
 import { buildUniverLoopbackEditorDefinition } from './prompt'
+import { formatLoopbackAxError } from './ax-errors'
 import {
 	UNIVER_LOOPBACK_MAX_ATTEMPTS,
 	UNIVER_LOOPBACK_MAX_STEPS_PER_ATTEMPT,
@@ -83,6 +85,24 @@ export async function runUniverAxLoopback(
 	const instruments = createUniverAxOtelInstruments(opts?.otel?.meter)
 
 	let toolCallsAtStart = stats.toolCalls
+	const makeErrorResult = (error: unknown, span?: Span): UniverAxLoopbackResult => {
+		const { message, upstream } = formatLoopbackAxError(error)
+		if (span && upstream) {
+			try {
+				if (typeof upstream.status === 'number') span.setAttribute('llm.http.status', upstream.status)
+				if (upstream.statusText) span.setAttribute('llm.http.status_text', upstream.statusText)
+				if (upstream.url) span.setAttribute('llm.http.url', upstream.url)
+				if (upstream.errorId) span.setAttribute('llm.upstream.error_id', upstream.errorId)
+				if (upstream.timestamp) span.setAttribute('llm.upstream.timestamp', upstream.timestamp)
+				if (upstream.responseBodyPreview) span.addEvent('llm.upstream.body_preview', { preview: upstream.responseBodyPreview })
+			} catch {
+				// ignore
+			}
+		}
+		const rounds = Math.max(1, stats.toolCalls - toolCallsAtStart)
+		return { ok: false, error: message, stats, rounds }
+	}
+
 	const runInner = async (): Promise<UniverAxLoopbackResult> => {
 		const contextPackText = await buildContextPackText(
 			helpers.readRangeDisplay,
@@ -133,7 +153,13 @@ export async function runUniverAxLoopback(
 		return { ok: true, summary: out.summary, stats, rounds }
 	}
 
-	if (!tracer) return runInner()
+	if (!tracer) {
+		try {
+			return await runInner()
+		} catch (error) {
+			return makeErrorResult(error)
+		}
+	}
 
 	return await tracer.startActiveSpan(
 		'univer.loopback',
@@ -158,9 +184,7 @@ export async function runUniverAxLoopback(
 				return res
 			} catch (error) {
 				spanError(span, error)
-				const message = error instanceof Error ? error.message : String(error)
-				const rounds = Math.max(1, stats.toolCalls - toolCallsAtStart)
-				return { ok: false as const, error: message, stats, rounds }
+				return makeErrorResult(error, span)
 			} finally {
 				span.end()
 			}

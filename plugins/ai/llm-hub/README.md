@@ -163,8 +163,18 @@ import type { LLM } from 'pluxel-plugin-llm-hub'
 import { createAxAIFromConnection } from 'pluxel-plugin-llm-hub/adapters/ax'
 
 async function run(llm: LLM) {
-	const ai = createAxAIFromConnection(await llm.connection())
+	// `purpose: 'loopback'` enforces deterministic + compat-friendly defaults (e.g. no streaming).
+	const ai = createAxAIFromConnection(await llm.connection(), { purpose: 'loopback' })
 	return await ax('msg:string -> out:string').forward(ai, { msg: 'hi' })
+}
+```
+
+If you need protocol-specific capabilities in Ax (example: OpenAI Responses API), you can override the Ax provider name
+without changing the hub surface:
+
+```json
+{
+  "axProvider": "openai-responses"
 }
 ```
 

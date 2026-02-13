@@ -20,10 +20,17 @@ export function createHttpLoopbackBackend(opts?: {
 	return {
 		runLoopback: async (input: UniverLoopbackRunInput): Promise<UniverLoopbackRunResult> => {
 			const ac = typeof AbortController !== 'undefined' ? new AbortController() : null
+			let timedOut = false
 			const timer: ReturnType<typeof setTimeout> | null =
 				ac && typeof setTimeout === 'function'
 					? setTimeout(() => {
-							ac.abort()
+							timedOut = true
+							try {
+								// Prefer a reason when supported; some runtimes surface it in error messages.
+								ac.abort(new Error(`timeout after ${timeoutMs}ms`))
+							} catch {
+								ac.abort()
+							}
 						}, timeoutMs)
 					: null
 
@@ -45,6 +52,7 @@ export function createHttpLoopbackBackend(opts?: {
 				}
 				return { ok: false, error: 'loopback http invalid response' }
 			} catch (error) {
+				if (timedOut) return { ok: false, error: `loopback http timeout after ${timeoutMs}ms` }
 				const msg = error instanceof Error ? error.message : String(error)
 				return { ok: false, error: `loopback http failed: ${msg}` }
 			} finally {

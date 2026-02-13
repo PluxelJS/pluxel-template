@@ -22,7 +22,7 @@ import { asAxParams } from '../ax-params'
 const InsertRowsSchema = Type.Object(
 	{
 		sheetId: Type.Optional(Type.String()),
-		name: Type.Optional(Type.String()),
+		sheetName: Type.Optional(Type.String()),
 		index: Type.Integer(),
 		count: Type.Integer(),
 	},
@@ -32,7 +32,7 @@ const InsertRowsSchema = Type.Object(
 const InsertColumnsSchema = Type.Object(
 	{
 		sheetId: Type.Optional(Type.String()),
-		name: Type.Optional(Type.String()),
+		sheetName: Type.Optional(Type.String()),
 		index: Type.Integer(),
 		count: Type.Integer(),
 	},
@@ -42,7 +42,7 @@ const InsertColumnsSchema = Type.Object(
 const DeleteRowsSchema = Type.Object(
 	{
 		sheetId: Type.Optional(Type.String()),
-		name: Type.Optional(Type.String()),
+		sheetName: Type.Optional(Type.String()),
 		index: Type.Integer(),
 		count: Type.Integer(),
 	},
@@ -52,7 +52,7 @@ const DeleteRowsSchema = Type.Object(
 const DeleteColumnsSchema = Type.Object(
 	{
 		sheetId: Type.Optional(Type.String()),
-		name: Type.Optional(Type.String()),
+		sheetName: Type.Optional(Type.String()),
 		index: Type.Integer(),
 		count: Type.Integer(),
 	},
@@ -62,7 +62,7 @@ const DeleteColumnsSchema = Type.Object(
 const SetCellDimensionsSchema = Type.Object(
 	{
 		sheetId: Type.Optional(Type.String()),
-		name: Type.Optional(Type.String()),
+		sheetName: Type.Optional(Type.String()),
 		rows: Type.Optional(
 			Type.Object(
 				{
@@ -89,24 +89,18 @@ const SetCellDimensionsSchema = Type.Object(
 
 const SetMergeSchema = Type.Object(
 	{
-		sheetId: Type.Optional(Type.String()),
-		name: Type.Optional(Type.String()),
-		range: Type.Object(
-			{
-				startRow: Type.Integer(),
-				startCol: Type.Integer(),
-				endRow: Type.Integer(),
-				endCol: Type.Integer(),
-			},
-			{ additionalProperties: false },
-		),
+		/**
+		 * Sheet-qualified A1 notation, e.g. `Sheet1!A1:D40` or `'My Sheet'!A1:B2`.
+		 * (Always include the sheet name to avoid ambiguity.)
+		 */
+		a1: Type.String(),
 		merge: Type.Optional(Type.Boolean()),
 	},
 	{ additionalProperties: false },
 )
 
-function resolveSheetFromInput(workbook: any, sheetId?: string, name?: string) {
-	if (sheetId || name) return resolveSheet(workbook, sheetId, name)
+function resolveSheetFromInput(workbook: any, sheetId?: string, sheetName?: string) {
+	if (sheetId || sheetName) return resolveSheet(workbook, sheetId, sheetName)
 	return resolveSheet(workbook)
 }
 
@@ -119,8 +113,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
 
-			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
-			ctx.checkWriteSheet(input.sheetId, input.name)
+			const sheetName = (input as UniverToolInsertRowsInput & { sheetName?: string }).sheetName ?? input.name
+			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, sheetName)
+			ctx.checkWriteSheet(input.sheetId, sheetName)
 			const index = Math.max(0, Math.floor(input.index))
 			const count = normalizeCount(input.count, 1, 1000)
 			const res =
@@ -140,8 +135,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
 
-			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
-			ctx.checkWriteSheet(input.sheetId, input.name)
+			const sheetName = (input as UniverToolInsertColumnsInput & { sheetName?: string }).sheetName ?? input.name
+			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, sheetName)
+			ctx.checkWriteSheet(input.sheetId, sheetName)
 			const index = Math.max(0, Math.floor(input.index))
 			const count = normalizeCount(input.count, 1, 1000)
 			const res =
@@ -161,8 +157,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
 
-			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
-			ctx.checkWriteSheet(input.sheetId, input.name)
+			const sheetName = (input as UniverToolDeleteRowsInput & { sheetName?: string }).sheetName ?? input.name
+			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, sheetName)
+			ctx.checkWriteSheet(input.sheetId, sheetName)
 			const index = Math.max(0, Math.floor(input.index))
 			const count = normalizeCount(input.count, 1, 1000)
 			const res =
@@ -182,8 +179,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
 
-			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
-			ctx.checkWriteSheet(input.sheetId, input.name)
+			const sheetName = (input as UniverToolDeleteColumnsInput & { sheetName?: string }).sheetName ?? input.name
+			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, sheetName)
+			ctx.checkWriteSheet(input.sheetId, sheetName)
 			const index = Math.max(0, Math.floor(input.index))
 			const count = normalizeCount(input.count, 1, 1000)
 			const res =
@@ -203,8 +201,9 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
 
-			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
-			ctx.checkWriteSheet(input.sheetId, input.name)
+			const sheetName = (input as UniverToolSetCellDimensionsInput & { sheetName?: string }).sheetName ?? input.name
+			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, sheetName)
+			ctx.checkWriteSheet(input.sheetId, sheetName)
 			const rows = input.rows
 			const cols = input.cols
 			if (!rows && !cols) throw new Error('[univer] rows or cols required')
@@ -241,11 +240,18 @@ export function createStructureTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 			ctx.checkCanChange()
 
-			const sheet = resolveSheetFromInput(ctx.workbook, input.sheetId, input.name)
-			ctx.checkWriteSheet(input.sheetId, input.name)
 			const merge = input.merge !== false
-			const { range } = resolveRangeInput({ range: input.range })
-			ctx.checkWriteRange(range, input.sheetId, input.name)
+			const a1 = (input as UniverToolSetMergeInput & { a1?: string }).a1
+			const sheetNameOverride = (input as UniverToolSetMergeInput & { sheetName?: string }).sheetName
+			const fallbackSheetName = sheetNameOverride ?? input.name ?? ctx.defaultSheetName
+			const { range, sheetName } = a1
+				? resolveRangeInput({ a1 })
+				: resolveRangeInput({ range: input.range, sheetId: input.sheetId, sheetName: fallbackSheetName })
+			const effSheetName = sheetName ?? fallbackSheetName
+			const effSheetId = input.sheetId ?? (effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ?? ctx.defaultSheetId
+			const sheet = resolveSheetFromInput(ctx.workbook, effSheetId, effSheetName)
+			ctx.checkWriteSheet(effSheetId, effSheetName)
+			ctx.checkWriteRange(range, effSheetId, effSheetName)
 
 			const r = sheet.getRange({
 				startRow: range.startRow,

@@ -5,7 +5,7 @@ const API_PREFIX = '/api/univer'
 
 export function registerUniverLoopbackHttp(
 	ctx: Context,
-	handler: (input: UniverLoopbackRunInput) => Promise<UniverLoopbackRunResult>,
+	handler: (input: UniverLoopbackRunInput, extra: { abortSignal: AbortSignal }) => Promise<UniverLoopbackRunResult>,
 ): () => void {
 	const base = `${API_PREFIX}/loopback`
 	return ctx.honoService.modifyApp((app) => {
@@ -18,7 +18,8 @@ export function registerUniverLoopbackHttp(
 			}
 
 			try {
-				const res = await handler(input)
+				const abortSignal = (c.req.raw as Request).signal
+				const res = await handler(input, { abortSignal })
 				return c.json(res)
 			} catch (error) {
 				return c.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 500)
@@ -26,4 +27,3 @@ export function registerUniverLoopbackHttp(
 		})
 	})
 }
-

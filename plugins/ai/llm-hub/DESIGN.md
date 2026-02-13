@@ -106,6 +106,20 @@ Recommendation:
 - prefer ecosystem/common names (`openai`, `anthropic`, `google`, `groq`, etc.)
 - use `baseURL` for OpenAI-compatible proxies/self-hosted endpoints
 
+### Adapter-level overrides (Ax example)
+
+To avoid the hub turning into an SDK framework while still supporting *protocol-specific* APIs (e.g. OpenAI Responses),
+adapters may read adapter-specific hints from `profile.options`:
+
+- `options.axProvider` / `options.axProviderName`: override the Ax provider name (e.g. `openai-responses`)
+- `options.ax`: an object with optional:
+  - `providerName` / `provider`: same as `axProvider`
+  - `purpose`: `default | loopback`
+  - `config`: Ax model config overrides
+  - `options`: Ax service options overrides
+
+This keeps the hub surface stable while letting callers opt into richer upstream semantics when needed.
+
 ## Provider management UI
 
 The default provider plugin `LLMHub` registers a simple host UI tab for managing profiles:

@@ -2,7 +2,7 @@
 	"$schema": "https://market.pluxel.dev/schema/package.json",
 	"name": "pluxel-plugin-otlp",
 	"version": "0.1.0",
-	"description": "OTLP exporter plugin (batched/backpressured logs/traces/metrics over OTLP/HTTP JSON).",
+	"description": "OTLP hub plugin: push batched/backpressured logs/traces/metrics via OTLP/HTTP JSON.",
 	"type": "module",
 	"exports": {
 		".": {

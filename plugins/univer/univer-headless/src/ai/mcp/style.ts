@@ -11,61 +11,29 @@ import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { resolveRangeInput, resolveSheet } from './utils'
 import { asAxParams } from '../ax-params'
-const RangeSchema = Type.Object(
+const A1RangeSchema = Type.Object(
 	{
-		startRow: Type.Integer(),
-		startCol: Type.Integer(),
-		endRow: Type.Integer(),
-		endCol: Type.Integer(),
+		/**
+		 * Sheet-qualified A1 notation, e.g. `Sheet1!A1:D40` or `'My Sheet'!A1:B2`.
+		 * (Always include the sheet name to avoid ambiguity.)
+		 */
+		a1: Type.String(),
 	},
 	{ additionalProperties: false },
 )
 
-const RangeInputBaseProps = {
-	sheetId: Type.Optional(Type.String()),
-	sheetName: Type.Optional(Type.String()),
-} as const
-
-const RangeInputSchema = Type.Union([
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			a1: Type.String(),
-		},
-		{ additionalProperties: false },
-	),
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			range: RangeSchema,
-		},
-		{ additionalProperties: false },
-	),
-])
-
-const SetRangeStyleSchema = Type.Union([
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			a1: Type.String(),
-			style: Type.Object({}, { additionalProperties: true }),
-		},
-		{ additionalProperties: false },
-	),
-	Type.Object(
-		{
-			...RangeInputBaseProps,
-			range: RangeSchema,
-			style: Type.Object({}, { additionalProperties: true }),
-		},
-		{ additionalProperties: false },
-	),
-])
+const SetRangeStyleSchema = Type.Object(
+	{
+		...A1RangeSchema.properties,
+		style: Type.Object({}, { additionalProperties: true }),
+	},
+	{ additionalProperties: false },
+)
 
 const FormatBrushSchema = Type.Object(
 	{
-		source: RangeInputSchema,
-		target: RangeInputSchema,
+		source: A1RangeSchema,
+		target: A1RangeSchema,
 	},
 	{ additionalProperties: false },
 )
@@ -79,13 +47,11 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 			ctx.stats.toolCalls++
 
 			const { range, sheetName } = resolveRangeInput(input)
-			ctx.checkWriteRange(range, input.sheetId, sheetName ?? input.sheetName)
+			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
+			const effSheetId = input.sheetId ?? (effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ?? ctx.defaultSheetId
+			ctx.checkWriteRange(range, effSheetId, effSheetName)
 
-			const sheet = resolveSheet(
-				ctx.workbook,
-				input.sheetId ?? ctx.defaultSheetId,
-				sheetName ?? input.sheetName ?? ctx.defaultSheetName,
-			)
+			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 			const r = sheet.getRange({
 				startRow: range.startRow,
 				startColumn: range.startCol,
@@ -109,15 +75,19 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 
 			const source = resolveRangeInput(input.source)
 			const target = resolveRangeInput(input.target)
-			const effSheetId = input.target.sheetId ?? input.source.sheetId ?? ctx.defaultSheetId
-			const effSheetName =
-				target.sheetName ?? input.target.sheetName ?? source.sheetName ?? input.source.sheetName ?? ctx.defaultSheetName
-			ctx.checkReadRange(source.range, input.source.sheetId ?? effSheetId, source.sheetName ?? input.source.sheetName ?? effSheetName)
-			ctx.checkWriteRange(target.range, input.target.sheetId ?? effSheetId, target.sheetName ?? input.target.sheetName ?? effSheetName)
+			const sourceSheetName = source.sheetName ?? input.source.sheetName ?? ctx.defaultSheetName
+			const targetSheetName = target.sheetName ?? input.target.sheetName ?? ctx.defaultSheetName
+			const sourceSheetId =
+				input.source.sheetId ?? (sourceSheetName ? ctx.sheetNameToId.get(sourceSheetName) : undefined) ?? ctx.defaultSheetId
+			const targetSheetId =
+				input.target.sheetId ?? (targetSheetName ? ctx.sheetNameToId.get(targetSheetName) : undefined) ?? ctx.defaultSheetId
+			ctx.checkReadRange(source.range, sourceSheetId, sourceSheetName)
+			ctx.checkWriteRange(target.range, targetSheetId, targetSheetName)
 
-			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
+			const sourceSheet = resolveSheet(ctx.workbook, sourceSheetId, sourceSheetName)
+			const targetSheet = resolveSheet(ctx.workbook, targetSheetId, targetSheetName)
 
-			const srcRange = sheet.getRange({
+			const srcRange = sourceSheet.getRange({
 				startRow: source.range.startRow,
 				startColumn: source.range.startCol,
 				endRow: source.range.endRow,
@@ -126,7 +96,7 @@ export function createStyleTools(ctx: McpContext): AxFunction[] {
 			const style = srcRange.getCellStyle?.() ?? srcRange.getStyle?.()
 			if (!style) throw new Error('[univer] format brush not supported')
 
-			const tgtRange = sheet.getRange({
+			const tgtRange = targetSheet.getRange({
 				startRow: target.range.startRow,
 				startColumn: target.range.startCol,
 				endRow: target.range.endRow,

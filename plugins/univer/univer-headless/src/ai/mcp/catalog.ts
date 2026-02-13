@@ -16,37 +16,37 @@ export const MCP_TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
 	{
 		name: 'set_range_data',
 		description:
-			'Write a dense 2D matrix into a range. Provide either {a1:"Sheet1!A1:B1"} or {range:{startRow,...}} (0-based). Matrix size must exactly match the target range size; for formulas, use per-cell strings. Optional readback verifies results after the write: set_range_data({..., readback:{includeDisplay?:true}}) -> readback.byA1[...].',
+			'Write a dense 2D matrix into a range. Provide {a1:"Sheet1!A1:B1"} (sheet-qualified; always include the sheet name). Matrix size must exactly match the target range size; for formulas, use per-cell strings. Optional readback verifies results after the write: set_range_data({..., readback:{includeDisplay?:true}}) -> readback.byA1[...].',
 		group: 'core',
 	},
 	{
 		name: 'set_ranges_data',
 		description:
-			'Batch write multiple ranges in one call (preferred). Each update item must provide a1 or range, and a dense matrix matching that range size. Optional readback verifies in the same call: set_ranges_data({updates:[...], readback:{ /* defaults to updated ranges */ }}) -> readback.byA1.',
+			'Batch write multiple ranges in one call (preferred). Each update item must provide {a1:"Sheet1!A1:B1"} (sheet-qualified) and a dense matrix matching that range size. Optional readback verifies in the same call: set_ranges_data({updates:[...], readback:{ /* defaults to updated ranges */ }}) -> readback.byA1.',
 		group: 'core',
 	},
 	{
 		name: 'get_range_data',
 		description:
-			'Read raw values in a range. Provide either a1 (recommended) or range (0-based). Use includeDisplay=true if you need formatted strings.',
+			'Read raw values in a range. Provide {a1:"Sheet1!A1:B10"} (sheet-qualified). Use includeDisplay=true if you need formatted strings.',
 		group: 'core',
 	},
 	{
 		name: 'get_ranges_data',
 		description:
-			'Batch read multiple ranges (preferred). Returns {order, byA1}. Provide each item as {a1:"..."} or {range:{...}}; keep ranges small and scoped.',
+			'Batch read multiple ranges (preferred). Returns {order, byA1}. Provide each item as {a1:"Sheet1!A1:B10"} (sheet-qualified); keep ranges small and scoped.',
 		group: 'core',
 	},
 	{
 		name: 'search_cells',
 		description:
-			'Search display text in a range for query. match: "contains" (default) | "exact" | "regex". Returns hits with {a1,row,col,value}; use a1 for precise follow-up reads/writes.',
+			'Search display text in a range for query. Provide {a1:"Sheet1!A1:Z200"} (sheet-qualified). match: "contains" (default) | "exact" | "regex". Returns hits with {a1,row,col,value}; use a1 for precise follow-up reads/writes.',
 		group: 'core',
 	},
 	{
 		name: 'auto_fill',
 		description:
-			'Fill target range by tiling source values (repeat pattern; does NOT shift formula refs). Use fill_formula for relative ref shifting. Optional readback verifies the target after fill: auto_fill({source, target, readback:{...}}) -> readback.byA1.',
+			'Fill target range by tiling source values (repeat pattern; does NOT shift formula refs). Provide {source:{a1:"..."}, target:{a1:"..."}} (sheet-qualified; same sheet). Use fill_formula for relative ref shifting. Optional readback verifies the target after fill: auto_fill({source, target, readback:{...}}) -> readback.byA1.',
 		group: 'data',
 	},
 	{
@@ -63,9 +63,9 @@ export const MCP_TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
 	{ name: 'delete_rows', description: 'Delete rows in a worksheet (structural edit; sheet must be allowed by writeScopes).', group: 'structure' },
 	{ name: 'delete_columns', description: 'Delete columns in a worksheet (structural edit; sheet must be allowed by writeScopes).', group: 'structure' },
 	{ name: 'set_cell_dimensions', description: 'Set row heights and column widths.', group: 'structure' },
-	{ name: 'set_merge', description: 'Merge or unmerge a cell range.', group: 'structure' },
-	{ name: 'set_range_style', description: 'Apply styling to a range (e.g., alignment, font, fill). Provide a1 or range.', group: 'style' },
-	{ name: 'format_brush', description: 'Copy formatting from source range to target range (same sheet). Provide source/target as a1 or range.', group: 'style' },
+	{ name: 'set_merge', description: 'Merge or unmerge a cell range. Provide {a1:"Sheet1!A1:B2"} (sheet-qualified).', group: 'structure' },
+	{ name: 'set_range_style', description: 'Apply styling to a range (e.g., alignment, font, fill). Provide {a1:"Sheet1!A1:B2"} (sheet-qualified).', group: 'style' },
+	{ name: 'format_brush', description: 'Copy formatting from source range to target range. Provide {source:{a1:"..."}, target:{a1:"..."}} (sheet-qualified).', group: 'style' },
 ]
 
 const TOOL_META = new Map<UniverToolName, McpToolCatalogEntry>(

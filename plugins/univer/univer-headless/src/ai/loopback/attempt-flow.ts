@@ -1,4 +1,4 @@
-import { flow, type AxAI, type AxProgrammable, type AxStepHooks } from '@ax-llm/ax'
+import { AxFlow, flow, type AxAI, type AxProgrammable, type AxStepHooks } from '@ax-llm/ax'
 import { context as otelContext, trace } from '@opentelemetry/api'
 import type { Tracer } from '@opentelemetry/api'
 
@@ -8,6 +8,14 @@ import { clampInt } from './limits'
 import { evaluateUniverAxAttempt } from './attempt-eval'
 import { UNIVER_LOOPBACK_QA_CONFIDENCE_THRESHOLD } from './policy'
 import type { UniverLoopbackEditorIn, UniverLoopbackEditorOut, UniverLoopbackQualityIn, UniverLoopbackQualityOut } from './programs'
+
+// AxFlow's ctor currently prints a deprecation warning even when using the `flow()` factory.
+// Silence it to keep loopback output clean; behavior is unchanged.
+try {
+	;(AxFlow as any)._ctorWarned = true
+} catch {
+	// best-effort
+}
 
 export type AttemptFlowIn = Readonly<{
 	instruction: string
@@ -66,7 +74,7 @@ export async function runUniverLoopbackAttemptFlow(
 		stats: McpStats
 		stepHooks?: AxStepHooks
 		tracer?: Tracer
-		instruments?: UniverAxOtelInstruments
+	instruments?: UniverAxOtelInstruments
 	}>,
 ): Promise<AttemptFlowOut> {
 	const loop = flow<AttemptFlowIn, AttemptFlowOut>()

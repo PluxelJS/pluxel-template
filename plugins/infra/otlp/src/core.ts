@@ -8,6 +8,12 @@ export type OtlpAttributes = Record<string, unknown>
 export type OtlpLogRecordInput = {
 	level?: OtlpLogLevel
 	body: unknown
+	/**
+	 * Optional trace/span correlation (OTel LogRecord fields).
+	 * If provided, OTLP exporter will include them and local viewers can link logs ↔ traces.
+	 */
+	traceId?: string
+	spanId?: string
 	attributes?: OtlpAttributes
 	tsMs?: number
 }

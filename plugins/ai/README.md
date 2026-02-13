@@ -81,7 +81,7 @@ const conn = await llm.connection({ traceId, sessionId })
 
 然后你想用哪个生态就用哪个：
 - Vercel AI SDK：`toAISDKProviderOptions(conn)`
-- Ax：`createAxAIFromConnection(conn)`
+- Ax：`createAxAIFromConnection(conn, { purpose: 'loopback' })`（后端编排/工具流推荐，禁用 streaming 更稳）
 - LangChain：`lc.chatModelFromConnection(conn)`（或 `lc.chatModel()`）
 
 如果你想记录/观测“最终用的是哪个 provider/model”，用 LangChain 的 resolve API：

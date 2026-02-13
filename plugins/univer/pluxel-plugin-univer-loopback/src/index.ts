@@ -47,10 +47,11 @@ function wrapFetchWithOtel(baseFetch: typeof fetch, otel: UniverAxOtel): typeof 
 		const method = (init?.method ?? (input instanceof Request ? input.method : undefined) ?? 'GET').toString().toUpperCase()
 
 		return await tracer.startActiveSpan(
-			'llm.fetch',
+			'univer.ax.fetch',
 			{
 				attributes: {
 					...(otel.attributes ?? {}),
+					'llm.client': 'ax',
 					'http.request.method': method,
 					'url.full': url,
 				},
@@ -62,6 +63,16 @@ function wrapFetchWithOtel(baseFetch: typeof fetch, otel: UniverAxOtel): typeof 
 					const ms = Date.now() - t0
 					span.setAttribute('http.response.status_code', res.status)
 					span.setAttribute('http.response.duration_ms', ms)
+					const contentType = res.headers.get('content-type')
+					if (contentType) span.setAttribute('http.response.content_type', contentType)
+
+					const upstreamRequestId =
+						res.headers.get('x-request-id') ??
+						res.headers.get('openai-request-id') ??
+						res.headers.get('x-amzn-requestid') ??
+						res.headers.get('cf-ray')
+					if (upstreamRequestId) span.setAttribute('llm.upstream.request_id', upstreamRequestId)
+
 					if (res.status >= 400) span.setStatus({ code: 2, message: `HTTP ${res.status}` })
 					else spanOk(span)
 					return res
@@ -135,7 +146,7 @@ export class UniverLoopbackPlugin extends BasePlugin {
 
 	private registerHttp() {
 		try {
-			const off = registerUniverLoopbackHttp(this.ctx, (input) => this.runLoopback(input))
+			const off = registerUniverLoopbackHttp(this.ctx, (input, extra) => this.runLoopback(input, extra))
 			this.ctx.effects.defer(off)
 		} catch (error) {
 			const tracer = createOtlpOtelTracer(this.otlp, { tracerName: 'univer.loopback' })
@@ -164,54 +175,59 @@ export class UniverLoopbackPlugin extends BasePlugin {
 		}
 	}
 
-	async runLoopback(input: UniverLoopbackRunInput): Promise<UniverLoopbackRunResult> {
+	async runLoopback(input: UniverLoopbackRunInput, extra?: { abortSignal?: AbortSignal }): Promise<UniverLoopbackRunResult> {
 		// Headless Univer instance is shared; serialize loopback runs for safety.
-		const run = async () => this.runLoopbackInner(input)
+		const run = async () => this.runLoopbackInner(input, extra)
 		const p = this.seq.then(run, run)
 		this.seq = p.then(() => undefined, () => undefined)
 		return p
 	}
 
-	private async runLoopbackInner(input: UniverLoopbackRunInput): Promise<UniverLoopbackRunResult> {
+	private async runLoopbackInner(input: UniverLoopbackRunInput, extra?: { abortSignal?: AbortSignal }): Promise<UniverLoopbackRunResult> {
 		const runId = makeRunId()
 		const workbookId = normalizeText(input?.workbookId)
 		if (!workbookId) return { ok: false, runId, error: '[univer] workbookId required' }
 
 		const instruction = normalizeText(input?.instruction)
 		if (!instruction) return { ok: false, runId, error: '[univer] instruction must be non-empty' }
+		if (extra?.abortSignal?.aborted) return { ok: false, runId, error: '[univer] request aborted' }
 
 		const tracer = createOtlpOtelTracer(this.otlp, { tracerName: 'univer.loopback' })
 		const meter = createOtlpOtelMeter(this.otlp, { meterName: 'univer.loopback' })
+		const otelAttrs: Record<string, string | number | boolean> = {
+			'univer.run_id': runId,
+			'univer.workbook_id': workbookId,
+			'univer.base_rev': typeof input.baseRev === 'number' ? input.baseRev : -1,
+			'univer.mode': 'safe',
+			'univer.llm_profile_id': String(input.llmProfileId ?? ''),
+			'univer.instruction.preview': truncateText(instruction, 512),
+			'llm.client': 'ax',
+			'ax.purpose': 'loopback',
+			'ax.flow': 'univer.loopback',
+		}
 		const otel: UniverAxOtel = {
 			tracer,
 			meter,
-			attributes: {
-				'univer.run_id': runId,
-				'univer.workbook_id': workbookId,
-				'univer.base_rev': typeof input.baseRev === 'number' ? input.baseRev : -1,
-				'univer.mode': 'safe',
-				'univer.llm_profile_id': String(input.llmProfileId ?? ''),
-				'univer.instruction.preview': truncateText(instruction, 512),
-			},
+			attributes: otelAttrs,
 		}
 
 		const store = this.workbooks.requireStore()
-			return await tracer.startActiveSpan(
-				'univer.loopback.request',
-				{
-					attributes: {
-						...(otel.attributes ?? {}),
-						'univer.scopes.read.count': input.scopes.read?.length ?? 0,
-						'univer.scopes.write.count': input.scopes.write?.length ?? 0,
-						'univer.scopes.current': String(input.scopes.current ?? ''),
-					},
+		return await tracer.startActiveSpan(
+			'univer.loopback.request',
+			{
+				attributes: {
+					...(otel.attributes ?? {}),
+					'univer.scopes.read.count': input.scopes.read?.length ?? 0,
+					'univer.scopes.write.count': input.scopes.write?.length ?? 0,
+					'univer.scopes.current': String(input.scopes.current ?? ''),
 				},
-				async (rootSpan): Promise<UniverLoopbackRunResult> => {
-					const reqStart = Date.now()
+			},
+			async (rootSpan): Promise<UniverLoopbackRunResult> => {
+				const reqStart = Date.now()
+				try {
+					let meta
 					try {
-						let meta
-						try {
-							meta = store.openWorkbook(workbookId)
+						meta = store.openWorkbook(workbookId)
 					} catch (e) {
 						const msg = e instanceof Error ? e.message : String(e)
 						rootSpan.setStatus({ code: 2, message: msg })
@@ -274,6 +290,9 @@ export class UniverLoopbackPlugin extends BasePlugin {
 					const model = String(conn.profile.model ?? '')
 					rootSpan.setAttribute('llm.provider', provider)
 					rootSpan.setAttribute('llm.model', model)
+					otelAttrs['llm.provider'] = provider
+					otelAttrs['llm.model'] = model
+					otelAttrs['llm.profile_id'] = String(conn.profile.id ?? '')
 
 					const otelConn = {
 						...conn,
@@ -283,7 +302,10 @@ export class UniverLoopbackPlugin extends BasePlugin {
 							options: { ...(conn.profile.options ?? {}), tracer, meter },
 						},
 					}
-					const ai = createAxAIFromConnection(otelConn)
+					const ai = createAxAIFromConnection(otelConn, {
+						purpose: 'loopback',
+						...(extra?.abortSignal ? { options: { abortSignal: extra.abortSignal } } : {}),
+					})
 
 					const loopRes = await tracer.startActiveSpan(
 						'univer.headless.loopback',

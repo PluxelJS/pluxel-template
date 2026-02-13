@@ -9,12 +9,12 @@ Pluxel/HMR runtime 的 OTLP exporter 插件（当前实现：OTLP/HTTP JSON Trac
 - **Config-first**：默认禁用；启用与细节全部来自 `configs.use(schema)` 注册的配置 schema。
 
 现状：
-- ✅ Logs：`core.endpoint + "/v1/logs"`
-- ✅ Traces：`core.endpoint + "/v1/traces"`（`otlp.trace(...)` / `otlp.span(...)`）
-- ✅ Metrics：`core.endpoint + "/v1/metrics"`（`otlp.metric(...)` + `otlp.counter/gauge/histogram`）
+- ✅ Logs：`exporting.push.endpoint + "/v1/logs"`（或用 `exporting.push.endpoints.logs` 覆盖）
+- ✅ Traces：`exporting.push.endpoint + "/v1/traces"`（或用 `exporting.push.endpoints.traces` 覆盖；`otlp.trace(...)` / `otlp.span(...)`）
+- ✅ Metrics：`exporting.push.endpoint + "/v1/metrics"`（或用 `exporting.push.endpoints.metrics` 覆盖；`otlp.metric(...)` + `otlp.counter/gauge/histogram`）
 
 默认启用策略（保守默认值）：
-- `core.enabled=false`（默认禁用）
+- `exporting.mode="tap"`（默认不 push，仅允许本地 taps 截获）
 - `signals.logs=false`、`signals.traces=true`、`signals.metrics=true`（默认用 traces+metrics；logs 可选）
 
 ## Register
@@ -103,20 +103,18 @@ const s = otlp.stats()
 
 ## Config
 
-默认禁用；启用后通过 OTLP/HTTP 上报到 `core.endpoint + "/v1/traces"`、`"/v1/metrics"`（logs 可选）。
+默认是 **tap-only**（不对外 push，只为本地 viewer/调试提供截获入口）。启用 push 后通过 OTLP/HTTP 上报到 `push.endpoint + "/v1/traces"`、`"/v1/metrics"`（logs 可选）。
 
 ```ts
 // tests / host bootstrap
 host.cfg('OtlpHub').set({
-  core: { enabled: true, endpoint: 'http://localhost:4318' },
+  exporting: { mode: 'push', push: { endpoint: 'http://localhost:4318' } },
   signals: { traces: true, metrics: true, logs: false },
   // 可选：headers (例如鉴权 / 多租户)
-  // core: { enabled: true, endpoint: 'http://localhost:4318', headers: { Authorization: 'Bearer ...' } },
-  // 可选：resource/scope (用于 resourceLogs / scopeLogs)
-  // resourceCfg: { serviceName: 'pluxel', serviceVersion: '0.1.0', resourceAttributes: { env: 'dev' } },
-  // scopeCfg: { name: 'my-app', version: '2026.01.23' },
-  batch: { flushIntervalMs: 250, maxBatchRecords: 512, maxInflight: 2 },
-  queueCfg: { overflow: 'block', maxQueuedRecords: 10_000 },
+  // exporting: { mode: 'push', push: { endpoint: 'http://localhost:4318', headers: { Authorization: 'Bearer ...' } } },
+  // 可选：batch/queue（背压/吞吐）
+  // batch: { flushIntervalMs: 250, maxBatchRecords: 512, maxInflight: 2 },
+  // queue: { overflow: 'block', maxQueuedRecords: 10_000 },
 })
 ```
 
@@ -124,7 +122,7 @@ Push/backpressure 语义速记：
 - `flushIntervalMs`：达到间隔就 flush（即使 batch 未满）。
 - `maxBatchRecords` / `maxBatchBytes`：达到阈值立即 flush。
 - `maxInflight`：并行 in-flight 请求上限。
-- `queueCfg.overflow`：
+- `queue.overflow`：
   - `dropNewest`：队列满就丢新（默认，避免拖慢业务）
   - `dropOldest`：队列满就丢旧（尽量保留“新鲜”数据）
   - `block`：写入会等待队列腾挪（最强背压，可能影响业务延迟）
@@ -186,20 +184,48 @@ const out = await wf.forward(llm, { userQuestion: 'hi' }, {
 
 ```ts
 host.cfg('OtlpHub').set({
-  core: { enabled: true, endpoint: 'http://localhost:4318' }, // default target
+  exporting: { mode: 'push', push: { endpoint: 'http://localhost:4318' } }, // default target
   signals: { traces: true, metrics: true, logs: false },
-  targets: [
-    { id: 'ai', endpoint: 'http://otel-collector-ai:4318' },
-    { id: 'payments', endpoint: 'http://otel-collector-payments:4318' },
-  ],
   routing: {
-    byCallerId: {
-      UniverAI: 'ai',
-      Billing: 'payments',
+    mode: 'multi',
+    targets: [
+      { id: 'ai', endpoint: 'http://otel-collector-ai:4318' },
+      { id: 'payments', endpoint: 'http://otel-collector-payments:4318' },
+    ],
+    routing: {
+      byCallerId: {
+        UniverAI: 'ai',
+        Billing: 'payments',
+      },
     },
   },
 })
 ```
+
+### Per-signal endpoints
+
+推荐链路：`OtlpHub -> OpenTelemetry Collector / Grafana Alloy -> 你的后端（任意 DB/TSDB/日志系统）`。
+
+如果你需要 **直接**把三种信号 push 到不同的 HTTP receiver（base URL 不同），可以用 `exporting.push.endpoints.*` 覆盖（base only；插件会拼 `/v1/*`）：
+
+```ts
+host.cfg('OtlpHub').set({
+  exporting: {
+    mode: 'push',
+    push: {
+      endpoint: 'http://localhost:4318', // fallback
+      endpoints: {
+        logs: 'http://logs-receiver:4318',
+        traces: 'http://traces-receiver:4318',
+        metrics: 'http://metrics-receiver:4318',
+      },
+    },
+  },
+  signals: { traces: true, metrics: true, logs: true },
+})
+```
+
+注意：本插件目前导出的是 **OTLP/HTTP JSON**（`content-type: application/json`）。如果你的后端/网关只接受 protobuf（`application/x-protobuf`），建议走 Collector/Alloy。
 
 ## Traces：用法合集
 

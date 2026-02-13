@@ -48,6 +48,7 @@
 				"pluxel-plugin-ledger-mikro-orm",
 				"pluxel-plugin-mikro-orm",
 				"pluxel-plugin-otlp",
+				"pluxel-plugin-otlp-viewer",
 				"pluxel-plugin-poll-kernel",
 				"pluxel-plugin-redis",
 				"pluxel-plugin-s3mini"
@@ -75,6 +76,7 @@
 				"pluxel-plugin-llm-hub",
 				"pluxel-plugin-mikro-orm",
 				"pluxel-plugin-otlp",
+				"pluxel-plugin-otlp-viewer",
 				"pluxel-plugin-poll-kernel",
 				"pluxel-plugin-redis",
 				"pluxel-plugin-s3mini",
