@@ -2,9 +2,9 @@
 
 ## 1. 目标与边界
 
-**目标**：提供可独立复用的 command/op 执行内核，支持 schema-first 校验、文本路由与 argv 解码；强调**优雅、可推理、热路径高效**，允许上层通过文档/lint 约束用法。
+**目标**：提供可独立复用的 command/op 执行内核，支持 schema-first 校验与文本路由（schema 派生参数 + 固定语法解析）；强调**优雅、可推理、热路径高效**，允许上层通过文档/lint 约束用法。
 
-**提供**：`cmd(id)` builder、schema-first（input/output）、phase-based interceptor、结构化错误、可选观测钩子（emit/span）、tokenize+match+dispatch、argv adapter（默认可选 type-flag）。  
+**提供**：`cmd(id)` builder、schema-first（input/output）、phase-based interceptor、结构化错误、可选观测钩子（emit/span）、tokenize+match+dispatch、schema-derived 文本语法（text）。  
 **不提供**：平台/富文本/前缀解析、权限/限流存储、DI/HMR/插件生命周期、日志/追踪实现、核心内建 timer/timeout 生产。
 
 ---
@@ -64,7 +64,7 @@ import type { StandardSchemaV1, StandardJSONSchemaV1 } from "@standard-schema/sp
 
 export type CmdErrorCode =
   | "E_CMD_NOT_FOUND"
-  | "E_ARGV_PARSE"
+  | "E_TEXT_PARSE"
   | "E_INPUT_VALIDATION"
   | "E_OUTPUT_VALIDATION"
   | "E_FORBIDDEN"
@@ -110,7 +110,7 @@ export interface Executable<I, O> {
   execText?: (text: string, ctx?: ExecCtx) => Promise<Result<O, CmdError>>; // 仅 text 启用时存在
   meta?: {
     triggers: string[];
-    flags?: Array<{ name: string; alias?: string[]; type: "string" | "number" | "boolean"; description?: string; required?: boolean; negate?: boolean }>;
+    params?: Array<{ name: string; type: "string" | "number" | "boolean" | "json" | "string[]" | "number[]" | "boolean[]" | "json[]"; description?: string; required?: boolean; negate?: boolean; short?: string }>;
   };
 }
 
@@ -209,32 +209,26 @@ await index.exec({}, {
 原因：避免多入口（例如旧式 `.argv()`/`.command()`）导致的误用与语义分叉；text 相关能力全部收敛在 `text(cfg?)`。
 
 ```ts
-export type ParsedArgv = { flags: Record<string, unknown>; _: string[] };
-
-export interface ArgvAdapter {
-  parse(tokens: string[], cfg: {
-    flags: Array<{ name: string; alias?: string[]; type: "string" | "number" | "boolean"; required?: boolean; negate?: boolean }>;
-    allowUnknownFlags: boolean;
-    typeFlagOptions?: unknown;
-  }): ParsedArgv;
-}
-
-export interface TextConfig {
-  triggers?: string[]; // 默认 [id]
-  tokenize?: TextTokenizer;
-  caseInsensitive?: boolean; // 仅影响 exec.execText(...) 的 trigger 匹配；Router 用 createRouter({ caseInsensitive: true })
-
-  adapter?: ArgvAdapter; // 默认 type-flag
-  flags?: Array<{ name: string; alias?: string[]; type: "string" | "number" | "boolean"; description?: string; required?: boolean; negate?: boolean }>;
-  map?: (parsed: ParsedArgv) => unknown; // 默认 parsed.flags
-  allowUnknownFlags?: boolean;           // 默认 false
-  typeFlagOptions?: unknown;             // 透传给 type-flag
-}
+// Enable text execution for a command.
+// - cfg.triggers omitted => defaults to [id]
+cmd('echo').text()
+cmd('echo').text({ triggers: ['e', 'say'] })
 ```
 
-也支持 sugar：`text(mapFn)` 等价于 `text({ map: mapFn })`（适合 positionals 场景）。
-
-当提供 `map` 且未显式设置 `flags` 时，默认视为“你接管了解析”，因此不会再从 input schema 自动推导 flags（避免必填字段导致 `--x` 必填的意外错误）。如需同时启用 flags + map，请显式提供 `flags: [...]`。
+解析规则（唯一且固定）：
+- 触发词匹配：按 triggers（空格分词）做最长匹配。
+- 解析输入：从 input JSON Schema（由 Standard Schema 派生）派生参数表，并支持：
+  - `--key value` / `--key=value`
+  - `--key` 的常见别名：同一参数默认接受 kebab/camel/snake 风格（例如 `--user-id` / `--userId` / `--user_id`）。
+  - `key:value` / `key=value`
+  - short flags：默认从参数名自动派生（冲突则全部不生成），并支持：
+    - `-c value` / `-c=value` / `-cVALUE`
+    - `-abc`（仅 boolean bundling）
+  - boolean 的 `--no-key`
+- ParseBox tail（text-only）：
+  - `text({ tail })` 仅影响 text 执行域：cmdkit 会把剩余文本交给 ParseBox 解析，并要求其返回“对象 patch”，再合并进真实 input（因此不会污染 MCP 的 input schema）。
+  - tail 的起点：遇到 `--`（end-of-options sentinel）后立即开始；否则在第一个“非选项 token”处开始。
+  - 为避免把 `--xxx` 误当成 flag：如果你的 tail 需要以 `--` 开头，必须显式写 `--` sentinel，例如 `echo -- --literal`.
 
 ### 4.2.1 文档字段：`doc()`（不占用 TextConfig）
 
@@ -288,7 +282,7 @@ const echo = cmd('echo')
       '- call `echo` with `{ "msg": "hello world" }`',
     ].join('\\n'),
   })
-  .text((p) => ({ msg: String(p._.join(' ')) }))
+  .text()
   .handle(({ msg }) => msg)
   .build()
 
@@ -360,35 +354,33 @@ export interface Router {
   add(exec: Executable<any, any>, opts?: { triggers: string[] }): void;
   set(exec: Executable<any, any>, opts?: { triggers: string[] }): void; // upsert by id
   remove(id: string): void;
-  tokenize(text: string): string[];
+  tokenize(text: string): Array<{ value: string; raw: string; start: number; end: number }>;
   dispatch(text: string, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
-  dispatchTokens(tokens: string[], ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
-  match(text: string): { id: string; trigger: string; consumed: number; tokens: string[]; restTokens: string[] } | null;
-  dispatchMatch(match: { id: string; trigger: string; consumed: number; tokens: string[]; restTokens: string[] }, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
+  dispatchTokens(tokens: Array<{ value: string; raw: string; start: number; end: number }>, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
+  match(text: string): { id: string; trigger: string; consumed: number; tokens: Array<{ value: string; raw: string; start: number; end: number }>; restTokens: Array<{ value: string; raw: string; start: number; end: number }> } | null;
+  dispatchMatch(match: { id: string; trigger: string; consumed: number; tokens: Array<{ value: string; raw: string; start: number; end: number }>; restTokens: Array<{ value: string; raw: string; start: number; end: number }> }, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
   list(): Array<{ id: string; triggers: string[] }>;
   check(exec: { id: string; meta?: { triggers: string[] } }, opts?: { triggers: string[] }, ignoreId?: string): { ok: true } | { ok: false; issues: Array<{ kind: string }> };
   // debug/introspection only (rendering belongs to upstream)
   helpIndex(): { list: Array<{ id: string; trigger: string }> };
-  helpCommand(name: string): { id: string; triggers: string[] } | undefined;
+  helpCommand(name: string): { id: string; triggers: string[]; params?: Array<{ name: string; type: string }>; tail?: true; doc?: unknown } | undefined;
 }
 
 export function createRouter(cfg?: {
-  tokenize?: (text: string) => string[];
   caseInsensitive?: boolean;
 }): Router;
 ```
 
 ---
 
-## 5. Schema 与 argv 推导（build-time 一次性）
+## 5. Schema 派生的文本参数（build-time 一次性）
 
 * 核心只要求 `StandardSchemaV1`：用于 input/output validate。
-* 若 input schema 同时具备 `StandardJSONSchemaV1` 的 input JSON Schema 能力，且未手写 `text().flags`：
-
-  * build-time 从 `type: object` 的 `properties` 推导 primitive flags（string/number/boolean）。
-  * 复杂类型跳过（要求手写 flags 或用 positionals map）。
-  * 若属性名 sanitize 后发生 flag name 冲突：build() 直接报错（要求显式提供 `text({ flags: [...] })` 来消歧）。
-    原因：推导仅一次，运行期不触碰 schema/jsonschema，保证热路径稳定。
+* `text()` 会在 build-time 从 input JSON Schema 派生参数表（用于解析与 help 输出）：
+  * `type: object` 的 `properties` 中，派生 `params`（保留字段 `_` 禁止使用）。
+  * boolean 自动支持 `--no-<name>`。
+  * tail（ParseBox）是 text-only：`text({ tail })` 要求 ParseBox 返回对象 patch，并合并进真实 input。
+  * tail 的起点由 `--` sentinel 或第一个“非选项 token”决定；为了把 `--xxx` 作为 tail 传入，必须写 `--` sentinel。
 
 ---
 
@@ -434,7 +426,7 @@ export function createRouter(cfg?: {
 * `cmd.exec.fault`（仅当 `err.kind === "fault"`；用于告警/堆栈采集）
 * `cmd.schema.input.ok/fail`
 * `cmd.schema.output.ok/fail`（包括 recover 分支中的 output validate）
-* `cmd.argv.parsed`
+* （Text 参数解析事件可由上层自行定义；cmdkit 不强制内置）
 
 ---
 
@@ -442,7 +434,7 @@ export function createRouter(cfg?: {
 
 * 不提供 `.timeout(ms)`：避免核心建 timer；上层用 `AbortSignal.timeout(ms)`/请求级 controller 实现更高效。
 * 不提供 `.guard()` sugar：统一机制更优雅；策略通过 interceptor 工厂实现。
-* 不导出 argv IR：build-time 编译成 parse+map 计划；运行期最短路径。
+* 不导出“中间 IR”：build-time 派生参数表并编译解析器；运行期最短路径。
 * 不做 fuzzy match：维护与性能更稳；建议由上层做更重的 UX。
 
 以上定义了一个小而硬、可推理、易编译优化的命令内核：阶段少、语义点明确、unwind 逆序、state 私有通道、取消统一为 signal/deadline，既保持优雅也能把热路径压到最短。

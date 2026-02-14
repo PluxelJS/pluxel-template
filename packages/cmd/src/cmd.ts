@@ -1,15 +1,14 @@
 import type { AnyStdSchema, ExecCtx, InferOut, Interceptor, StrictEmptyObject } from './core'
 import { CmdError, STRICT_EMPTY_OBJECT_SCHEMA, normalizeError } from './core'
-import { CMDKIT_TEXT_RUNNER } from './text-runner'
+import { CMDKIT_TEXT_RUNNER, type TextInvocation } from './text-runner'
 
 import type { CmdDocSource } from './doc'
 import { mergeDocSources } from './doc'
 import type { McpConfig, McpMeta } from './mcp'
 import { compileMcpMeta } from './mcp'
-import type { ExecutableMeta, TextConfig, TextMapFn } from './text'
+import type { ExecutableMeta, TextConfig } from './text'
 import { compileTextPlan } from './text'
 import { compileInterceptors, execPlanResult, type ExecSpec } from './exec'
-import { CMD_EVENT } from './events'
 import type { Result } from './result'
 import { createErr } from './result'
 
@@ -21,8 +20,7 @@ export { resolveDoc, resolveText } from './doc'
 
 export type { McpConfig, McpMeta } from './mcp'
 
-export type { ArgvAdapter } from './argv/types'
-export type { ExecutableMeta, TextConfig, TextMapFn } from './text'
+export type { ExecutableMeta, ParamSpec, TextConfig } from './text'
 export type { Err, Ok, Result } from './result'
 export { ResultOperator, createErr, createOk, expectErr, expectOk, isErr, isOk, unwrapErr, unwrapOk } from './result'
 
@@ -81,7 +79,7 @@ type State = { hasHandle: boolean; hasText: boolean; hasMcp: boolean }
 type BuilderSpec = ExecSpec & {
 	doc?: CmdDocSource
 	mcp?: McpConfig
-	text?: { cfg: TextConfig }
+	text?: TextConfig
 }
 
 function makeExecutable<I, O>(spec: BuilderSpec): Executable<I, O> {
@@ -101,25 +99,12 @@ function makeExecutable<I, O>(spec: BuilderSpec): Executable<I, O> {
 
 	if (spec.text) {
 		// Compile text plan at build time from the final input schema.
-		const compiledText = compileTextPlan(spec.id, spec.input, spec.text.cfg)
+		const compiledText = compileTextPlan(spec.id, spec.input, spec.text)
 		;(executable as any).meta = compiledText.meta
 
-		const runner = async (tokens: string[], consumed: number, ctx?: ExecCtx): Promise<Result<O, CmdError>> => {
+		const runner = async (inv: TextInvocation, ctx?: ExecCtx): Promise<Result<O, CmdError>> => {
 			try {
-				const argvTokens = tokens.slice(consumed)
-				const parsed = compiledText.argv.parse(argvTokens)
-				ctx?.emit?.(CMD_EVENT.ARGV_PARSED, {
-					id: spec.id,
-					argc: argvTokens.length,
-					unknownFlags: Object.keys(parsed.unknownFlags ?? {}).length,
-				})
-
-				let candidate: unknown
-				try {
-					candidate = compiledText.argv.map(parsed)
-				} catch (e) {
-					return createErr(new CmdError('E_ARGV_PARSE', 'Invalid arguments', { message: (e as any)?.message, cause: e }))
-				}
+				const candidate = compiledText.parseCandidate(inv)
 
 				return await execPlanResult<I, O>(spec, compiled, candidate, ctx)
 			} catch (e) {
@@ -135,12 +120,10 @@ function makeExecutable<I, O>(spec: BuilderSpec): Executable<I, O> {
 				const m = compiledText.match(tokens)
 				if (!m) {
 					return createErr(
-						new CmdError('E_ARGV_PARSE', 'Invalid arguments', {
-							message: `Text does not start with any command name for "${spec.id}"`,
-						}),
+						new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Text does not match any trigger for "${spec.id}"` }),
 					)
 				}
-				return await runner(tokens, m.consumed, ctx)
+				return await runner({ text, tokens, consumed: m.consumed }, ctx)
 			} catch (e) {
 				return createErr(normalizeError(ctx, e, 'E_INTERNAL', 'Command failed'))
 			}
@@ -162,10 +145,12 @@ export interface CmdBuilder<I, O, S extends State> {
 	handle(
 		fn: (input: I, ctx: ExecCtx) => O | Promise<O>,
 	): CmdBuilder<I, O, { hasHandle: true; hasText: S['hasText']; hasMcp: S['hasMcp'] }>
-	/** `text(mapFn)` is sugar for `text({ map: mapFn })`. */
-	text(
-		cfg?: TextConfig | TextMapFn,
-	): CmdBuilder<I, O, { hasHandle: S['hasHandle']; hasText: true; hasMcp: S['hasMcp'] }>
+	/**
+	 * Enable text execution for this command.
+	 *
+	 * If `cfg.triggers` is omitted, defaults to `[id]`.
+	 */
+	text(cfg?: TextConfig): CmdBuilder<I, O, { hasHandle: S['hasHandle']; hasText: true; hasMcp: S['hasMcp'] }>
 
 	build(this: CmdBuilder<I, O, { hasHandle: true; hasText: S['hasText']; hasMcp: S['hasMcp'] }>): Executable<I, O> &
 		(S['hasText'] extends true ? { execText: (text: string, ctx?: ExecCtx) => Promise<Result<O, CmdError>>; meta: ExecutableMeta } : {}) &
@@ -192,9 +177,10 @@ function builder<I, O, S extends State>(spec: BuilderSpec): CmdBuilder<I, O, S> 
 		handle(fn: any) {
 			return builder<I, O, any>({ ...spec, handle: fn })
 		},
-		text(cfg?: TextConfig | TextMapFn) {
-			const normalized: TextConfig = typeof cfg === 'function' ? { map: cfg } : (cfg ?? {})
-			return builder<I, O, any>({ ...spec, text: { cfg: normalized } })
+		text(cfg?: TextConfig) {
+			const triggers = Array.isArray(cfg?.triggers) ? cfg!.triggers.slice() : undefined
+			const tail = cfg?.tail
+			return builder<I, O, any>({ ...spec, text: { ...(triggers ? { triggers } : {}), ...(tail ? { tail } : {}) } })
 		},
 		build() {
 			return makeExecutable<I, O>(spec) as any

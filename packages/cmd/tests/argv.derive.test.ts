@@ -16,8 +16,8 @@ const schemaFromJson = (inputJsonSchema: Record<string, unknown>): AnyStdSchema 
 		},
 	} as any)
 
-describe('cmdkit: schema -> flags derivation', () => {
-	it('fills FlagSpec.description from JSON Schema description/title', () => {
+describe('cmdkit: schema -> params derivation', () => {
+	it('fills ParamSpec.description from JSON Schema description/title', () => {
 		const exec = cmd('x')
 			.input(
 				schemaFromJson({
@@ -33,10 +33,9 @@ describe('cmdkit: schema -> flags derivation', () => {
 			.handle((i: any) => i)
 			.build()
 
-		const flags = exec.meta!.flags!
-		expect(flags.find((f) => f.name === 'foo')?.description).toBe('Foo desc')
-		expect(flags.find((f) => f.name === 'bar')?.description).toBe('Bar title')
-		expect(flags.find((f) => f.name === 'foo')?.required).toBe(true)
+		const params = exec.meta!.params!
+		expect(params.find((p) => p.name === 'foo')?.description).toBe('Foo desc')
+		expect(params.find((p) => p.name === 'bar')?.description).toBe('Bar title')
+		expect(params.find((p) => p.name === 'foo')?.required).toBe(true)
 	})
 })
-

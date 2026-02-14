@@ -13,7 +13,6 @@ export type {
 
 export { cmd } from './cmd'
 export type {
-	ArgvAdapter,
 	CmdBuilder,
 	CmdDoc,
 	CmdDocSource,
@@ -24,14 +23,14 @@ export type {
 	Err,
 	Executable,
 	ExecutableMeta,
+	TextConfig,
 	McpConfig,
 	McpExecutable,
 	McpMeta,
 	Ok,
+	ParamSpec,
 	Result,
 	TextExecutable,
-	TextConfig,
-	TextMapFn,
 } from './cmd'
 export {
 	ResultOperator,
@@ -60,10 +59,10 @@ export type {
 	RouterIssue,
 	RouterMatch,
 } from './router'
-export type { TextTokenizer } from './tokenize'
+export type { TextToken } from './tokenize'
+
+export { textTail } from './text-tail'
+export type { InferTextTail, TextTail } from './text-tail'
 
 export { CMD_EVENT } from './events'
 export type { CmdEvent } from './events'
-
-export { createTypeFlagAdapter } from './argv/type-flag'
-export type { FlagSpec, ParsedArgv } from './argv/types'
