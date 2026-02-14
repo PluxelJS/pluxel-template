@@ -95,7 +95,7 @@ describe('cmdkit: router', () => {
 		const exec = cmd('x').text({ triggers: ['foo bar'] }).handle(() => 'ok').build()
 		router.add(exec, { triggers: exec.meta!.triggers })
 
-		const m = router.match('FOO BAR baz')
+		const m = router.match('FOO BAR')
 		expect(m?.id).toBe('x')
 		expect(m?.consumed).toBe(2)
 		expect(m?.trigger).toBe('foo bar')

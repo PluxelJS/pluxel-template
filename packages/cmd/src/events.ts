@@ -12,8 +12,6 @@ export const CMD_EVENT = {
 	SCHEMA_OUTPUT_START: 'cmd.schema.output.start',
 	SCHEMA_OUTPUT_OK: 'cmd.schema.output.ok',
 	SCHEMA_OUTPUT_FAIL: 'cmd.schema.output.fail',
-
-	ARGV_PARSED: 'cmd.argv.parsed',
 } as const
 
 export type CmdEvent = (typeof CMD_EVENT)[keyof typeof CMD_EVENT]

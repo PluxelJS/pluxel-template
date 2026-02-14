@@ -3,9 +3,9 @@ import type { ExecCtx } from './core'
 import type { Result } from './result'
 import { createErr } from './result'
 import type { CmdDocSource } from './doc'
-import type { FlagSpec } from './argv/types'
+import type { ParamSpec } from './text'
 import { CMDKIT_TEXT_RUNNER, type TextRunner } from './text-runner'
-import { defaultTokenizer, type TextTokenizer } from './tokenize'
+import { defaultTokenizer, type TextToken } from './tokenize'
 import { splitSpace } from './internal/strings'
 
 export interface RouterHelpIndexResult {
@@ -17,7 +17,8 @@ export interface RouterHelpCommandResult {
 	/** Matched command by id or trigger. */
 	id: string
 	triggers: string[]
-	flags?: FlagSpec[]
+	params?: ParamSpec[]
+	tail?: true
 	doc?: CmdDocSource
 }
 
@@ -42,14 +43,14 @@ export type RouterMatch = {
 	consumed: number
 	/** Matched trigger string (canonical, space-joined). */
 	trigger: string
-	tokens: string[]
-	restTokens: string[]
+	tokens: TextToken[]
+	restTokens: TextToken[]
 	text?: string
 }
 
 export interface Router<Ctx extends ExecCtx = ExecCtx> {
 	/** Expose the router's tokenizer so upstream can share the exact tokenization behavior. */
-	tokenize(text: string): string[]
+	tokenize(text: string): TextToken[]
 	/** Validate an add/upsert operation without mutating router state. */
 	check(
 		exec: { id: string; meta?: { triggers: string[] } },
@@ -65,16 +66,16 @@ export interface Router<Ctx extends ExecCtx = ExecCtx> {
 	get(id: string): { id: string; triggers: string[]; exec: RouterExecutable } | undefined
 	list(): RouterEntry[]
 	match(text: string): RouterMatch | null
-	matchTokens(tokens: string[]): RouterMatch | null
+	matchTokens(tokens: TextToken[]): RouterMatch | null
 	dispatchMatch(match: RouterMatch, ctx?: Ctx): Promise<Result<unknown, CmdError>>
 	dispatch(text: string, ctx?: Ctx): Promise<Result<unknown, CmdError>>
-	dispatchTokens(tokens: string[], ctx?: Ctx): Promise<Result<unknown, CmdError>>
+	dispatchTokens(tokens: TextToken[], ctx?: Ctx): Promise<Result<unknown, CmdError>>
 	helpIndex(): RouterHelpIndexResult
 	helpCommand(name: string): RouterHelpCommandResult | undefined
 }
 
-export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: TextTokenizer; caseInsensitive?: boolean }): Router<Ctx> {
-	const tokenize = cfg?.tokenize ?? defaultTokenizer
+export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensitive?: boolean }): Router<Ctx> {
+	const tokenize = defaultTokenizer
 	const norm = (s: string) => (cfg?.caseInsensitive ? s.toLowerCase() : s)
 
 	type Node = { exec?: any; consumed?: number; trigger?: string; next: Map<string, Node> }
@@ -144,11 +145,11 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 		return best
 	}
 
-	const dispatchMatched = async (match: { exec: any; consumed: number }, tokens: string[], ctx?: Ctx) => {
+	const dispatchMatched = async (match: { exec: any; consumed: number }, tokens: TextToken[], text: string | undefined, ctx?: Ctx) => {
 		const exec = match.exec as RouterExecutable
 		const runner: TextRunner<Ctx> | undefined = (exec as any)[CMDKIT_TEXT_RUNNER]
-		if (runner) return await runner(tokens, match.consumed, ctx)
-		if (typeof exec.execText === 'function') return await exec.execText(tokens.join(' '), ctx)
+		if (runner) return await runner({ tokens, consumed: match.consumed, ...(text !== undefined ? { text } : {}) }, ctx)
+		if (typeof exec.execText === 'function') return await exec.execText(tokens.map((t) => t.value).join(' '), ctx)
 		return createErr(new CmdError('E_INTERNAL', 'Internal error', { message: `Executable "${exec.id}" has no text runner (missing .text(...))` }))
 	}
 
@@ -242,13 +243,13 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 
 		match(text) {
 			const tokens = tokenize(text)
-			const match = findLongest(tokens)
+			const match = findLongest(tokens.map((t) => t.value))
 			if (!match) return null
 			return { id: match.exec.id as string, consumed: match.consumed, trigger: match.trigger, tokens, restTokens: tokens.slice(match.consumed), text }
 		},
 
 		matchTokens(tokens) {
-			const match = findLongest(tokens)
+			const match = findLongest(tokens.map((t) => t.value))
 			if (!match) return null
 			return { id: match.exec.id as string, consumed: match.consumed, trigger: match.trigger, tokens, restTokens: tokens.slice(match.consumed) }
 		},
@@ -256,7 +257,9 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 		async dispatch(text, ctx) {
 			try {
 				const tokens = tokenize(text)
-				return await this.dispatchTokens(tokens, ctx)
+				const match = findLongest(tokens.map((t) => t.value))
+				if (!match) return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { text } }))
+				return await dispatchMatched(match, tokens, text, ctx)
 			} catch (e) {
 				return createErr(normalizeError(ctx, e, 'E_INTERNAL', 'Failed to dispatch'))
 			}
@@ -266,9 +269,13 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 			try {
 				const entry = entries.get(match.id)
 				if (!entry) {
-					return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { tokens: match.tokens, text: match.text } }))
+					return createErr(
+						new CmdError('E_CMD_NOT_FOUND', 'Unknown command', {
+							details: { tokens: match.tokens.map((t) => t.value), text: match.text },
+						}),
+					)
 				}
-				return await dispatchMatched({ exec: entry.exec, consumed: match.consumed }, match.tokens, ctx)
+				return await dispatchMatched({ exec: entry.exec, consumed: match.consumed }, match.tokens, match.text, ctx)
 			} catch (e) {
 				return createErr(normalizeError(ctx, e, 'E_INTERNAL', 'Failed to dispatch'))
 			}
@@ -276,9 +283,9 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 
 		async dispatchTokens(tokens, ctx) {
 			try {
-				const match = findLongest(tokens)
-				if (!match) return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { text: tokens.join(' ') } }))
-				return await dispatchMatched(match, tokens, ctx)
+				const match = findLongest(tokens.map((t) => t.value))
+				if (!match) return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { text: tokens.map((t) => t.value).join(' ') } }))
+				return await dispatchMatched(match, tokens, undefined, ctx)
 			} catch (e) {
 				return createErr(normalizeError(ctx, e, 'E_INTERNAL', 'Failed to dispatch'))
 			}
@@ -298,13 +305,14 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 
 			const byId = entries.get(raw)
 			if (byId) {
-				return {
-					id: byId.exec.id as string,
-					triggers: byId.triggers.slice(),
-					...(Array.isArray((byId.exec as any)?.meta?.flags) ? { flags: (byId.exec as any).meta.flags as FlagSpec[] } : {}),
-					...((byId.exec as any).doc ? { doc: (byId.exec as any).doc as CmdDocSource } : {}),
+					return {
+						id: byId.exec.id as string,
+						triggers: byId.triggers.slice(),
+						...(Array.isArray((byId.exec as any)?.meta?.params) ? { params: (byId.exec as any).meta.params as ParamSpec[] } : {}),
+						...((byId.exec as any)?.meta?.tail ? { tail: true } : {}),
+						...((byId.exec as any).doc ? { doc: (byId.exec as any).doc as CmdDocSource } : {}),
+					}
 				}
-			}
 
 			const byTriggerId = flatNames.get(keyOfTrigger(raw))
 			const byTrigger = byTriggerId ? entries.get(byTriggerId) : undefined
@@ -313,7 +321,8 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { tokenize?: T
 			return {
 				id: byTrigger.exec.id as string,
 				triggers: byTrigger.triggers.slice(),
-				...(Array.isArray((byTrigger.exec as any)?.meta?.flags) ? { flags: (byTrigger.exec as any).meta.flags as FlagSpec[] } : {}),
+				...(Array.isArray((byTrigger.exec as any)?.meta?.params) ? { params: (byTrigger.exec as any).meta.params as ParamSpec[] } : {}),
+				...((byTrigger.exec as any)?.meta?.tail ? { tail: true } : {}),
 				...((byTrigger.exec as any).doc ? { doc: (byTrigger.exec as any).doc as CmdDocSource } : {}),
 			}
 		},

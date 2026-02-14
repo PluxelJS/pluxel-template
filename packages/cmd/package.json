@@ -2,7 +2,7 @@
 	"$schema": "https://market.pluxel.dev/schema/package.json",
 	"name": "@pluxel/cmd",
 	"version": "0.1.0",
-	"description": "Composable command/op runtime (Standard Schema v1 + optional type-flag argv).",
+	"description": "Composable command/op runtime (Standard Schema v1 + schema-derived text grammar).",
 	"type": "module",
 	"exports": {
 		".": {
@@ -22,10 +22,10 @@
 		"test": "pnpm run typecheck && bun test"
 	},
 	"dependencies": {
+		"@sinclair/parsebox": "^0.11.1",
 		"@standard-schema/spec": "^1.1.0",
 		"@valibot/to-json-schema": "^1.5.0",
-		"option-t": "^55.1.1",
-		"type-flag": "^4.0.3"
+		"option-t": "^55.1.1"
 	},
 	"devDependencies": {
 		"valibot": "^1.2.0"

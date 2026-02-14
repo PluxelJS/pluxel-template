@@ -3,7 +3,7 @@ import { toJsonSchema } from '@valibot/to-json-schema'
 
 export type CmdErrorCode =
 	| 'E_CMD_NOT_FOUND'
-	| 'E_ARGV_PARSE'
+	| 'E_TEXT_PARSE'
 	| 'E_INPUT_VALIDATION'
 	| 'E_OUTPUT_VALIDATION'
 	| 'E_FORBIDDEN'
@@ -24,7 +24,7 @@ export type ValidationIssue = {
 
 export type CmdErrorDetailsByCode = {
 	E_CMD_NOT_FOUND?: { text?: string; tokens?: string[] }
-	E_ARGV_PARSE?: { unknownFlags?: Record<string, Array<string | boolean>> }
+	E_TEXT_PARSE?: { reason?: string }
 	E_INPUT_VALIDATION?: { issues: ValidationIssue[] }
 	E_OUTPUT_VALIDATION?: { issues: ValidationIssue[] }
 	E_FORBIDDEN?: { node?: string; reason?: string }
