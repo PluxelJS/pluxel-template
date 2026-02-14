@@ -214,8 +214,8 @@ AI 面板将 pinned selections 作为 **上下文（context pack）** 发送给�
 - 当模型宣称已完成且满足基本不变量时，会额外跑一次 **QA evaluator**（DSPy 风格“Editor + Evaluator”分离），必要时用 *只读工具* 做最小验证；低置信度则反馈重试
 - Loopback 运行策略由后端固定（不暴露前端 knobs）：
   - `maxAttempts=2`
-  - `maxStepsPerAttempt=40`
-  - `maxStepsTotal=80`（硬上限）
+  - `maxStepsPerAttempt=40`（默认；可能按任务轻微上调）
+  - `maxStepsTotal=80`（默认硬上限；可能按任务轻微上调，或用环境变量覆盖）
 - 额外做一条硬性可观测规则：若发生写入，则必须在最后一次写入后至少有一次读取（用于“写后验证”纪律）
 - `UNIVER_AI_DEFAULT_CONTRACT_LIMITS` 限制 ops/changes
 - **Context pack**：优先使用前端随 loopback input 传入的 `contexts.selections[].selection.display`（已截断的预览），

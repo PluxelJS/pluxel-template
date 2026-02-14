@@ -1,11 +1,13 @@
 import { BasePlugin, Plugin } from '@pluxel/hmr'
 import { RpcTarget } from '@pluxel/hmr/capnweb'
 import type { UniverLoopbackRunInput, UniverLoopbackRunResult } from '@pluxel/univer-headless/protocol'
+import { UNIVER_CAP_LOOPBACK } from '@pluxel/univer-headless/protocol'
 import { createHeadlessUniverEngine, createUniverAiBridge, runUniverAxLoopback, spanError, spanOk, type UniverAxOtel } from '@pluxel/univer-headless'
 import { createAxAIFromConnection } from 'pluxel-plugin-llm-hub/adapters/ax'
 import { LLM } from 'pluxel-plugin-llm-hub'
 import { createOtlpOtelMeter, createOtlpOtelTracer } from 'pluxel-plugin-otlp/otel'
 import UniverWorkbooksPlugin from 'pluxel-plugin-univer-workbooks'
+import UniverPlugin from 'pluxel-plugin-univer'
 import { registerUniverLoopbackHttp } from './loopback.http'
 import { Otlp } from 'pluxel-plugin-otlp'
 
@@ -131,6 +133,7 @@ export class UniverLoopbackPlugin extends BasePlugin {
 	private seq: Promise<unknown> = Promise.resolve()
 
 	constructor(
+		private readonly univer: UniverPlugin,
 		private readonly llm: LLM,
 		private readonly otlp: Otlp,
 		private readonly workbooks: UniverWorkbooksPlugin,
@@ -140,6 +143,12 @@ export class UniverLoopbackPlugin extends BasePlugin {
 
 	override async init(): Promise<void> {
 		this.ctx.effects.defer(() => this.engine.dispose())
+		try {
+			const off = this.univer.provideCapability(UNIVER_CAP_LOOPBACK, () => ({ available: true }))
+			this.ctx.effects.defer(off)
+		} catch {
+			// Best-effort; capability surface is optional for minimal hosts.
+		}
 		this.registerHttp()
 		this.registerRpc()
 	}
@@ -349,7 +358,25 @@ export class UniverLoopbackPlugin extends BasePlugin {
 
 					if (!loopRes.ok) {
 						rootSpan.setStatus({ code: 2, message: loopRes.error })
-						return { ok: false, runId, error: loopRes.error }
+						return {
+							ok: false,
+							runId,
+							error: loopRes.error,
+							debug: {
+								rounds: loopRes.rounds,
+								toolCalls: loopRes.stats.toolCalls,
+								readCalls: loopRes.stats.readCalls,
+								toolErrors: loopRes.stats.toolErrors,
+								lastReadTool: String(loopRes.stats.lastReadTool ?? ''),
+								lastWriteTool: String(loopRes.stats.lastWriteTool ?? ''),
+								lastVerifyTool: String(loopRes.stats.lastVerifyTool ?? ''),
+								lastErrorTool: String(loopRes.stats.lastErrorTool ?? ''),
+								lastReadSeq: loopRes.stats.lastReadSeq,
+								lastWriteSeq: loopRes.stats.lastWriteSeq,
+								lastVerifySeq: loopRes.stats.lastVerifySeq,
+								lastErrorSeq: loopRes.stats.lastErrorSeq,
+							},
+						}
 					}
 
 					const nextJson = loopRes.nextJson

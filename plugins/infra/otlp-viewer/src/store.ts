@@ -1,8 +1,8 @@
 import { DuckDBAppender, DuckDBConnection, DuckDBInstance, type DuckDBValue } from '@duckdb/node-api'
 
 import type { OtlpAttributes, OtlpLogRecordInput, OtlpMetricPointInput, OtlpSignal, OtlpSpanInput, OtlpTapMeta } from 'pluxel-plugin-otlp'
-import type { OtlpViewerFieldFilter, OtlpViewerFilterOp } from './rpc'
 import type { OtlpViewerConfig } from './config'
+import type { OtlpViewerFieldFilter, OtlpViewerFilterOp, OtlpViewerListOptions } from './protocol'
 
 export type OtlpViewerStoreStats = {
 	enabled: boolean
@@ -237,19 +237,7 @@ export class OtlpViewerDuckDbStore {
 
 	async list(
 		signal: OtlpSignal,
-		opts: {
-			q?: string
-			callerId?: string
-			fromTsMs?: number
-			toTsMs?: number
-			limit?: number
-			offset?: number
-			level?: string
-			status?: string
-			name?: string
-			metricType?: string
-			filters?: readonly OtlpViewerFieldFilter[]
-		},
+		opts: OtlpViewerListOptions,
 	): Promise<{ total: number; rows: Record<string, unknown>[] }> {
 		const conn = this.requireConn()
 		const limit = clampInt(opts.limit ?? 200, 1, 2000)
@@ -355,17 +343,7 @@ export class OtlpViewerDuckDbStore {
 		return { total, rows: rows.map((r) => jsonSafeRow(r)) }
 	}
 
-	async listTraces(opts: {
-		q?: string
-		callerId?: string
-		fromTsMs?: number
-		toTsMs?: number
-		limit?: number
-		offset?: number
-		status?: string
-		name?: string
-		filters?: readonly OtlpViewerFieldFilter[]
-	}): Promise<{ total: number; rows: OtlpViewerTraceSummaryRow[] }> {
+	async listTraces(opts: OtlpViewerListOptions): Promise<{ total: number; rows: OtlpViewerTraceSummaryRow[] }> {
 		const conn = this.requireConn()
 		const limit = clampInt(opts.limit ?? 200, 1, 1000)
 		const offset = clampInt(opts.offset ?? 0, 0, 10_000_000)
@@ -549,17 +527,7 @@ export class OtlpViewerDuckDbStore {
 
 	async facetKeys(
 		signal: OtlpSignal,
-		opts: {
-			q?: string
-			callerId?: string
-			fromTsMs?: number
-			toTsMs?: number
-			level?: string
-			status?: string
-			name?: string
-			metricType?: string
-			filters?: readonly OtlpViewerFieldFilter[]
-		},
+		opts: OtlpViewerListOptions,
 		limits?: { scanRows?: number; limitKeys?: number },
 	): Promise<{ keys: Array<{ key: string; n: number }> }> {
 		const conn = this.requireConn()
@@ -671,17 +639,7 @@ export class OtlpViewerDuckDbStore {
 	async facetValues(
 		signal: OtlpSignal,
 		key: string,
-		opts: {
-			q?: string
-			callerId?: string
-			fromTsMs?: number
-			toTsMs?: number
-			level?: string
-			status?: string
-			name?: string
-			metricType?: string
-			filters?: readonly OtlpViewerFieldFilter[]
-		},
+		opts: OtlpViewerListOptions,
 		limits?: { scanRows?: number; limitValues?: number },
 	): Promise<{ key: string; values: Array<{ value: string; type: string; n: number }> }> {
 		const conn = this.requireConn()

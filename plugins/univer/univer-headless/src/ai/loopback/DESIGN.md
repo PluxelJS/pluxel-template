@@ -39,7 +39,7 @@ The kernel **does not** accept `mode/maxRounds/toolPolicy/limits/contract` from 
    - Choose `current`, `readScopes`, `writeScopes`.
 
 2) **Build Environment**
-   - Create toolset (all MCP groups).
+   - Create toolset (minimal MCP groups by default; add structure/style only when instruction suggests it).
    - Build tool index text.
    - Prepare loop limits for bootstrap preview.
 
@@ -62,11 +62,14 @@ The kernel **does not** accept `mode/maxRounds/toolPolicy/limits/contract` from 
 ## 4. Policy (Fixed)
 
 This repo intentionally fixes these to avoid drift across UI/service versions:
-- `toolGroups`: `core,data,sheet,structure,style`
-- `maxStepsTotal`: 80
-- `maxAttempts`: 2
-- `maxStepsPerAttempt`: 40
+- Tool groups: base `core,data,sheet` (auto-add `structure`/`style` when needed)
+- Default budgets: `maxStepsTotal=80`, `maxAttempts=2`, `maxStepsPerAttempt=40`
+- Auto bump (safe heuristic): for "data work" tasks with already-narrow scopes, budgets may increase (e.g. `maxStepsTotal=120`)
+- Dev override: `UNIVER_LOOPBACK_MAX_STEPS_TOTAL=120`
 - QA threshold: `confidence >= 0.7`
+- Optional dev switches:
+  - `UNIVER_LOOPBACK_PROMPT=full` (default is compact)
+  - `UNIVER_LOOPBACK_QA=off` (default is auto)
 
 ---
 

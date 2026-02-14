@@ -3,7 +3,10 @@ import type { A1Notation, SheetId, UniverRange, WorkbookId } from './primitives'
 export const UNIVER_AI_SSE_NS = 'univer:ai' as const
 
 export const UNIVER_AI_DEFAULT_CONTRACT_LIMITS = {
-	maxChanges: 24,
+	// Each write-style tool call generally consumes 1 "change". Default is sized to allow
+	// a few iterations while still preventing runaway edits; prefer batching writes with
+	// set_ranges_data to keep changes low.
+	maxChanges: 48,
 	maxOps: 4000,
 } as const
 

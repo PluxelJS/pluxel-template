@@ -188,8 +188,8 @@ RPC 仍保留用于开发/短任务（同一个 handler 逻辑）。
 - 额外加入 **DSPy 风格的 “Editor + QA Evaluator” 分离**：当模型宣称 done 且满足基本不变量时，会运行一个严格 QA（可用 *只读工具* 做最小 spot-check），低置信度则反馈重试
 - 执行策略由后端固定（不暴露前端 knobs）：
   - `maxAttempts=2`
-  - `maxStepsPerAttempt=40`
-  - `maxStepsTotal=80`（硬上限）
+  - `maxStepsPerAttempt=40`（默认；可能按任务轻微上调）
+  - `maxStepsTotal=80`（默认硬上限；可能按任务轻微上调，或用环境变量覆盖）
 - 每次 attempt 都会产出结构化 **span events + metrics**（attempt、steps 上限、读写/错误/验证状态），确保链路 **可观测**
 
 #### (A) system prompt 的结构化“政策”
@@ -319,8 +319,8 @@ RPC 仍保留用于开发/短任务（同一个 handler 逻辑）。
 - `scopes.write`：A1 列表（写入权限范围；默认只读不下发 writeScopes；一旦下发则 **后端硬限制**，out-of-scope 写入会被拒绝）
 - `scopes.current`：默认范围（用于默认 sheet 推断与 tool 的默认 sheet；当前实现使用“当前工作表整表 A1”）
 - `contexts.selections`：仅包含“显式添加的情境 selection”，携带 `display` 预览矩阵
-- Loopback 运行策略由后端固定（不暴露前端 knobs），并始终启用严格的读后写验证与 QA 检查
-- 预览裁剪由后端控制（默认 40x16；对“数据清洗/汇总”等场景会自动放大到 80x24），前端的 `contexts.selections[].selection.display` 仍会被优先利用以减少首轮 reads
+- Loopback 运行策略由后端固定（不暴露前端 knobs），并始终启用严格的“写后验证”纪律；QA 默认按需触发（可通过环境变量关闭）
+- 预览/读取裁剪由后端控制（默认 40x16；对“数据清洗/汇总”等场景会自动放大到 80x24），前端的 `contexts.selections[].selection.display` 仍会被优先利用以减少首轮 reads
 
 ### 5.2 工具错误返回的 hint
 

@@ -1,3 +1,5 @@
+import { clampInt } from './limits'
+
 function truncateText(input: unknown, maxChars: number) {
 	const s = String(input ?? '')
 	if (s.length <= maxChars) return s
@@ -89,11 +91,6 @@ export function sanitizeToolPayload(input: unknown) {
 		out[k] = v
 	}
 	return out
-}
-
-function clampInt(n: unknown, min: number, max: number) {
-	const v = typeof n === 'number' && Number.isFinite(n) ? n : min
-	return Math.max(min, Math.min(max, Math.floor(v)))
 }
 
 function escapeCellText(input: string, maxChars: number) {

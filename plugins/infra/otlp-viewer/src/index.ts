@@ -3,6 +3,7 @@ import { OtlpHub } from 'pluxel-plugin-otlp'
 import { OtlpViewerRpc } from './rpc'
 import { OtlpViewerConfigSchema, type OtlpViewerConfig } from './config'
 import { OtlpViewerDuckDbStore } from './store'
+import { registerOtlpViewerMcpHttp } from './mcp'
 
 @Plugin({ name: 'OtlpViewer', type: 'service' })
 export class OtlpViewer extends BasePlugin {
@@ -33,6 +34,15 @@ export class OtlpViewer extends BasePlugin {
 			}
 		} else {
 			this.store = null
+		}
+
+		if (this.config.mcp?.enabled) {
+			try {
+				const unmount = registerOtlpViewerMcpHttp(this.ctx, () => this.store, { basePath: this.config.mcp.basePath })
+				this.ctx.effects.defer(unmount)
+			} catch (error) {
+				this.ctx.logger?.warn?.('[otlp-viewer] MCP server registration skipped', { error })
+			}
 		}
 
 		const hmr = (this.ctx.config as any)?.hmrService as { entries?: unknown } | undefined

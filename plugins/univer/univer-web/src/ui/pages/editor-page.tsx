@@ -16,6 +16,7 @@ import { parsePluginsRemove, parsePluginsSnapshot, parsePluginsUpsert } from '..
 import { createUniverRuntime, type UniverRuntime } from '../univer/runtime'
 import {
 	UNIVER_CAP_AI,
+	UNIVER_CAP_LOOPBACK,
 	UNIVER_PLUGINS_SSE_NS,
 	type UniverAiCapability,
 	type UniverCapabilitiesSnapshot,
@@ -112,18 +113,33 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 
 	const [univerCaps, setUniverCaps] = useState<UniverCapabilitiesSnapshot | null>(null)
 	const [aiCaps, setAiCaps] = useState<UniverAiCapability | null>(null)
-	const aiEntryEnabled = Boolean(univerLoopbackRpc && aiCaps?.available)
+	const [loopbackAvailable, setLoopbackAvailable] = useState<boolean | null>(null)
+	const aiEntryEnabled = Boolean(loopbackAvailable ?? univerLoopbackRpc)
 
 	const loopbackBackend = useMemo<LoopbackBackend | null>(() => {
-		if (!univerLoopbackRpc) return null
 		// Prefer HTTP for long-running LLM tasks (RPC client may have short timeouts).
 		return createHttpLoopbackBackend()
-	}, [univerLoopbackRpc])
+	}, [])
+
+	const decodeLoopbackAvailability = useCallback(
+		(snap: UniverCapabilitiesSnapshot): boolean | null => {
+			const raw = snap.items[UNIVER_CAP_LOOPBACK]
+			if (!raw) return null
+			if (!raw.ok) return null
+			const value = (raw as any).value as unknown
+			if (typeof value === 'boolean') return value
+			if (!value || typeof value !== 'object') return null
+			if (typeof (value as any).available === 'boolean') return Boolean((value as any).available)
+			return null
+		},
+		[],
+	)
 
 	useEffect(() => {
 		if (!univerRpc) {
 			setUniverCaps(null)
 			setAiCaps(null)
+			setLoopbackAvailable(null)
 			return
 		}
 
@@ -134,8 +150,13 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 				if (!disposed) setUniverCaps(snap)
 				const caps = decodeAiCapability(snap)
 				if (!disposed) setAiCaps(caps)
+				const loopback = decodeLoopbackAvailability(snap)
+				if (!disposed) setLoopbackAvailable(loopback)
 			} catch (err) {
-				if (!disposed) setAiCaps({ available: false, reason: rpcErrorMessage(err, 'AI capabilities 失败') })
+				if (!disposed) {
+					setAiCaps({ available: false, reason: rpcErrorMessage(err, 'AI capabilities 失败') })
+					setLoopbackAvailable(null)
+				}
 			}
 		}
 
@@ -145,7 +166,7 @@ export function UniverEditorPage({ ctx }: { ctx: PluginExtensionContext }) {
 			disposed = true
 			window.clearInterval(timer)
 		}
-	}, [decodeAiCapability, univerRpc])
+	}, [decodeAiCapability, decodeLoopbackAvailability, univerRpc])
 
 	const saveStateRef = useRef<SaveState>('idle')
 	useEffect(() => {

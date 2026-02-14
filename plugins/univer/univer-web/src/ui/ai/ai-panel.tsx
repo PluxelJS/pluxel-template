@@ -111,6 +111,14 @@ export function AiPanel(props: AiPanelProps) {
 							<Muted>默认整表可读；可在表格里右键“AI → 读取范围 …”限制。</Muted>
 						</Space>
 					</div>
+					{ctrl.readScopeMode === 'ranges' && ctrl.pinnedReadScopes?.length ? (
+						<div style={{ marginTop: 4 }}>
+							<Muted>
+								运行时会自动把情境范围加入可读范围（只读）：{ctrl.pinnedReadScopes.slice(0, 3).join(', ')}
+								{ctrl.pinnedReadScopes.length > 3 ? ` 等 ${ctrl.pinnedReadScopes.length} 项` : ''}
+							</Muted>
+						</div>
+					) : null}
 
 					{ctrl.readScopes.length ? (
 						<div className="univer-ai-context__row" style={{ marginTop: 6, flexWrap: 'wrap' }}>

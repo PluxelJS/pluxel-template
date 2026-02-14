@@ -26,18 +26,6 @@ export function rangeWithin(a: UniverRange, b: UniverRange) {
 	return a.startRow >= b.startRow && a.endRow <= b.endRow && a.startCol >= b.startCol && a.endCol <= b.endCol
 }
 
-export function scopeListForSheet(scopes: A1Scope[], sheetId?: string, sheetName?: string): A1Scope[] {
-	if (sheetId) {
-		const byId = scopes.filter((s) => s.sheetId && s.sheetId === sheetId)
-		if (byId.length) return byId
-	}
-	if (sheetName) {
-		const byName = scopes.filter((s) => s.sheetName && s.sheetName === sheetName)
-		if (byName.length) return byName
-	}
-	return scopes.filter((s) => !s.sheetName)
-}
-
 export function buildSheetMaps(bridge: UniverAiBridge) {
 	const sheetIdToName = new Map<string, string>()
 	const sheetNameToId = new Map<string, string>()
@@ -47,6 +35,33 @@ export function buildSheetMaps(bridge: UniverAiBridge) {
 			if (!s.sheetId || !s.name) continue
 			sheetIdToName.set(String(s.sheetId), String(s.name))
 			sheetNameToId.set(String(s.name), String(s.sheetId))
+		}
+	} catch {
+		// best-effort only
+	}
+
+	// Fallback: at least seed the active sheet mapping. This is important because the LLM
+	// may occasionally invent a sheet name like "Sheet" even when the real active sheet is "Sheet1";
+	// having a default sheetId+name pair lets permission checks match by sheetId and prevents false-denies.
+	try {
+		const wb: any = (bridge as any).workbook
+		const active: any = wb?.getActiveSheet?.()
+		const activeId =
+			typeof active?.getSheetId === 'function'
+				? String(active.getSheetId())
+				: typeof active?.getId === 'function'
+					? String(active.getId())
+					: ''
+		const activeNameRaw =
+			typeof active?.getName === 'function'
+				? String(active.getName())
+				: typeof active?.getSheetName === 'function'
+					? String(active.getSheetName())
+					: ''
+		const activeName = activeNameRaw.trim()
+		if (activeId && activeName) {
+			if (!sheetIdToName.has(activeId)) sheetIdToName.set(activeId, activeName)
+			if (!sheetNameToId.has(activeName)) sheetNameToId.set(activeName, activeId)
 		}
 	} catch {
 		// best-effort only
@@ -61,4 +76,3 @@ export function attachSheetIds(scopes: A1Scope[], sheetNameToId: Map<string, str
 		if (sid) s.sheetId = sid
 	}
 }
-

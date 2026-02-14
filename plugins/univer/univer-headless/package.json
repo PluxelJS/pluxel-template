@@ -12,7 +12,7 @@
 		},
 		"./protocol": {
 			"@pluxel/hmr": "./src/protocol/index.ts",
-			"default": "./dist/protocol/index.mjs"
+			"default": "./dist/protocol.mjs"
 		},
 		"./package.json": "./package.json"
 	},
@@ -37,7 +37,7 @@
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
-			"./protocol": "./dist/protocol/index.mjs",
+			"./protocol": "./dist/protocol.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

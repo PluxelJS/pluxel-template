@@ -52,6 +52,11 @@ export type UniverToolSetRangeDataInput = Readonly<
 
 export type UniverToolSetRangeDataResult = Readonly<{
 	updatedCells: number
+	/**
+	 * Optional non-fatal normalization warning, e.g. when the tool had to shrink the written range
+	 * due to an undersized matrix.
+	 */
+	warning?: string
 	readback?: UniverToolGetRangesDataResult
 }>
 
@@ -68,6 +73,8 @@ export type UniverToolSetRangesDataInput = Readonly<{
 export type UniverToolSetRangesDataResult = Readonly<{
 	updates: number
 	updatedCells: number
+	/** Optional per-update normalization warnings. */
+	warnings?: ReadonlyArray<string>
 	readback?: UniverToolGetRangesDataResult
 }>
 

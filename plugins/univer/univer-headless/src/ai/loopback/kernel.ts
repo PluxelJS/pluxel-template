@@ -18,12 +18,30 @@ import { createUniverLoopbackEditorProgram, createUniverLoopbackQualityProgram, 
 import { buildUniverLoopbackEditorDefinition } from './prompt'
 import { formatLoopbackAxError } from './ax-errors'
 import {
-	UNIVER_LOOPBACK_MAX_ATTEMPTS,
-	UNIVER_LOOPBACK_MAX_STEPS_PER_ATTEMPT,
-	UNIVER_LOOPBACK_MAX_STEPS_TOTAL,
-	UNIVER_LOOPBACK_TOOL_GROUPS,
 	resolveToolIndexMode,
+	resolveUniverLoopbackBudgets,
+	resolveUniverLoopbackToolGroups,
 } from './policy'
+
+function resolvePromptMode(): 'compact' | 'full' {
+	try {
+		const v = String((process as any)?.env?.UNIVER_LOOPBACK_PROMPT ?? '').trim().toLowerCase()
+		return v === 'full' ? 'full' : 'compact'
+	} catch {
+		return 'compact'
+	}
+}
+
+function resolveQaMode(): 'off' | 'auto' | 'always' {
+	try {
+		const v = String((process as any)?.env?.UNIVER_LOOPBACK_QA ?? '').trim().toLowerCase()
+		if (v === 'off' || v === '0' || v === 'false') return 'off'
+		if (v === 'always') return 'always'
+		return 'auto'
+	} catch {
+		return 'auto'
+	}
+}
 
 export async function runUniverAxLoopback(
 	ai: AxAI,
@@ -46,7 +64,7 @@ export async function runUniverAxLoopback(
 		if (!parsed.sheetName) throw new Error('[univer] writeScopes must be sheet-qualified (e.g. Sheet1!A1:B10)')
 	}
 
-	const groups = UNIVER_LOOPBACK_TOOL_GROUPS
+	const groups = resolveUniverLoopbackToolGroups(String(input.instruction ?? ''))
 
 	const effectiveLimits = resolveLoopLimits({
 		limits: undefined,
@@ -58,11 +76,13 @@ export async function runUniverAxLoopback(
 		current,
 		readScopes: read,
 		writeScopes: write,
+		viewLimits: effectiveLimits,
+		groups,
 		otel: opts?.otel,
 	})
 
 	const toolIndexMode: UniverToolIndexMode = resolveToolIndexMode(groups.length)
-	const toolIndexText = buildMcpToolIndexText(groups, { mode: toolIndexMode, includePresets: true })
+	const toolIndexText = buildMcpToolIndexText(groups, { mode: toolIndexMode, includePresets: false })
 	const contextPackScopes = (() => {
 		const picked: string[] = []
 		const seen = new Set<string>()
@@ -83,6 +103,13 @@ export async function runUniverAxLoopback(
 
 	const tracer = opts?.otel?.tracer
 	const instruments = createUniverAxOtelInstruments(opts?.otel?.meter)
+	const budgets = resolveUniverLoopbackBudgets({
+		instruction: String(input.instruction ?? ''),
+		readScopesCount: read.length,
+		writeScopesCount: write.length,
+	})
+	const promptMode = resolvePromptMode()
+	const qaMode = resolveQaMode()
 
 	let toolCallsAtStart = stats.toolCalls
 	const makeErrorResult = (error: unknown, span?: Span): UniverAxLoopbackResult => {
@@ -110,30 +137,33 @@ export async function runUniverAxLoopback(
 			effectiveLimits,
 			input.contexts?.selections,
 		)
-		// Exclude bootstrap reads (context pack) from "rounds" accounting.
-		toolCallsAtStart = stats.toolCalls
+			// Exclude bootstrap reads (context pack) from "rounds" accounting.
+			toolCallsAtStart = stats.toolCalls
 
-		const definition = buildUniverLoopbackEditorDefinition({
-			contextPackText,
-			toolGroups: groups,
-			toolIndexText,
-			readScopes: read,
-			writeScopes: write,
-		})
-		const editor = createUniverLoopbackEditorProgram({ definition, tools })
-		const stepHooks = createUniverLoopbackStepHooks(tracer)
+			const definition = buildUniverLoopbackEditorDefinition({
+				contextPackText,
+				toolGroups: groups,
+				toolIndexText: promptMode === 'full' ? toolIndexText : '',
+				readScopes: read,
+				writeScopes: write,
+				budgets,
+				mode: promptMode,
+			})
+			const editor = createUniverLoopbackEditorProgram({ definition, tools })
+			const stepHooks = createUniverLoopbackStepHooks(tracer)
 
 		const readOnlyTools = tools.filter((t) => classifyToolKind(String(t.name ?? '')) !== 'write')
-		const qualityCheck = createUniverLoopbackQualityProgram({ tools: readOnlyTools })
+		const qualityCheck = qaMode === 'off' ? undefined : createUniverLoopbackQualityProgram({ tools: readOnlyTools })
 
 		const out = await runUniverLoopbackAttemptFlow(
 			ai,
 			{ instruction: String(input.instruction ?? '').trim(), readScopes: read, writeScopes: write, current },
 			{
-				maxAttempts: UNIVER_LOOPBACK_MAX_ATTEMPTS,
-				maxStepsPerAttempt: UNIVER_LOOPBACK_MAX_STEPS_PER_ATTEMPT,
+				maxAttempts: budgets.maxAttempts,
+				maxStepsPerAttempt: budgets.maxStepsPerAttempt,
 				editor,
 				qualityCheck,
+				qualityCheckMode: qaMode,
 				stats,
 				stepHooks,
 				tracer,
@@ -145,7 +175,7 @@ export async function runUniverAxLoopback(
 		if (!out.done) {
 			return {
 				ok: false,
-				error: `[univer] loopback did not complete within step limit (attempts=${out.attempts}, maxSteps=${UNIVER_LOOPBACK_MAX_STEPS_TOTAL})`,
+				error: `[univer] loopback unfinished (attempts=${out.attempts}/${budgets.maxAttempts}, maxStepsPerAttempt=${budgets.maxStepsPerAttempt}). Try narrowing read/write scopes or splitting the instruction.`,
 				stats,
 				rounds,
 			}
@@ -166,9 +196,9 @@ export async function runUniverAxLoopback(
 		{
 			attributes: {
 				...(opts?.otel?.attributes ?? {}),
-				'univer.max_steps_total': UNIVER_LOOPBACK_MAX_STEPS_TOTAL,
-				'univer.max_attempts': UNIVER_LOOPBACK_MAX_ATTEMPTS,
-				'univer.max_steps_per_attempt': UNIVER_LOOPBACK_MAX_STEPS_PER_ATTEMPT,
+				'univer.max_steps_total': budgets.maxStepsTotal,
+				'univer.max_attempts': budgets.maxAttempts,
+				'univer.max_steps_per_attempt': budgets.maxStepsPerAttempt,
 				'univer.tools.count': tools.length,
 				'univer.tool_index_mode': toolIndexMode,
 				'univer.groups': groups.join(','),

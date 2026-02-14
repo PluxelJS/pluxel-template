@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@pluxel/univer-headless": "workspace:^",
+		"pluxel-plugin-univer": "workspace:^",
 		"pluxel-plugin-otlp": "workspace:^",
 		"pluxel-plugin-llm-hub": "workspace:^",
 		"pluxel-plugin-univer-workbooks": "workspace:^"

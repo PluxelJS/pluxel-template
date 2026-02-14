@@ -16,13 +16,13 @@ export const MCP_TOOL_CATALOG: ReadonlyArray<McpToolCatalogEntry> = [
 	{
 		name: 'set_range_data',
 		description:
-			'Write a dense 2D matrix into a range. Provide {a1:"Sheet1!A1:B1"} (sheet-qualified; always include the sheet name). Matrix size must exactly match the target range size; for formulas, use per-cell strings. Optional readback verifies results after the write: set_range_data({..., readback:{includeDisplay?:true}}) -> readback.byA1[...].',
+			'Write a 2D matrix into a range. Provide {a1:"Sheet1!A1:B1"} (sheet-qualified; always include the sheet name). Prefer a dense matrix that exactly matches the target range size; for formulas, use per-cell strings. If the matrix is smaller than the target, the tool will write only the top-left subrange (and return a warning) to avoid hard failures. Optional readback verifies results after the write: set_range_data({..., readback:{includeDisplay?:true}}) -> readback.byA1[...].',
 		group: 'core',
 	},
 	{
 		name: 'set_ranges_data',
 		description:
-			'Batch write multiple ranges in one call (preferred). Each update item must provide {a1:"Sheet1!A1:B1"} (sheet-qualified) and a dense matrix matching that range size. Optional readback verifies in the same call: set_ranges_data({updates:[...], readback:{ /* defaults to updated ranges */ }}) -> readback.byA1.',
+			'Batch write multiple ranges in one call (preferred). Each update item must provide {a1:"Sheet1!A1:B1"} (sheet-qualified) and preferably a dense matrix matching that range size. If a matrix is smaller than its target, the tool will write only the top-left subrange and return a warning (per update) to avoid hard failures. Optional readback verifies in the same call: set_ranges_data({updates:[...], readback:{ /* defaults to updated ranges */ }}) -> readback.byA1.',
 		group: 'core',
 	},
 	{

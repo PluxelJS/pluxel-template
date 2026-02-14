@@ -48,7 +48,7 @@ export function hintForToolError(toolName: string, message: string) {
 		return 'Read was outside the allowed scopes. Use smaller, targeted A1 ranges strictly inside the provided readScopes.'
 	}
 	if (lower.includes('write sheet not allowed')) {
-		return 'You can only write within writeScopes. Restrict edits to the allowed A1 scopes; if the requested edit is outside, ask the user to expand scope.'
+		return 'You can only write within writeScopes. Use ONLY sheet names that appear in writeScopes/readScopes (do not invent names like "Sheet"). Restrict edits to the allowed A1 scopes; if the requested edit is outside, ask the user to expand scope.'
 	}
 	if (lower.includes('write range out of scope')) {
 		return 'Write was outside the allowed scopes. Narrow the target range or adjust A1 to stay inside writeScopes.'
@@ -60,8 +60,8 @@ export function hintForToolError(toolName: string, message: string) {
 	if (lower.includes('set_range_data invalid values') || lower.includes('invalid values matrix')) {
 		const dim = m.match(/expected\s+(\d+x\d+)/i)?.[1]
 		return dim
-			? `set_range_data requires a dense 2D matrix exactly matching the target range size (${dim}). For formulas, provide a full ${dim} matrix (each cell can be its own formula string).`
-			: 'set_range_data requires a dense 2D matrix exactly matching the target range size (rows x cols). For formulas, provide a full per-cell formula matrix.'
+			? `set_range_data requires a dense 2D matrix exactly matching the target range size (${dim}). A1 ranges are inclusive (e.g. Sheet1!A1:D4 is 4x4). If you accidentally included an extra header/total row, either expand the A1 range or remove that row from values. For formulas, provide a full ${dim} matrix (each cell can be its own formula string).`
+			: 'set_range_data requires a dense 2D matrix exactly matching the target range size (rows x cols). A1 ranges are inclusive; double-check off-by-one. For formulas, provide a full per-cell formula matrix.'
 	}
 	if (lower.includes('fill_formula')) {
 		return 'fill_formula requires a formula string starting with "=". Use $ to lock rows/cols that should not shift, or use set_range_data with an explicit matrix for non-uniform formulas.'

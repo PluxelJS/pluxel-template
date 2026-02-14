@@ -6,6 +6,18 @@ export const OtlpViewerRetentionCfgSchema = v.object({
 	maxMetrics: v.pipe(v.optional(v.number(), 500_000), f.formMeta({ label: 'Max metric points' }), f.numberMeta({ min: 0, step: 1000 })),
 })
 
+export const OtlpViewerMcpCfgSchema = v.object({
+	enabled: v.pipe(
+		v.optional(v.boolean(), true),
+		f.formMeta({ label: 'Enable MCP', description: 'Expose an MCP server (HTTP) for querying viewer data from LLM/agents.' }),
+		f.booleanMeta({ control: 'switch' }),
+	),
+	basePath: v.pipe(
+		v.optional(v.string(), '/api/otlp-viewer/mcp'),
+		f.formMeta({ label: 'MCP base path', description: 'HTTP route mounted in the HMR host (Streamable HTTP transport).' }),
+	),
+})
+
 export const OtlpViewerConfigSchema = v.object({
 	enabled: v.pipe(
 		v.optional(v.boolean(), true),
@@ -34,6 +46,10 @@ export const OtlpViewerConfigSchema = v.object({
 		v.optional(v.number(), 50_000),
 		f.formMeta({ label: 'Max pending rows', description: 'Bound in-memory pending rows per table (0 = unlimited; not recommended).' }),
 		f.numberMeta({ min: 0, step: 1000 }),
+	),
+	mcp: v.pipe(
+		v.optional(OtlpViewerMcpCfgSchema, { enabled: true, basePath: '/api/otlp-viewer/mcp' }),
+		f.formMeta({ label: 'MCP', description: 'MCP server settings (for LLM/agents).' }),
 	),
 })
 

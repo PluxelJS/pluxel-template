@@ -287,6 +287,11 @@ export function useAiPanelController(props: AiPanelProps) {
 		return uniqueA1(readStoreState.items.map((it) => it.a1))
 	}, [currentSheetWholeA1, currentWorkbookWholeA1, devReadScopes, pinnedSelections, props.dev, readScopeMode, readStoreState.items])
 
+	const pinnedReadScopes = useMemo(() => {
+		const list = pinnedSelections.map((s) => selectionOrigA1(s)).filter(Boolean)
+		return uniqueA1(list)
+	}, [pinnedSelections])
+
 	const removeWriteScope = useCallback((a1: string) => {
 		if (props.dev) return
 		removeUniverAiWriteScope(workbookId, a1)
@@ -365,20 +370,72 @@ export function useAiPanelController(props: AiPanelProps) {
 				return
 			}
 
+			const rt = getRuntime()
+			const sheetWholeNow = rt ? getSheetWholeA1({ api: rt.api }) : currentSheetWholeA1
+			const workbookWholeNow = rt ? getWorkbookWholeA1List({ api: rt.api, maxSheets: 64 }) : currentWorkbookWholeA1
+
 			if (!pinnedSelections.length) {
 				setWarn('未添加 AI 情境：仍可运行，但模型首轮缺少你指定的上下文预览。建议右键“AI → 添加到 AI 情境”。')
 			}
 
-			const readScopes = effectiveReadScopes.length ? effectiveReadScopes : (currentSheetWholeA1?.a1 ? [currentSheetWholeA1.a1] : [])
+			const baseReadScopes =
+				readScopeMode === 'workbook'
+					? uniqueA1(workbookWholeNow.map((s) => s.a1))
+					: readScopeMode === 'sheet'
+						? sheetWholeNow?.a1
+							? [sheetWholeNow.a1]
+							: []
+						: effectiveReadScopes.length
+							? effectiveReadScopes
+							: sheetWholeNow?.a1
+								? [sheetWholeNow.a1]
+								: []
+			// Guarantee: pinned selections are always readable (even if the user tightened readScopes elsewhere).
+			const readScopes = uniqueA1([...baseReadScopes, ...pinnedReadScopes])
 			if (!readScopes.length) {
 				setWarn('无法获取读取范围（readScopes）。请切换到有效工作表后重试。')
 				return
 			}
-			const current = currentSheetWholeA1?.a1 ?? readScopes[0]!
-			const writeScopes = effectiveWriteScopes
+			const current = sheetWholeNow?.a1 ?? readScopes[0]!
+			const writeScopes =
+				writeScopeMode === 'none'
+					? []
+					: writeScopeMode === 'workbook'
+						? uniqueA1(workbookWholeNow.map((s) => s.a1))
+						: writeScopeMode === 'sheet'
+							? sheetWholeNow?.a1
+								? [sheetWholeNow.a1]
+								: []
+							: effectiveWriteScopes
+
+			// Preflight: if pinned selections are on other sheets but write scope doesn't include them,
+			// the model will likely attempt writes there and hit "write sheet not allowed".
+			if (pinnedSelections.length && writeScopeMode !== 'none') {
+				const pinnedSheetIds = new Set(
+					pinnedSelections
+						.map((s) => (s.selection.sheetId ? String(s.selection.sheetId) : ''))
+						.filter(Boolean),
+				)
+				if (pinnedSheetIds.size) {
+					const allowed = new Set<string>()
+					if (writeScopeMode === 'sheet') {
+						if (sheetWholeNow?.sheetId) allowed.add(String(sheetWholeNow.sheetId))
+					} else if (writeScopeMode === 'workbook') {
+						for (const s of workbookWholeNow) if (s.sheetId) allowed.add(String(s.sheetId))
+					} else if (writeScopeMode === 'ranges' && !props.dev) {
+						for (const it of writeStoreState.items) if (it.sheetId) allowed.add(String(it.sheetId))
+					}
+					const missing = Array.from(pinnedSheetIds).filter((id) => !allowed.has(id))
+					if (missing.length) {
+						setWarn(
+							`情境包含其它工作表（${missing.length} 个），但当前写权限不包含这些表。若要写入这些情境，请切换“允许工作簿写”或把写入范围“添加情境/限制为情境”。`,
+						)
+					}
+				}
+			}
 
 			const assistantId = makeChatId()
-			const scopeHint = `read: ${readScopes.length ? readScopes.join(', ') : 'none'}\nwrite: ${
+			const scopeHint = `current: ${current}\nread: ${readScopes.length ? readScopes.join(', ') : 'none'}\nwrite: ${
 				writeScopes.length ? writeScopes.join(', ') : 'none'
 			}`
 				appendChat({
@@ -455,6 +512,7 @@ export function useAiPanelController(props: AiPanelProps) {
 			instruction,
 			setInstruction,
 			pinnedSelections,
+			pinnedReadScopes,
 			readScopeMode,
 			readScopes: effectiveReadScopes,
 			writeScopeMode,
@@ -487,7 +545,18 @@ function formatResult(res: UniverLoopbackRunResult) {
 		if (res.conflict) {
 			return `冲突：当前 rev=${res.conflict.currentRev}（请刷新后重试）\n${res.error}${res.runId ? `\nrunId=${res.runId}` : ''}`
 		}
-		return `失败：${res.error}${res.runId ? `\nrunId=${res.runId}` : ''}`
+		const debug = res.debug
+		const debugLines = debug
+			? [
+					`debug: rounds=${debug.rounds ?? '?'} toolCalls=${debug.toolCalls ?? '?'} readCalls=${debug.readCalls ?? '?'} errors=${debug.toolErrors ?? '?'}`,
+					(debug.lastReadTool || debug.lastWriteTool || debug.lastErrorTool || debug.lastVerifyTool
+						? `last: read=${debug.lastReadTool || '-'} write=${debug.lastWriteTool || '-'} verify=${debug.lastVerifyTool || '-'} error=${debug.lastErrorTool || '-'}`
+						: null),
+				]
+					.filter(Boolean)
+					.join('\n')
+			: null
+		return [`失败：${res.error}`, res.runId ? `runId=${res.runId}` : null, debugLines].filter(Boolean).join('\n')
 	}
 	const changed = res.newRev !== res.baseRev
 	const revLine = changed ? `已提交 rev ${res.baseRev} → ${res.newRev}` : `无变更（rev=${res.baseRev}）`

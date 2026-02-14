@@ -2,6 +2,7 @@ import type { UniverAiContext } from '@pluxel/univer-headless/protocol'
 import type { FUniver } from '@univerjs/core/facade'
 
 import { formatSheetNameForA1, rangeToA1 } from './a1'
+import { coerceSheets, unwrapSheetEntry } from './sheets-utils'
 
 export type UniverRangeRect = { startRow: number; startCol: number; endRow: number; endCol: number }
 
@@ -64,10 +65,20 @@ export function getWorkbookWholeA1List(input: {
 	const active: any = fWorkbook.getActiveSheet?.()
 	const activeId = typeof active?.getSheetId === 'function' ? String(active.getSheetId()) : ''
 
-	const rawSheets: any[] = Array.isArray(fWorkbook.getSheets?.()) ? fWorkbook.getSheets() : []
+	const rawSheets: any[] = coerceSheets(typeof fWorkbook.getSheets === 'function' ? fWorkbook.getSheets() : null)
 	const ids: string[] = []
 	for (const s of rawSheets) {
-		const id = typeof s?.getSheetId === 'function' ? String(s.getSheetId()) : typeof s?.getId === 'function' ? String(s.getId()) : ''
+		const sheet = unwrapSheetEntry(s)
+		const id =
+			typeof sheet?.getSheetId === 'function'
+				? String(sheet.getSheetId())
+				: typeof sheet?.getId === 'function'
+					? String(sheet.getId())
+					: typeof sheet?.sheetId === 'string'
+						? sheet.sheetId
+						: typeof sheet?.id === 'string'
+							? sheet.id
+							: ''
 		if (!id) continue
 		ids.push(id)
 	}

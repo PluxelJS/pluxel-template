@@ -154,7 +154,10 @@ class OtlpOtelSpan implements Span {
 	setStatus(status: SpanStatus): this {
 		if (this.ended) return this
 		this.status = status
-		if (status?.code === SpanStatusCode.ERROR && status.message) this.error = new Error(status.message)
+		// Preserve the original exception stack when `recordException()` was called earlier.
+		// Otherwise, we end up overwriting it with a synthetic Error created here, which is misleading
+		// in debuggers (stack points to setStatus instead of the real throw site).
+		if (status?.code === SpanStatusCode.ERROR && status.message && !this.error) this.error = new Error(status.message)
 		return this
 	}
 

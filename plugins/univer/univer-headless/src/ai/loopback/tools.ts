@@ -12,10 +12,23 @@ import { createMcpTools } from '../mcp'
 import type { McpCache, McpContext, McpStats } from '../mcp/context'
 import { UNIVER_AI_DEFAULT_CONTRACT_LIMITS } from '../../protocol'
 import { attachSheetIds, buildSheetMaps, normalizeA1List, rangeWithin, toScopes } from './scopes'
+import { scopesForRequest } from './permissions'
 import { wrapAxTool } from './tool-wrap'
 import type { UniverAxOtel } from './otel'
 import { createUniverAxOtelInstruments } from './otel'
+import type { UniverToolGroup } from '../../protocol'
 import { UNIVER_LOOPBACK_TOOL_GROUPS } from './policy'
+import { clampInt, parseEnvInt } from '../ints'
+
+function resolveContractLimits() {
+	const base = UNIVER_AI_DEFAULT_CONTRACT_LIMITS
+	const envMaxChanges = parseEnvInt('UNIVER_AI_MAX_CHANGES')
+	const envMaxOps = parseEnvInt('UNIVER_AI_MAX_OPS')
+	return {
+		maxChanges: clampInt(envMaxChanges ?? base.maxChanges, 1, 500),
+		maxOps: clampInt(envMaxOps ?? base.maxOps, 1, 200_000),
+	} as const
+}
 
 export type AxToolsResult = Readonly<{
 	tools: AxFunction[]
@@ -36,6 +49,10 @@ export function createUniverAxTools(
 		current?: string
 		readScopes: readonly string[]
 		writeScopes: readonly string[]
+		/** Limit the returned matrix size for read tools (get_range_data/get_ranges_data/search, etc.). */
+		viewLimits?: Readonly<{ maxRows: number; maxCols: number }>
+		/** Limit tool surface area by selecting only these MCP tool groups. */
+		groups?: readonly UniverToolGroup[]
 		otel?: UniverAxOtel
 	},
 ): AxToolsResult {
@@ -78,7 +95,17 @@ export function createUniverAxTools(
 	})()
 
 	const defaultSheetName = defaultSheetNameFromScopes ?? activeSheetName
-	const defaultSheetId = defaultSheetName ? sheetNameToId.get(defaultSheetName) : undefined
+	const activeSheetId = (() => {
+		try {
+			const wb = bridge.workbook
+			const active: any = wb?.getActiveSheet?.()
+			const id = typeof active?.getSheetId === 'function' ? String(active.getSheetId()) : ''
+			return id.trim() || undefined
+		} catch {
+			return undefined
+		}
+	})()
+	const defaultSheetId = (defaultSheetName ? sheetNameToId.get(defaultSheetName) : undefined) ?? activeSheetId
 
 	const allowedReadSheetIds = new Set(readScopes.map((s) => s.sheetId).filter(Boolean) as string[])
 	const allowedReadSheetNames = new Set(readScopes.map((s) => s.sheetName).filter(Boolean) as string[])
@@ -100,40 +127,7 @@ export function createUniverAxTools(
 		return parts.slice(0, 12).join(', ')
 	})()
 
-	const scopeListForSheetStrict = <T extends { sheetId?: string; sheetName?: string }>(
-		scopes: readonly T[],
-		sheetId?: string,
-		sheetName?: string,
-	): T[] => {
-		const sid = String(sheetId ?? '').trim()
-		const sname = String(sheetName ?? '').trim()
-		if (sid) {
-			const byId = scopes.filter((s) => s.sheetId && s.sheetId === sid)
-			if (byId.length) return byId
-		}
-		if (sname) {
-			const byName = scopes.filter((s) => s.sheetName && s.sheetName === sname)
-			if (byName.length) return byName
-		}
-		return []
-	}
-
-	const scopeListForRequest = <T extends { sheetId?: string; sheetName?: string } & { range: UniverRange }>(
-		scopes: readonly T[],
-		sheetId?: string,
-		sheetName?: string,
-	): T[] => {
-		const bySheet = scopeListForSheetStrict(scopes, sheetId, sheetName)
-		if (bySheet.length) return bySheet
-		const isDefault =
-			(!sheetId && !sheetName) ||
-			(!!defaultSheetId && !!sheetId && sheetId === defaultSheetId) ||
-			(!!defaultSheetName && !!sheetName && sheetName === defaultSheetName)
-		if (!isDefault) return []
-		return scopes.filter((s) => !s.sheetName)
-	}
-
-	const limits = UNIVER_AI_DEFAULT_CONTRACT_LIMITS
+	const limits = resolveContractLimits()
 	let changeCount = 0
 	const stats: McpStats = {
 		toolCalls: 0,
@@ -197,7 +191,9 @@ export function createUniverAxTools(
 
 	const checkCanChange = () => {
 		if (changeCount + 1 > limits.maxChanges) {
-			throw new Error(`[univer] changes exceed limit: ${changeCount + 1} > ${limits.maxChanges}`)
+			throw new Error(
+				`[univer] changes exceed limit: ${changeCount + 1} > ${limits.maxChanges}. Prefer batching writes with set_ranges_data (many updates in 1 change). If needed, increase UNIVER_AI_MAX_CHANGES.`,
+			)
 		}
 	}
 
@@ -205,7 +201,10 @@ export function createUniverAxTools(
 		const n = typeof ops === 'number' && Number.isFinite(ops) ? Math.floor(ops) : 0
 		if (n <= 0) return
 		const nextOps = stats.appliedOps + n
-		if (nextOps > limits.maxOps) throw new Error(`[univer] ops exceed limit: ${nextOps} > ${limits.maxOps}`)
+		if (nextOps > limits.maxOps)
+			throw new Error(
+				`[univer] ops exceed limit: ${nextOps} > ${limits.maxOps}. Reduce total written cells per run, prefer fewer/larger batch writes, or split the instruction. If needed, increase UNIVER_AI_MAX_OPS.`,
+			)
 	}
 
 	const bumpChange = () => {
@@ -218,11 +217,18 @@ export function createUniverAxTools(
 		const resolvedSheetName = sheetName ?? (!sheetId ? defaultSheetName : undefined)
 		const resolvedSheetId = sheetId ?? (!sheetId && resolvedSheetName ? sheetNameToId.get(resolvedSheetName) : undefined) ?? defaultSheetId
 
-		const scopes = scopeListForRequest(readScopes, resolvedSheetId, resolvedSheetName)
+		const scopes = scopesForRequest(readScopes, {
+			sheetId: resolvedSheetId,
+			sheetName: resolvedSheetName,
+			defaultSheetId,
+			defaultSheetName,
+			sheetIdToName,
+		})
 		if (!scopes.length) {
+			const requested = resolvedSheetName || resolvedSheetId || 'unknown'
 			throw new Error(
 				allowedReadSheetsLabel
-					? `[univer] read sheet not allowed (allowed sheets: ${allowedReadSheetsLabel})`
+					? `[univer] read sheet not allowed (requested: ${requested}; allowed sheets: ${allowedReadSheetsLabel})`
 					: '[univer] read sheet not allowed',
 			)
 		}
@@ -241,11 +247,18 @@ export function createUniverAxTools(
 		const resolvedSheetName = sheetName ?? (!sheetId ? defaultSheetName : undefined)
 		const resolvedSheetId = sheetId ?? (!sheetId && resolvedSheetName ? sheetNameToId.get(resolvedSheetName) : undefined) ?? defaultSheetId
 
-		const scopes = scopeListForRequest(writeScopes, resolvedSheetId, resolvedSheetName)
+		const scopes = scopesForRequest(writeScopes, {
+			sheetId: resolvedSheetId,
+			sheetName: resolvedSheetName,
+			defaultSheetId,
+			defaultSheetName,
+			sheetIdToName,
+		})
 		if (!scopes.length) {
+			const requested = resolvedSheetName || resolvedSheetId || 'unknown'
 			throw new Error(
 				allowedWriteSheetsLabel
-					? `[univer] write sheet not allowed (allowed sheets: ${allowedWriteSheetsLabel})`
+					? `[univer] write sheet not allowed (requested: ${requested}; allowed sheets: ${allowedWriteSheetsLabel})`
 					: '[univer] write sheet not allowed',
 			)
 		}
@@ -274,11 +287,18 @@ export function createUniverAxTools(
 			throw new Error('[univer] write sheet reference required (sheetId or sheetName)')
 		}
 
-		const scopes = scopeListForRequest(writeScopes, resolvedSheetId, resolvedSheetName)
+		const scopes = scopesForRequest(writeScopes, {
+			sheetId: resolvedSheetId,
+			sheetName: resolvedSheetName,
+			defaultSheetId,
+			defaultSheetName,
+			sheetIdToName,
+		})
 		if (!scopes.length) {
+			const requested = resolvedSheetName || resolvedSheetId || 'unknown'
 			throw new Error(
 				allowedWriteSheetsLabel
-					? `[univer] write sheet not allowed (allowed sheets: ${allowedWriteSheetsLabel})`
+					? `[univer] write sheet not allowed (requested: ${requested}; allowed sheets: ${allowedWriteSheetsLabel})`
 					: '[univer] write sheet not allowed',
 			)
 		}
@@ -294,8 +314,8 @@ export function createUniverAxTools(
 		defaultSheetId,
 		defaultSheetName,
 		viewLimits: {
-			maxRows: 40,
-			maxCols: 16,
+			maxRows: Math.max(1, Math.floor(opts.viewLimits?.maxRows ?? 40)),
+			maxCols: Math.max(1, Math.floor(opts.viewLimits?.maxCols ?? 16)),
 		},
 		limits,
 		stats,
@@ -309,9 +329,8 @@ export function createUniverAxTools(
 		checkWriteSheet,
 	}
 
-	const groups = UNIVER_LOOPBACK_TOOL_GROUPS
-
-	const mcpTools = createMcpTools(ctx, groups)
+	const selectedGroups = opts.groups && opts.groups.length ? opts.groups : UNIVER_LOOPBACK_TOOL_GROUPS
+	const mcpTools = createMcpTools(ctx, selectedGroups)
 	const mergedRaw = mcpTools
 	let toolCallSeq = 0
 	const nextSeq = () => {

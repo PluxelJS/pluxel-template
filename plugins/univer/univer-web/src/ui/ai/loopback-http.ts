@@ -2,12 +2,26 @@ import type { UniverLoopbackRunInput, UniverLoopbackRunResult } from '@pluxel/un
 
 import type { LoopbackBackend } from './loopback-backend'
 
-function readTextSafe(res: Response): Promise<string> {
+async function readTextSafe(res: Response): Promise<string> {
 	try {
-		return res.text()
+		return await res.text()
 	} catch {
-		return Promise.resolve('')
+		return ''
 	}
+}
+
+function safeJsonParse(text: string): unknown {
+	try {
+		return JSON.parse(text) as unknown
+	} catch {
+		return null
+	}
+}
+
+function formatPreview(text: string, maxChars: number): string {
+	const s = String(text ?? '')
+	if (s.length <= maxChars) return s
+	return `${s.slice(0, Math.max(0, maxChars - 1))}…`
 }
 
 export function createHttpLoopbackBackend(opts?: {
@@ -43,14 +57,29 @@ export function createHttpLoopbackBackend(opts?: {
 				})
 
 				const text = await readTextSafe(res)
-				const json = text ? (JSON.parse(text) as UniverLoopbackRunResult) : null
+				const contentType = res.headers.get('content-type') ?? ''
+				const trimmed = text.trim()
+				const maybeJson =
+					contentType.includes('application/json') ||
+					trimmed.startsWith('{') ||
+					trimmed.startsWith('[') ||
+					trimmed === 'null' ||
+					trimmed === 'true' ||
+					trimmed === 'false' ||
+					/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(trimmed)
+				const parsed = text && maybeJson ? safeJsonParse(text) : null
+				const json = parsed as UniverLoopbackRunResult | null
 
 				if (json && typeof json === 'object' && 'ok' in json) return json
 
 				if (!res.ok) {
-					return { ok: false, error: `loopback http ${res.status}: ${text || res.statusText}` }
+					const hint =
+						res.status === 404
+							? ' (UniverLoopback 未启用？请检查 HMR profile 是否启用 UniverLoopback / pluxel-plugin-univer-loopback)'
+							: ''
+					return { ok: false, error: `loopback http ${res.status}: ${formatPreview(text || res.statusText, 400)}${hint}` }
 				}
-				return { ok: false, error: 'loopback http invalid response' }
+				return { ok: false, error: `loopback http invalid response: ${formatPreview(text || '(empty)', 400)}` }
 			} catch (error) {
 				if (timedOut) return { ok: false, error: `loopback http timeout after ${timeoutMs}ms` }
 				const msg = error instanceof Error ? error.message : String(error)

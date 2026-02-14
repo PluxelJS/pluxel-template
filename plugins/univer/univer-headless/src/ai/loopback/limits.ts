@@ -1,11 +1,9 @@
 import type { UniverToolGroup } from '../../protocol'
+import { clampInt } from '../ints'
 
 export type LoopLimits = Readonly<{ maxRows?: number; maxCols?: number }>
 
-export function clampInt(n: unknown, min: number, max: number) {
-	const v = typeof n === 'number' && Number.isFinite(n) ? n : min
-	return Math.max(min, Math.min(max, Math.floor(v)))
-}
+export { clampInt }
 
 export function resolveLoopLimits(input: {
 	limits?: LoopLimits

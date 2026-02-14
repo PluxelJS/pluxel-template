@@ -11,6 +11,7 @@ description: Use when working on Pluxel（插件系统与 demos、HMR/MCP、日�
 - 写日志调用（callsite）：`references/logusage.md`
 - 改 runtime logs（store / SSE / cursor 语义）：`references/runtime-logs-v1.md` → `references/logger.md`
 - 用 MCP/HMR loopback（最后手段）：`references/agent-loopback-mcp.md`
+- 用 OTLP Viewer MCP（查 traces/logs/metrics）：`references/otlp-viewer-mcp.md`
 - 找依赖包类型/接口：`agents/skills/dts-resolver/SKILL.md` → `references/types.md`
 
 ## 工作流（按顺序）
@@ -50,3 +51,4 @@ pnpm --filter @pluxel/plugins-host hmr
 - 日志：`references/logusage.md` / `references/logger.md`
 - 类型：`references/types.md`
 - MCP：`references/agent-loopback-mcp.md`
+- OTLP Viewer：`references/otlp-viewer-mcp.md`

@@ -34,6 +34,18 @@ host.cfg('OtlpHub').set({
 - Filters：在左侧 Drawer 里做结构化过滤 + Attribute Explorer（keys/values facet）
 - SQL：直接对 `otlp_logs` / `otlp_spans` / `otlp_metrics` 执行 DuckDB SQL
 
+## MCP (HTTP)
+
+插件会在 host 内挂一个 MCP server（Streamable HTTP transport），默认路径：
+
+- Endpoint：`/api/otlp-viewer/mcp`
+
+常用工具：
+- `otlpViewer.errorsText`：最近错误摘要（推荐给 LLM/agent）。
+- `otlpViewer.listText`：带 compact text 的 list（logs/traces/metrics）。
+- `otlpViewer.listTraces` / `otlpViewer.getTrace`：trace summary + 详情。
+- `otlpViewer.query`：DuckDB SQL（dev-only）。
+
 ## 观测 Univer AxFlow（过滤建议）
 
 Univer loopback（AxFlow）会写入 OTLP traces，并把 LLM 请求 fetch span 命名为 `univer.ax.fetch`。

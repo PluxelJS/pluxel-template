@@ -1,36 +1,11 @@
 import { RpcTarget } from '@pluxel/hmr/capnweb'
 import type { OtlpSignal } from 'pluxel-plugin-otlp'
 import type { OtlpViewer } from './index'
+import type { OtlpViewerListOptions } from './protocol'
 import type { OtlpViewerQueryResult, OtlpViewerStoreStats, OtlpViewerTraceDetail, OtlpViewerTraceSummaryRow } from './store'
 
-export type OtlpViewerListOptions = {
-	q?: string
-	callerId?: string
-	fromTsMs?: number
-	toTsMs?: number
-	limit?: number
-	offset?: number
-	level?: string
-	status?: string
-	name?: string
-	metricType?: string
-	filters?: OtlpViewerFieldFilter[]
-}
-
-export type OtlpViewerFilterOp = 'eq' | 'neq' | 'contains' | 'like' | 'exists' | 'gt' | 'gte' | 'lt' | 'lte'
-
-/**
- * Structured filters compiled to SQL server-side (no raw SQL in filters).
- *
- * Supported fields:
- * - Column-like: callerId/traceId/spanId/status/kind/name/type/level/...
- * - Attributes: `attr.<key>` (e.g. `attr.service.name`, `attr.http.method`)
- */
-export type OtlpViewerFieldFilter = {
-	field: string
-	op: OtlpViewerFilterOp
-	value?: string
-}
+export type { OtlpViewerFieldFilter, OtlpViewerFilterOp } from './protocol'
+export type { OtlpViewerListOptions } from './protocol'
 
 export class OtlpViewerRpc extends RpcTarget {
 	constructor(private readonly viewer: OtlpViewer) {
@@ -66,7 +41,7 @@ export class OtlpViewerRpc extends RpcTarget {
 	facetKeys(signal: OtlpSignal, opts: OtlpViewerListOptions, limits?: { scanRows?: number; limitKeys?: number }): Promise<{ keys: Array<{ key: string; n: number }> }> {
 		const store = this.viewer.getStoreOptional()
 		if (!store) return Promise.resolve({ keys: [] })
-		return store.facetKeys(signal, opts as any, limits)
+		return store.facetKeys(signal, opts, limits)
 	}
 
 	facetValues(
@@ -77,7 +52,7 @@ export class OtlpViewerRpc extends RpcTarget {
 	): Promise<{ key: string; values: Array<{ value: string; type: string; n: number }> }> {
 		const store = this.viewer.getStoreOptional()
 		if (!store) return Promise.resolve({ key: String(key ?? ''), values: [] })
-		return store.facetValues(signal, key, opts as any, limits)
+		return store.facetValues(signal, key, opts, limits)
 	}
 
 	query(sql: string, params?: unknown): Promise<OtlpViewerQueryResult> {

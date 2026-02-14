@@ -13,11 +13,8 @@ import type {
 	UniverRange,
 } from '../protocol'
 import { parseA1Range } from './a1'
-
-function clampInt(n: unknown, min: number, max: number) {
-	const v = typeof n === 'number' && Number.isFinite(n) ? n : min
-	return Math.max(min, Math.min(max, Math.floor(v)))
-}
+import { coerceSheets, unwrapSheetEntry } from './sheets-utils'
+import { clampInt } from './ints'
 
 function normalizeMatrixToString(input: unknown): string[][] {
 	if (!Array.isArray(input)) return []
@@ -53,8 +50,9 @@ function resolveSheet(workbook: any, sheetId?: string, sheetName?: string) {
 	}
 	const active = workbook.getActiveSheet?.()
 	if (active) return active
-	const sheets = workbook.getSheets?.() ?? []
-	if (Array.isArray(sheets) && sheets.length) return sheets[0]
+	const raw = typeof workbook.getSheets === 'function' ? workbook.getSheets() : null
+	const list = coerceSheets(raw)
+	if (list.length) return unwrapSheetEntry(list[0])
 	throw new Error('[univer] no sheets available')
 }
 
@@ -151,9 +149,11 @@ export type UniverAiBridge = Readonly<{
 
 export function createUniverAiBridge(workbook: any): UniverAiBridge {
 	const listSheets = (): UniverAiListSheetsResult => {
-		const sheets = (workbook?.getSheets?.() ?? []) as unknown[]
+		const raw = typeof workbook?.getSheets === 'function' ? workbook.getSheets() : null
+		const sheets = coerceSheets(raw) as unknown[]
 		const out: Array<{ sheetId: string; name: string }> = []
-		for (const s of sheets) {
+		for (const entry of sheets) {
+			const s = unwrapSheetEntry(entry)
 			try {
 				const sheetId = getSheetId(s)
 				const name = getSheetName(s)

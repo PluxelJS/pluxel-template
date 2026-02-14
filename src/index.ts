@@ -26,12 +26,24 @@ const { ctx } = await createHmrHost({
 // Seed "univer" profile defaults once (do not keep forcing on every boot).
 await ctx.root.configService.ready
 if (ctx.config.hmrProfile === 'univer') {
-	const key = 'univer.seeded.loopback.v1'
-	const seeded = Boolean(ctx.root.configService.getExtra(key))
-	if (!seeded) {
-		// Minimal, stable defaults for Univer development profile.
-		ctx.root.configService.enableInConfig('Univer', 'UniverWorkbooks', 'UniverAI', 'UniverLoopback', 'LLMHub')
-		ctx.root.configService.setExtra(key, true)
+	// Minimal, stable defaults for Univer development profile.
+	//
+	// Note: some local workspaces may already have a persisted config file with an old "seeded" extra,
+	// but missing critical Univer AI plugins (e.g. UniverLoopback), which results in `/api/univer/loopback/run`
+	// returning plain "404 Not Found" and the frontend failing to JSON.parse it.
+	//
+	// Only auto-repair when the user has AI enabled in this profile.
+	const cs = ctx.root.configService
+	const wantsAi = cs.isEnabledInConfig('UniverAI') || cs.isEnabledInConfig('UniverLoopback')
+	if (wantsAi) {
+		const required = ['Univer', 'UniverWorkbooks', 'UniverAI', 'UniverLoopback', 'LLMHub'] as const
+		const missing = required.filter((name) => !cs.isEnabledInConfig(name))
+		if (missing.length) {
+			cs.batch(() => {
+				cs.enableInConfig(...missing)
+				cs.setExtra('univer.seeded.loopback.v2', true)
+			})
+		}
 	}
 }
 

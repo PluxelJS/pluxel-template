@@ -70,7 +70,8 @@ export async function runUniverLoopbackAttemptFlow(
 		maxAttempts: number
 		maxStepsPerAttempt: number
 		editor: AxProgrammable<UniverLoopbackEditorIn, UniverLoopbackEditorOut>
-		qualityCheck: AxProgrammable<UniverLoopbackQualityIn, UniverLoopbackQualityOut>
+		qualityCheck?: AxProgrammable<UniverLoopbackQualityIn, UniverLoopbackQualityOut>
+		qualityCheckMode?: 'off' | 'auto' | 'always'
 		stats: McpStats
 		stepHooks?: AxStepHooks
 		tracer?: Tracer
@@ -121,6 +122,28 @@ export async function runUniverLoopbackAttemptFlow(
 			let feedback = evaluation.feedback
 			let quality: AttemptState['quality'] = undefined
 
+			// Make the next attempt more "budget aware": users often hit the step budget because the model
+			// spreads work across too many small tool calls. The only chance to course-correct is before
+			// the final attempt starts.
+			const attemptNumber = s.attempt + 1
+			const remainingAfterThisAttempt = Math.max(0, opts.maxAttempts - attemptNumber)
+			if (!done && remainingAfterThisAttempt === 1) {
+				feedback = [
+					feedback || 'Not done yet.',
+					'Next attempt is the FINAL attempt. You MUST minimize tool calls: use batch tools (get_ranges_data/set_ranges_data), avoid scanning, apply the smallest necessary edits, and verify with targeted reads (or write-tool readback).',
+				]
+					.filter(Boolean)
+					.join('\n')
+			}
+			if (!done && !evaluation.wrote && toolCallsDelta >= 12) {
+				feedback = [
+					feedback || 'Not done yet.',
+					'You are spending too many tool calls without applying writes. Stop scanning; use search_cells to narrow, or ask the user to reduce read scope / pin a smaller selection.',
+				]
+					.filter(Boolean)
+					.join('\n')
+			}
+
 			if (done && !String(editResult.summary ?? '').trim()) {
 				done = false
 				feedback =
@@ -129,9 +152,14 @@ export async function runUniverLoopbackAttemptFlow(
 
 			opts.instruments?.attempts?.add(1)
 
-			if (done) {
-				const qcSteps = clampInt(Math.floor(opts.maxStepsPerAttempt / 2), 2, 12)
-				const qc = await opts.qualityCheck.forward(
+			const qcMode = opts.qualityCheckMode ?? 'auto'
+			const shouldRunQc =
+				done &&
+				!!opts.qualityCheck &&
+				(qcMode === 'always' || (qcMode === 'auto' && evaluation.wrote))
+			if (shouldRunQc) {
+				const qcSteps = clampInt(Math.floor(opts.maxStepsPerAttempt / 3), 2, 6)
+				const qc = await opts.qualityCheck!.forward(
 					ai,
 					{
 						instruction: String(s.instruction ?? '').trim(),

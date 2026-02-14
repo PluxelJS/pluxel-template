@@ -25,6 +25,21 @@ export type UniverLoopbackConflict = Readonly<{
 	etag: string | null
 }>
 
+export type UniverLoopbackDebug = Readonly<{
+	rounds?: number
+	toolCalls?: number
+	readCalls?: number
+	toolErrors?: number
+	lastReadTool?: string
+	lastWriteTool?: string
+	lastVerifyTool?: string
+	lastErrorTool?: string
+	lastReadSeq?: number
+	lastWriteSeq?: number
+	lastVerifySeq?: number
+	lastErrorSeq?: number
+}>
+
 export type UniverLoopbackRunResult = Readonly<
 	| {
 			ok: true
@@ -42,5 +57,6 @@ export type UniverLoopbackRunResult = Readonly<
 			runId?: string
 			error: string
 			conflict?: UniverLoopbackConflict
+			debug?: UniverLoopbackDebug
 	  }
 >

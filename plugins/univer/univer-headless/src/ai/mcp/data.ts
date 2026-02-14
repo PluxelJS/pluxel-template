@@ -22,6 +22,7 @@ import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { formatA1Range } from '../a1'
 import { resolveRangeInput, resolveSheet, getSheetId, getSheetName, toMatrix, toStringMatrix, normalizeCount } from './utils'
+import { normalizeWriteMatrixForRange } from './write-normalize'
 import { asAxParams } from '../ax-params'
 const A1RangeSchema = Type.Object(
 	{
@@ -252,38 +253,6 @@ function shiftFormulaA1(formula: string, deltaRow: number, deltaCol: number) {
 }
 
 export function createDataTools(ctx: McpContext): AxFunction[] {
-	const validateAndNormalizeValues = (inputValues: unknown, expectedRows: number, expectedCols: number) => {
-		if (!Array.isArray(inputValues)) {
-			throw new Error('[univer] set_range_data invalid values: expected a 2D array (matrix)')
-		}
-
-		let values = toMatrix(inputValues)
-		const gotRows = values.length
-		const gotCols = Math.max(0, ...values.map((r) => (Array.isArray(r) ? r.length : 0)))
-		const expected = `${expectedRows}x${expectedCols}`
-		const got = `${gotRows}x${gotCols}`
-
-		// Univer's Range#setValues expects a dense 2D matrix. If we pass a wrong shape, it may crash internally.
-		// We only auto-expand a single scalar value for convenience (common for constants).
-		if (gotRows !== expectedRows || gotCols !== expectedCols || values.some((r) => r.length !== expectedCols)) {
-			if (gotRows === 1 && gotCols === 1) {
-				const v = values[0]?.[0]
-				if (typeof v === 'string' && v.trim().startsWith('=') && expectedRows * expectedCols > 1) {
-					throw new Error(
-						`[univer] set_range_data invalid values matrix: got ${got} but expected ${expected}. For formulas, provide a full ${expected} matrix (each cell can have its own formula string).`,
-					)
-				}
-				values = Array.from({ length: expectedRows }, () => Array.from({ length: expectedCols }, () => v))
-			} else {
-				throw new Error(
-					`[univer] set_range_data invalid values matrix: got ${got} but expected ${expected}. Provide a full ${expected} matrix.`,
-				)
-			}
-		}
-
-		return values
-	}
-
 	const getRangeDataOnce = async (input: UniverToolGetRangeDataInput): Promise<UniverToolGetRangeDataResult> => {
 		const { range: origRange, sheetName, a1 } = resolveRangeInput(input)
 		const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
@@ -333,22 +302,24 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 		func: async (input: UniverToolSetRangeDataInput): Promise<UniverToolSetRangeDataResult> => {
 			ctx.stats.toolCalls++
 
-			const { range, sheetName } = resolveRangeInput(input)
+			const { range: requestedRange, sheetName } = resolveRangeInput(input)
 			const effSheetName = sheetName ?? input.sheetName ?? ctx.defaultSheetName
 			const effSheetId =
 				input.sheetId ??
 				(effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ??
 				ctx.defaultSheetId
-			ctx.checkWriteRange(range, effSheetId, effSheetName)
+			ctx.checkWriteRange(requestedRange, effSheetId, effSheetName)
 
 			const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
-			const { rows, cols } = computeRangeSize(range)
-			if (!rows || !cols) return { updatedCells: 0 }
-
-			const values = validateAndNormalizeValues(input.values, rows, cols)
+			const sheetNameForA1 = getSheetName(sheet)
+			const normalized = normalizeWriteMatrixForRange(input.values, requestedRange, sheetNameForA1)
+			const range = normalized.range
+			const values = normalized.values
+			const updatedCells = normalized.updatedCells
+			if (!updatedCells) return { updatedCells: 0, ...(normalized.warning ? { warning: normalized.warning } : {}) }
 
 			ctx.checkCanChange()
-			ctx.checkCanApplyOps(rows * cols)
+			ctx.checkCanApplyOps(updatedCells)
 			const r = sheet.getRange({
 				startRow: range.startRow,
 				startColumn: range.startCol,
@@ -357,10 +328,9 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			})
 			r.setValues(values)
 			ctx.bumpChange()
-			const updatedCells = rows * cols
 			ctx.stats.appliedOps += updatedCells
 			const wantReadback = !!input.readback
-			if (!wantReadback) return { updatedCells }
+			if (!wantReadback) return { updatedCells, ...(normalized.warning ? { warning: normalized.warning } : {}) }
 
 			const includeDisplay = Boolean(input.readback?.includeDisplay)
 			ctx.stats.readCalls++
@@ -371,7 +341,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 				...(includeDisplay ? { includeDisplay: true } : {}),
 			})
 			const key = String(item.requestedA1 ?? item.a1)
-			return { updatedCells, readback: { order: [key], byA1: { [key]: item } } }
+			return { updatedCells, ...(normalized.warning ? { warning: normalized.warning } : {}), readback: { order: [key], byA1: { [key]: item } } }
 		},
 	}
 
@@ -391,27 +361,31 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 				sheetName: string
 				values: unknown[][]
 				updatedCells: number
+				warning?: string
 			}
 			const resolved: ResolvedUpdate[] = []
 			let totalCells = 0
+			const warnings: string[] = []
 
 			for (const u of updates) {
-				const { range, sheetName } = resolveRangeInput(u)
+				const { range: requestedRange, sheetName } = resolveRangeInput(u)
 				const effSheetName = sheetName ?? u.sheetName ?? ctx.defaultSheetName
 				const effSheetId = u.sheetId ?? (effSheetName ? ctx.sheetNameToId.get(effSheetName) : undefined) ?? ctx.defaultSheetId
-				ctx.checkWriteRange(range, effSheetId, effSheetName)
+				ctx.checkWriteRange(requestedRange, effSheetId, effSheetName)
 				const sheet = resolveSheet(ctx.workbook, effSheetId, effSheetName)
 				const resolvedSheetId = getSheetId(sheet)
 				const resolvedSheetName = getSheetName(sheet)
-				const { rows, cols } = computeRangeSize(range)
-				if (!rows || !cols) continue
-				const values = validateAndNormalizeValues(u.values, rows, cols)
-				const updatedCells = rows * cols
+				const normalized = normalizeWriteMatrixForRange(u.values, requestedRange, resolvedSheetName)
+				const range = normalized.range
+				const values = normalized.values
+				const updatedCells = normalized.updatedCells
+				if (!updatedCells) continue
 				totalCells += updatedCells
-				resolved.push({ range, sheet, sheetId: resolvedSheetId, sheetName: resolvedSheetName, values, updatedCells })
+				if (normalized.warning) warnings.push(normalized.warning)
+				resolved.push({ range, sheet, sheetId: resolvedSheetId, sheetName: resolvedSheetName, values, updatedCells, ...(normalized.warning ? { warning: normalized.warning } : {}) })
 			}
 
-			if (!resolved.length) return { updates: 0, updatedCells: 0 }
+			if (!resolved.length) return { updates: 0, updatedCells: 0, ...(warnings.length ? { warnings } : {}) }
 
 			ctx.checkCanChange()
 			ctx.checkCanApplyOps(totalCells)
@@ -429,7 +403,7 @@ export function createDataTools(ctx: McpContext): AxFunction[] {
 			ctx.bumpChange()
 			ctx.stats.appliedOps += totalCells
 			const wantReadback = !!input.readback
-			if (!wantReadback) return { updates: resolved.length, updatedCells: totalCells }
+			if (!wantReadback) return { updates: resolved.length, updatedCells: totalCells, ...(warnings.length ? { warnings } : {}) }
 
 			const includeDisplay = Boolean(input.readback?.includeDisplay)
 			const requested = Array.isArray(input.readback?.ranges) && input.readback?.ranges.length ? input.readback.ranges : []

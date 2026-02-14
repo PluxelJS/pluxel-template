@@ -1,5 +1,6 @@
 import type { UniverRange } from '../../protocol'
 import { parseA1Range } from '../a1'
+import { coerceSheets, unwrapSheetEntry } from '../sheets-utils'
 
 export type RangeInput = {
 	a1?: string
@@ -50,8 +51,9 @@ export function resolveSheet(workbook: any, sheetId?: string, sheetName?: string
 	}
 	const active = workbook.getActiveSheet?.()
 	if (active) return active
-	const sheets = workbook.getSheets?.() ?? []
-	if (Array.isArray(sheets) && sheets.length) return sheets[0]
+	const raw = typeof workbook.getSheets === 'function' ? workbook.getSheets() : null
+	const sheets = coerceSheets(raw)
+	if (sheets.length) return unwrapSheetEntry(sheets[0])
 	throw new Error('[univer] no sheets available')
 }
 

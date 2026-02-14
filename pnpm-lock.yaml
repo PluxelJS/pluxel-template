@@ -108,6 +108,9 @@ importers:
 
   packages/cmd:
     dependencies:
+      '@sinclair/parsebox':
+        specifier: ^0.11.1
+        version: 0.11.1
       '@standard-schema/spec':
         specifier: ^1.1.0
         version: 1.1.0
@@ -117,9 +120,6 @@ importers:
       option-t:
         specifier: ^55.1.1
         version: 55.1.1
-      type-flag:
-        specifier: ^4.0.3
-        version: 4.0.3
     devDependencies:
       valibot:
         specifier: ^1.2.0
@@ -422,9 +422,18 @@ importers:
       '@duckdb/node-api':
         specifier: 1.4.4-r.1
         version: 1.4.4-r.1
+      '@valibot/to-json-schema':
+        specifier: ^1.5.0
+        version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
+      mcp-lite:
+        specifier: ^0.10.0
+        version: 0.10.0
       pluxel-plugin-otlp:
         specifier: workspace:^
         version: link:../otlp
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.3)
 
   plugins/native/napi-rs:
     dependencies:
@@ -511,6 +520,9 @@ importers:
       pluxel-plugin-otlp:
         specifier: workspace:^
         version: link:../../infra/otlp
+      pluxel-plugin-univer:
+        specifier: workspace:^
+        version: link:../pluxel-plugin-univer
       pluxel-plugin-univer-workbooks:
         specifier: workspace:^
         version: link:../pluxel-plugin-univer-workbooks
@@ -2649,6 +2661,9 @@ packages:
 
   '@saltify/milky-types@1.1.0':
     resolution: {integrity: sha512-ixm10sI+7ZAykPfKxWPEZ/Ag94gkDL/WSYPFBON0MIuunUiNHl6R9ISpXDS2aLH3SO5toav52pOwvFt5EcVbbw==}
+
+  '@sinclair/parsebox@0.11.1':
+    resolution: {integrity: sha512-nFtrxqDHV2WxlWnHIQqnwNbZh9uc8P5Cn+fp5yWTo2frAfnSJ1p6a3xdgx1wdS0iG+Ku5QbfBDmzWwewFsKX2w==}
 
   '@sinclair/typebox@0.34.48':
     resolution: {integrity: sha512-kKJTNuK3AQOrgjjotVxMrCn1sUJwM76wMszfq1kdU4uYVJjvEWuFQ6HgvLt4Xz3fSmZlTOxJ/Ie13KnIcWQXFA==}
@@ -5054,6 +5069,9 @@ packages:
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
+  mcp-lite@0.10.0:
+    resolution: {integrity: sha512-ts1PgXO5+MER3W77YjYUMqngF45l6eyh2V4Vc0O4S+oKU55ghvd3Q+/XpA4kqtMISqI9v5s1E8pChDICudxwXQ==}
+
   mdast-util-find-and-replace@3.0.2:
     resolution: {integrity: sha512-Tmd1Vg/m3Xz43afeNxDIhWRtFZgM2VLyaf4vSTYwudTyeuTneoL3qtWMA5jeLyz/O1vDJmmV4QuScFCA2tBPwg==}
 
@@ -6193,9 +6211,6 @@ packages:
   type-fest@4.41.0:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
-
-  type-flag@4.0.3:
-    resolution: {integrity: sha512-YA09cL07U7hSV+/doSfKl+RkIZ2olCnevZsVgAuyBUG3h2ROf9Oh2vmbq5Rf26aA9/qu9RtStuc7ap5PC6k/vw==}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -8571,6 +8586,8 @@ snapshots:
   '@saltify/milky-types@1.1.0':
     dependencies:
       zod: 4.3.6
+
+  '@sinclair/parsebox@0.11.1': {}
 
   '@sinclair/typebox@0.34.48': {}
 
@@ -11878,6 +11895,10 @@ snapshots:
 
   markdown-table@3.0.4: {}
 
+  mcp-lite@0.10.0:
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+
   mdast-util-find-and-replace@3.0.2:
     dependencies:
       '@types/mdast': 4.0.4
@@ -13379,8 +13400,6 @@ snapshots:
       turbo-windows-arm64: 2.8.4
 
   type-fest@4.41.0: {}
-
-  type-flag@4.0.3: {}
 
   typescript@5.9.3: {}
 

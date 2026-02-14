@@ -8,7 +8,8 @@ export async function buildContextPackText(
 	limits: Required<LoopLimits>,
 	selections?: readonly UniverAiContext[],
 ): Promise<string> {
-	const picked = scopes.filter(Boolean).slice(0, 4)
+	// Keep context pack small to reduce prompt tokens and avoid misleading the model with truncated previews.
+	const picked = scopes.filter(Boolean).slice(0, 2)
 	if (!picked.length) return ''
 
 	const selectionMap = new Map<string, UniverAiContext>()
@@ -29,7 +30,7 @@ export async function buildContextPackText(
 				lines.push(
 					`- ${a1} (sheetId=${String(sel.selection.sheetId ?? '') || 'unknown'}, size=${rows}x${cols}${sel.selection.truncated ? ', truncated' : ''})`,
 				)
-				const preview = matrixPreviewTSV(values, { maxRows: 8, maxCols: 10, maxCellChars: 32 })
+				const preview = matrixPreviewTSV(values, { maxRows: 6, maxCols: 8, maxCellChars: 24 })
 				if (preview) lines.push(preview)
 				continue
 			}
@@ -38,7 +39,7 @@ export async function buildContextPackText(
 			const rows = res.values.length
 			const cols = Math.max(0, ...res.values.map((r) => r.length))
 			lines.push(`- ${a1} (sheetId=${res.sheetId}, size=${rows}x${cols}${res.truncated ? ', truncated' : ''})`)
-			const preview = matrixPreviewTSV(res.values, { maxRows: 8, maxCols: 10, maxCellChars: 32 })
+			const preview = matrixPreviewTSV(res.values, { maxRows: 6, maxCols: 8, maxCellChars: 24 })
 			if (preview) lines.push(preview)
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e)
@@ -47,4 +48,3 @@ export async function buildContextPackText(
 	}
 	return lines.join('\n')
 }
-

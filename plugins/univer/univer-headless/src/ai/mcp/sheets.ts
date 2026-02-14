@@ -9,12 +9,15 @@ import type {
 import { getMcpToolDescription } from './catalog'
 import type { McpContext } from './context'
 import { getSheetId, getSheetName } from './utils'
+import { coerceSheets, unwrapSheetEntry } from '../sheets-utils'
 import { asAxParams } from '../ax-params'
 const EmptySchema = Type.Object({}, { additionalProperties: false })
 
 function listSheets(workbook: any) {
-	const sheets = Array.isArray(workbook?.getSheets?.()) ? workbook.getSheets() : []
-	return sheets.map((s: any, index: number) => {
+	const raw = typeof workbook?.getSheets === 'function' ? workbook.getSheets() : null
+	const sheets = coerceSheets(raw)
+	return sheets.map((entry: any, index: number) => {
+		const s = unwrapSheetEntry(entry)
 		let hidden: boolean | undefined
 		try {
 			if (typeof s?.isHidden === 'function') hidden = !!s.isHidden()
@@ -56,8 +59,17 @@ export function createSheetTools(ctx: McpContext): AxFunction[] {
 			const workbookId = typeof ctx.workbook?.getId === 'function' ? String(ctx.workbook.getId()) : null
 			const active = ctx.workbook?.getActiveSheet?.()
 			const activeSheetId = active ? getSheetId(active) : null
-			const sheets = ctx.workbook?.getSheets?.() ?? []
-			return { workbookId, activeSheetId, sheetCount: Array.isArray(sheets) ? sheets.length : 0 }
+			const raw = typeof ctx.workbook?.getSheets === 'function' ? ctx.workbook.getSheets() : null
+			const sheetCount = Array.isArray(raw)
+				? raw.length
+				: raw && typeof raw?.size === 'number' && Number.isFinite(raw.size)
+					? Math.floor(raw.size)
+					: raw && typeof raw?.length === 'number' && Number.isFinite(raw.length)
+						? Math.floor(raw.length)
+						: raw && typeof raw?.values === 'function'
+							? listSheets(ctx.workbook).length
+							: 0
+			return { workbookId, activeSheetId, sheetCount }
 		},
 	}
 	return [get_sheets, get_active_unit_id, get_activity_status]
