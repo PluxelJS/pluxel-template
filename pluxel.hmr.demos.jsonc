@@ -1,0 +1,37 @@
+// Optional HMR config for running demo plugins under `docs/pluxel-demos/`.
+// Keep it separate from `pluxel.hmr.jsonc` so normal development stays lightweight.
+// Note: demo UI folders are excluded from scan to keep HMR scope focused.
+{
+	"version": 1,
+	"profile": "demos",
+	"defaults": {
+		"roots": [
+			"docs/pluxel-demos",
+			"packages",
+			"plugins/ai",
+			"plugins/infra",
+			"plugins/data",
+			"plugins/func",
+			"plugins/native",
+			"plugins/builtin",
+			"plugins/render",
+			"plugins/chatbots",
+			"plugins/univer"
+		],
+		"exclude": [
+			"**/node_modules/**",
+			"**/dist/**",
+			"**/.turbo/**",
+			"**/*.map",
+			"plugins/native/napi-rs/*__*"
+		]
+	},
+	"profiles": {
+		"demos": {
+			"enabled": ["@pluxel/cmd", "@pluxel/toolkit"],
+			"builtin": ["@pluxel/graphql", "@pluxel/websocket", "@pluxel/wretch"],
+			"include": ["docs/pluxel-demos/**/*.ts"],
+			"exclude": ["docs/pluxel-demos/**/ui/**"]
+		}
+	}
+}

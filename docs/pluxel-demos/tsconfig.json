@@ -1,0 +1,19 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		// Demo-only typecheck:
+		// - do NOT require composite/project-reference file lists
+		// - resolve workspace packages to dist (avoid pulling template workspace sources)
+		"customConditions": [],
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"incremental": false,
+		"noEmit": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"jsx": "react-jsx",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"]
+	},
+	"include": ["./**/*.ts", "./**/*.tsx"]
+}

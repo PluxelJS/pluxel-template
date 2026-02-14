@@ -30,6 +30,10 @@
 
 - 后端 HMR Host：`http://localhost:3000`（API 在 `/api/*`）
 
+运行 demo 插件（可选）：
+
+- `pnpm dev:demos`（使用 `pluxel.hmr.demos.jsonc` 加载 `docs/pluxel-demos/` 下的演示插件）
+
 需要 Univer 相关能力时：
 
 - 仅后端（`univer` profile）：`pnpm dev:univer`
@@ -43,3 +47,10 @@
 - `plugins/chatbots/` 是 submodule：用 `git submodule status` 查看固定版本；更新时请显式 `git -C plugins/chatbots pull` + 在主仓库提交 gitlink 变更。
 - 启动入口在 `src/index.ts`。
 - 运行态配置/持久化默认写入 `.pluxel/`（gitignore），避免污染工作区。
+
+### Project-local Codex skills
+
+本仓库把常用的工作流（Pluxel / `.d.ts` 入口解析）以项目内文件形式 vendoring 下来，见：
+
+- `AGENTS.md`
+- `agents/skills/README.md`
