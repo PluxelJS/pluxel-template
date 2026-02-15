@@ -3,7 +3,7 @@
 	"globalDependencies": [
 		// Many packages extend root TS configs; changing them must invalidate caches.
 		"tsconfig*.json",
-		// Workspace-level Vitest entry (used by `pnpm exec vitest` at repo root).
+		// Workspace-level Vitest entry (used by `pnpm test:full` at repo root).
 		"vitest.config.ts",
 		"pnpm-workspace.yaml"
 	],
@@ -13,7 +13,6 @@
 			"outputs": ["dist/**", "public/**"]
 		},
 		"test": {
-			"dependsOn": ["build"],
 			"outputs": []
 		},
 		"dev": {
