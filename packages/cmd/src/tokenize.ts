@@ -1,3 +1,5 @@
+import { CmdError } from './core'
+
 export type TextToken = {
 	/** Cooked token value (quotes removed, escapes resolved). */
 	value: string
@@ -43,12 +45,9 @@ export const defaultTokenizer: TextTokenizer = (input) => {
 		if (quote) {
 			if (ch === '\\') {
 				// Escape: include the escaped char in value, keep raw in span.
-				if (i < input.length) {
-					cur += input[i++]
-					tokenEnd = i
-				} else {
-					tokenEnd = i
-				}
+				if (i >= input.length) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Dangling escape' })
+				cur += input[i++]
+				tokenEnd = i
 				continue
 			}
 			if (ch === quote) {
@@ -76,12 +75,9 @@ export const defaultTokenizer: TextTokenizer = (input) => {
 
 		if (ch === '\\') {
 			if (tokenStart < 0) tokenStart = i - 1
-			if (i < input.length) {
-				cur += input[i++]
-				tokenEnd = i
-			} else {
-				tokenEnd = i
-			}
+			if (i >= input.length) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Dangling escape' })
+			cur += input[i++]
+			tokenEnd = i
 			continue
 		}
 
@@ -90,6 +86,7 @@ export const defaultTokenizer: TextTokenizer = (input) => {
 		tokenEnd = i
 	}
 
+	if (quote) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Unterminated quote' })
 	flush()
 	return out
 }

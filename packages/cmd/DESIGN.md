@@ -227,6 +227,7 @@ cmd('echo').text({ triggers: ['e', 'say'] })
   - boolean 的 `--no-key`
 - ParseBox tail（text-only）：
   - `text({ tail })` 仅影响 text 执行域：cmdkit 会把剩余文本交给 ParseBox 解析，并要求其返回“对象 patch”，再合并进真实 input（因此不会污染 MCP 的 input schema）。
+  - cmdkit 会在 tail 文本末尾追加一个 `\\n`（把“行结束”当成换行终止符），因此 `Runtime.Until(['\\n'], ...)` 可用作 “read until end-of-line”。
   - tail 的起点：遇到 `--`（end-of-options sentinel）后立即开始；否则在第一个“非选项 token”处开始。
   - 为避免把 `--xxx` 误当成 flag：如果你的 tail 需要以 `--` 开头，必须显式写 `--` sentinel，例如 `echo -- --literal`.
 

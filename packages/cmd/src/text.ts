@@ -14,6 +14,9 @@ export type TextConfig = {
 	 * When present, cmdkit parses "the rest of the text" with ParseBox and expects
 	 * it to return an object patch merged into the real input (after flags parsing).
 	 *
+	 * Note: cmdkit appends a trailing `\n` to the tail text before invoking ParseBox,
+	 * so `Runtime.Until(['\n'], ...)` works as “until end-of-line”.
+	 *
 	 * Rules:
 	 * - Patch keys MUST exist in the input schema
 	 * - Patch MUST NOT override values already provided by keyed params
@@ -293,6 +296,14 @@ const parseBoolean = (raw: string): boolean | null => {
 	return null
 }
 
+const parseJson = (raw: string, paramName: string): unknown => {
+	try {
+		return JSON.parse(raw)
+	} catch (e) {
+		throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid JSON for "${paramName}"`, cause: e })
+	}
+}
+
 const parseValue = (param: DerivedParam, raw: string): unknown => {
 	if (param.type === 'string') return String(raw)
 	if (param.type === 'boolean') {
@@ -308,7 +319,7 @@ const parseValue = (param: DerivedParam, raw: string): unknown => {
 	}
 	if (param.type === 'string[]') {
 		if (raw.trim().startsWith('[')) {
-			const v = JSON.parse(raw)
+			const v = parseJson(raw, param.name)
 			if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
 			return v.map((x) => String(x))
 		}
@@ -320,7 +331,7 @@ const parseValue = (param: DerivedParam, raw: string): unknown => {
 	if (param.type === 'number[]') {
 		const parts = raw.trim().startsWith('[')
 			? (() => {
-					const v = JSON.parse(raw)
+					const v = parseJson(raw, param.name)
 					if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
 					return v.map((x) => String(x))
 				})()
@@ -335,7 +346,7 @@ const parseValue = (param: DerivedParam, raw: string): unknown => {
 	if (param.type === 'boolean[]') {
 		const parts = raw.trim().startsWith('[')
 			? (() => {
-					const v = JSON.parse(raw)
+					const v = parseJson(raw, param.name)
 					if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
 					return v.map((x) => String(x))
 				})()
@@ -347,16 +358,12 @@ const parseValue = (param: DerivedParam, raw: string): unknown => {
 		})
 	}
 	if (param.type === 'json[]') {
-		const v = JSON.parse(raw)
+		const v = parseJson(raw, param.name)
 		if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
 		return v
 	}
 	// json
-	try {
-		return JSON.parse(raw)
-	} catch (e) {
-		throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid JSON for "${param.name}"`, cause: e })
-	}
+	return parseJson(raw, param.name)
 }
 
 const parseObjectArgs = (
@@ -587,7 +594,10 @@ const parseObjectArgs = (
 					: tailTokens.map((t) => t.raw).join(' ')
 				: ''
 
-		const parsed = (tail.module as any).Parse((tail as any).entry, tailText) as [] | [unknown, string]
+		// ParseBox "Until" parsers intentionally fail if the end token is not present.
+		// For CLI-style "tail" parsing we treat end-of-input like a newline terminator.
+		const parseboxInput = tailText.endsWith('\n') ? tailText : `${tailText}\n`
+		const parsed = tail.module.Parse(tail.entry as any, parseboxInput) as unknown as [] | [unknown, string]
 		if (!Array.isArray(parsed) || parsed.length !== 2) {
 			throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Failed to parse tail' })
 		}

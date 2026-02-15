@@ -132,11 +132,11 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 		}
 	}
 
-	const findLongest = (tokens: string[]) => {
+	const findLongestTokens = (tokens: TextToken[]) => {
 		let cur = root
 		let best: { exec: any; consumed: number; trigger: string } | undefined
 		for (let i = 0; i < tokens.length; i++) {
-			const t = norm(tokens[i]!)
+			const t = norm(tokens[i]!.value)
 			const next = cur.next.get(t)
 			if (!next) break
 			cur = next
@@ -149,7 +149,12 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 		const exec = match.exec as RouterExecutable
 		const runner: TextRunner<Ctx> | undefined = (exec as any)[CMDKIT_TEXT_RUNNER]
 		if (runner) return await runner({ tokens, consumed: match.consumed, ...(text !== undefined ? { text } : {}) }, ctx)
-		if (typeof exec.execText === 'function') return await exec.execText(tokens.map((t) => t.value).join(' '), ctx)
+		if (typeof exec.execText === 'function') {
+			// Prefer the original string when available to preserve whitespace exactly.
+			if (text !== undefined) return await exec.execText(text, ctx)
+			// Otherwise reconstruct from tokens; prefer `raw` to preserve quotes/escapes.
+			return await exec.execText(tokens.map((t) => t.raw).join(' '), ctx)
+		}
 		return createErr(new CmdError('E_INTERNAL', 'Internal error', { message: `Executable "${exec.id}" has no text runner (missing .text(...))` }))
 	}
 
@@ -243,13 +248,13 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 
 		match(text) {
 			const tokens = tokenize(text)
-			const match = findLongest(tokens.map((t) => t.value))
+			const match = findLongestTokens(tokens)
 			if (!match) return null
 			return { id: match.exec.id as string, consumed: match.consumed, trigger: match.trigger, tokens, restTokens: tokens.slice(match.consumed), text }
 		},
 
 		matchTokens(tokens) {
-			const match = findLongest(tokens.map((t) => t.value))
+			const match = findLongestTokens(tokens)
 			if (!match) return null
 			return { id: match.exec.id as string, consumed: match.consumed, trigger: match.trigger, tokens, restTokens: tokens.slice(match.consumed) }
 		},
@@ -257,7 +262,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 		async dispatch(text, ctx) {
 			try {
 				const tokens = tokenize(text)
-				const match = findLongest(tokens.map((t) => t.value))
+				const match = findLongestTokens(tokens)
 				if (!match) return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { text } }))
 				return await dispatchMatched(match, tokens, text, ctx)
 			} catch (e) {
@@ -283,7 +288,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 
 		async dispatchTokens(tokens, ctx) {
 			try {
-				const match = findLongest(tokens.map((t) => t.value))
+				const match = findLongestTokens(tokens)
 				if (!match) return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { text: tokens.map((t) => t.value).join(' ') } }))
 				return await dispatchMatched(match, tokens, undefined, ctx)
 			} catch (e) {

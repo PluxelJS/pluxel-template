@@ -15,8 +15,8 @@ describe('cmdkit: router', () => {
 			.handle(() => 'foo bar')
 			.build()
 
-		router.add(foo, { triggers: foo.meta!.triggers })
-		router.add(foobar, { triggers: foobar.meta!.triggers })
+		router.add(foo)
+		router.add(foobar)
 
 		await expect(router.dispatch('FOO BAR')).resolves.toEqual({ ok: true, val: 'foo bar', err: null })
 	})
@@ -30,22 +30,22 @@ describe('cmdkit: router', () => {
 		const router = createRouter()
 		const a = cmd('a').text({ triggers: ['x'] }).handle(() => 1).build()
 		const b = cmd('b').text({ triggers: ['x'] }).handle(() => 2).build()
-		router.add(a, { triggers: a.meta!.triggers })
-		expect(() => router.add(b, { triggers: b.meta!.triggers })).toThrow()
+		router.add(a)
+		expect(() => router.add(b)).toThrow()
 	})
 
 	it('supports remove(id) and allows re-add', async () => {
 		const router = createRouter({ caseInsensitive: true })
 
 		const a = cmd('a').text({ triggers: ['ping'] }).handle(() => 'a').build()
-		router.add(a, { triggers: a.meta!.triggers })
+		router.add(a)
 		await expect(router.dispatch('ping')).resolves.toEqual({ ok: true, val: 'a', err: null })
 
 		router.remove('a')
 		await expect(router.dispatch('ping')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_CMD_NOT_FOUND' } })
 
 		const b = cmd('b').text({ triggers: ['ping'] }).handle(() => 'b').build()
-		router.add(b, { triggers: b.meta!.triggers })
+		router.add(b)
 		await expect(router.dispatch('ping')).resolves.toEqual({ ok: true, val: 'b', err: null })
 	})
 
@@ -67,7 +67,7 @@ describe('cmdkit: router', () => {
 	it('helpCommand() resolves by id or trigger (canonical + case-insensitive)', () => {
 		const router = createRouter({ caseInsensitive: true })
 		const exec = cmd('x').text({ triggers: ['foo bar'] }).handle(() => 'ok').build()
-		router.add(exec, { triggers: exec.meta!.triggers })
+		router.add(exec)
 
 		expect(router.helpCommand('x')?.id).toBe('x')
 		expect(router.helpCommand('foo bar')?.id).toBe('x')
@@ -93,7 +93,7 @@ describe('cmdkit: router', () => {
 	it('supports dispatchTokens() and match()', async () => {
 		const router = createRouter({ caseInsensitive: true })
 		const exec = cmd('x').text({ triggers: ['foo bar'] }).handle(() => 'ok').build()
-		router.add(exec, { triggers: exec.meta!.triggers })
+		router.add(exec)
 
 		const m = router.match('FOO BAR')
 		expect(m?.id).toBe('x')
@@ -102,6 +102,30 @@ describe('cmdkit: router', () => {
 		await expect(router.dispatchTokens(m!.tokens)).resolves.toEqual({ ok: true, val: 'ok', err: null })
 
 		await expect(router.dispatchMatch(m!)).resolves.toEqual({ ok: true, val: 'ok', err: null })
+	})
+
+	it('passes original text to execText(text) when available', async () => {
+		const router = createRouter({ caseInsensitive: true })
+		const exec = {
+			id: 'x',
+			meta: { triggers: ['say'] },
+			execText: async (text: string) => ({ ok: true as const, val: text, err: null }),
+		}
+		router.add(exec as any)
+
+		const input = 'SAY    --msg "hello world"'
+		await expect(router.dispatch(input)).resolves.toEqual({ ok: true, val: input, err: null })
+
+		const m = router.match(input)!
+		await expect(router.dispatchTokens(m.tokens)).resolves.toEqual({ ok: true, val: m.tokens.map((t) => t.raw).join(' '), err: null })
+	})
+
+	it('reports tokenization errors as E_TEXT_PARSE', async () => {
+		const router = createRouter({ caseInsensitive: true })
+		const exec = cmd('a').text({ triggers: ['ping'] }).handle(() => 'a').build()
+		router.add(exec)
+
+		await expect(router.dispatch('ping "unterminated')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
 	})
 
 	it('provides diagnostics via check() (no mutation)', () => {

@@ -50,6 +50,17 @@ describe('cmdkit: text()', () => {
 		await expect(exec.execText!('unknown --nope x --foo ok')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
 	})
 
+	it('rejects unterminated quotes and dangling escapes', async () => {
+		const exec = cmd('echo')
+			.input(v.object({ msg: v.string() }))
+			.text()
+			.handle((i) => i.msg)
+			.build()
+
+		await expect(exec.execText!('echo --msg "hello')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
+		await expect(exec.execText!('echo --msg hello\\')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
+	})
+
 	it('supports boolean negation via --no-<flag>', async () => {
 		const exec = cmd('bool')
 			.input(v.object({ enabled: v.optional(v.boolean(), true) }))
@@ -59,6 +70,22 @@ describe('cmdkit: text()', () => {
 
 		await expect(exec.execText!('bool')).resolves.toEqual({ ok: true, val: true, err: null })
 		await expect(exec.execText!('bool --no-enabled')).resolves.toEqual({ ok: true, val: false, err: null })
+	})
+
+	it('reports invalid JSON values as E_TEXT_PARSE', async () => {
+		const exec = cmd('x')
+			.input(
+				schemaFromJson({
+					type: 'object',
+					properties: { data: { type: 'object' } },
+					required: ['data'],
+				}),
+			)
+			.text()
+			.handle((i: any) => i.data)
+			.build()
+
+		await expect(exec.execText!('x --data {')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
 	})
 
 	it('supports custom triggers', async () => {

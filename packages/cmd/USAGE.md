@@ -226,6 +226,9 @@ This also applies to `--no-<alias>` and `key:value` / `key=value`.
 If you need “readable string DSL” after the flags (filters, expressions, routes, etc.),
 provide a ParseBox parser via `text({ tail })`, and map it into your real input fields.
 
+Notes:
+- cmdkit appends a trailing `\\n` when invoking the ParseBox tail parser, so `Runtime.Until(['\\n'], ...)` works as “until end-of-line”.
+
 ### Tail start rules (no ambiguity)
 
 When tail is enabled:
@@ -238,6 +241,7 @@ When tail is enabled:
 - Positionals for object schemas (no `echo <msg>` unless you enable tail and map it into real fields)
 - Unknown flags are never ignored/collected (they error)
 - `--` sentinel on commands without tail (errors)
+- Unterminated quotes / dangling escapes in text (tokenization errors)
 - Input schema key `_` (reserved)
 - Mixed short bundling for non-boolean flags (e.g. `-abnX` is rejected)
 - `-cVALUE` for boolean short flags (use `-c=false` or `-c false`)
