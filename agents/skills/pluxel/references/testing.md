@@ -39,7 +39,8 @@ host.ctx.on('resolveError', (id, err) => {
 
 ## Commands
 
-- 跑测试：`pnpm test:vitest`（若存在）
+- 跑测试：`pnpm test`（默认：turbo run test --affected）
+- 跑全量：`pnpm test:full`（vitest workspace）
 - 跑单包：`pnpm --filter <pkg> test`（若存在）
 
 ## 定位文档（可移植）

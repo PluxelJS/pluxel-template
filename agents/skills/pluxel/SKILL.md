@@ -38,7 +38,7 @@ pnpm exec tsc -p docs/pluxel-demos/tsconfig.json
 pnpm exec tsc -p packages/plugins/host/src/demo/tsconfig.json
 
 # 测试 / 宿主（按 repo 实际脚本选择）
-pnpm test:vitest
+pnpm test
 pnpm dev
 pnpm dev:demos
 pnpm --filter @pluxel/plugins-host hmr

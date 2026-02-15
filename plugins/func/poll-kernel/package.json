@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "build": "pluxel build",
-    "test": "bun test"
+    "test": "vitest run -c ./vitest.config.ts"
   },
   "dependencies": {
     "@pluxel/toolkit": "workspace:^"

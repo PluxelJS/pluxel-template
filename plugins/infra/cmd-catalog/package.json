@@ -19,7 +19,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "pnpm run typecheck && bun test --conditions=@pluxel/hmr"
+		"test": "pnpm run typecheck && vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@pluxel/cmd": "workspace:*"

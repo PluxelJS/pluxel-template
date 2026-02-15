@@ -36,7 +36,7 @@
 	],
 	"scripts": {
 		"build": "pluxel build",
-		"test": "bun test"
+		"test": "vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@isaacs/ttlcache": "^2.1.4"

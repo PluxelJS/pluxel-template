@@ -36,7 +36,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.typecheck.json",
-		"test": "pnpm run typecheck && pnpm exec vitest run -c ./vitest.config.ts"
+		"test": "pnpm run typecheck && vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@toon-format/toon": "^2.1.0",

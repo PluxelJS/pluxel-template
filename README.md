@@ -42,6 +42,12 @@
   - Univer 前端：`http://localhost:5174`（通过代理访问 `/api/*`）
 - 同时启动（保留旧的一键全量）：`pnpm dev:full`
 
+### 测试
+
+- 默认（Turbo + cache）：`pnpm test`
+- 全量（Vitest workspace）：`pnpm test:full`
+- 跑单包：`pnpm --filter '<pkg-name>' test`
+
 ### 约定
 
 - `plugins/chatbots/` 是 submodule：用 `git submodule status` 查看固定版本；更新时请显式 `git -C plugins/chatbots pull` + 在主仓库提交 gitlink 变更。

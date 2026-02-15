@@ -19,7 +19,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"build:builtin": "pluxel build",
-		"test": "bun test"
+		"test": "vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@gqloom/core": "^0.16.1",

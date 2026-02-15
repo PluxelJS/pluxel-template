@@ -10,6 +10,6 @@ git submodule update --init --recursive
 
 # Ensure upstream packages have `dist/` outputs for Node (HMR host runs compiled JS).
 pnpm -C ../pluxel install
-pnpm -C ../pluxel --filter @pluxel/core --filter @pluxel/hmr build
+pnpm -C ../pluxel --filter @pluxel/core --filter @pluxel/hmr --filter @pluxel/test build
 
 pnpm install

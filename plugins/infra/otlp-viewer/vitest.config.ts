@@ -1,4 +1,5 @@
-import { defineConfig } from 'vitest/config'
+import { createRequire } from 'node:module'
 
-export default defineConfig({})
+const require = createRequire(import.meta.url)
 
+export default require('@pluxel/test/vitest').default

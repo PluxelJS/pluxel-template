@@ -17,7 +17,7 @@
 		"dist"
 	],
 	"scripts": {
-		"test": "pnpm exec vitest run -c ./vitest.config.ts",
+    "test": "vitest run -c ./vitest.config.ts",
 		"build": "pluxel build",
 		"build:builtin": "pluxel build"
 	},

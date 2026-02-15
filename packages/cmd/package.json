@@ -19,7 +19,7 @@
 	"scripts": {
 		"build": "pluxel build",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "pnpm run typecheck && bun test"
+		"test": "pnpm run typecheck && vitest run -c ./vitest.config.ts"
 	},
 	"dependencies": {
 		"@sinclair/parsebox": "^0.11.1",

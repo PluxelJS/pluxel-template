@@ -1,1 +1,5 @@
-export { default } from '@pluxel/test/vitest'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+
+export default require('@pluxel/test/vitest').default

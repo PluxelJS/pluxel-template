@@ -34,7 +34,7 @@
   "types": "./dist/index.d.mts",
   "scripts": {
     "build": "pluxel build",
-    "test": "bun test --conditions=@pluxel/hmr"
+    "test": "vitest run -c ./vitest.config.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
