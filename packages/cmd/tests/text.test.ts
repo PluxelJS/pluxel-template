@@ -1,29 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import * as v from 'valibot'
 import { Runtime } from '@sinclair/parsebox'
 
-import type { AnyStdSchema } from '../src'
 import { cmd, textTail } from '../src'
-
-const schemaFromJson = (inputJsonSchema: Record<string, unknown>): AnyStdSchema =>
-	({
-		'~standard': {
-			version: 1,
-			vendor: 'test',
-			types: { input: {} as any, output: {} as any },
-			validate: (value: unknown) => ({ value }),
-			jsonSchema: {
-				input: () => inputJsonSchema,
-			},
-		},
-	} as any)
+import { obj, Type } from '../src'
 
 describe('cmdkit: text()', () => {
 	it('uses the final input schema even if text() is called before input()', async () => {
 		const exec = cmd('late')
 			.text()
-			.input(v.object({ foo: v.string() }))
+			.input(obj({ foo: Type.String() }))
 			.handle((i) => i.foo)
 			.build()
 
@@ -32,7 +18,7 @@ describe('cmdkit: text()', () => {
 
 	it('derives primitive flags from input schema and maps into input', async () => {
 		const exec = cmd('flags')
-			.input(v.object({ foo: v.string(), bar: v.optional(v.number()) }))
+			.input(obj({ foo: Type.String(), bar: Type.Optional(Type.Number()) }))
 			.text()
 			.handle((input) => input)
 			.build()
@@ -42,7 +28,7 @@ describe('cmdkit: text()', () => {
 
 	it('rejects unknown params', async () => {
 		const exec = cmd('unknown')
-			.input(v.object({ foo: v.string() }))
+			.input(obj({ foo: Type.String() }))
 			.text()
 			.handle((input) => input.foo)
 			.build()
@@ -52,7 +38,7 @@ describe('cmdkit: text()', () => {
 
 	it('rejects unterminated quotes and dangling escapes', async () => {
 		const exec = cmd('echo')
-			.input(v.object({ msg: v.string() }))
+			.input(obj({ msg: Type.String() }))
 			.text()
 			.handle((i) => i.msg)
 			.build()
@@ -63,7 +49,7 @@ describe('cmdkit: text()', () => {
 
 	it('supports boolean negation via --no-<flag>', async () => {
 		const exec = cmd('bool')
-			.input(v.object({ enabled: v.optional(v.boolean(), true) }))
+			.input(obj({ enabled: Type.Optional(Type.Boolean({ default: true })) }))
 			.text()
 			.handle((input) => input.enabled)
 			.build()
@@ -74,13 +60,7 @@ describe('cmdkit: text()', () => {
 
 	it('reports invalid JSON values as E_TEXT_PARSE', async () => {
 		const exec = cmd('x')
-			.input(
-				schemaFromJson({
-					type: 'object',
-					properties: { data: { type: 'object' } },
-					required: ['data'],
-				}),
-			)
+			.input(obj({ data: Type.Object({}, { additionalProperties: true }) }))
 			.text()
 			.handle((i: any) => i.data)
 			.build()
@@ -91,7 +71,7 @@ describe('cmdkit: text()', () => {
 	it('supports custom triggers', async () => {
 		const tail = textTail(new Runtime.Module({ Main: Runtime.Until(['\n'], (s) => ({ msg: s.trim() })) }), 'Main')
 		const exec = cmd('echo')
-			.input(v.object({ msg: v.string() }))
+			.input(obj({ msg: Type.String() }))
 			.text({ triggers: ['e'], tail })
 			.handle((i) => i.msg)
 			.build()
@@ -103,7 +83,7 @@ describe('cmdkit: text()', () => {
 	it('parses tail via ParseBox (use `--` to pass dash-prefixed tail)', async () => {
 		const tail = textTail(new Runtime.Module({ Main: Runtime.Until(['\n'], (s) => ({ msg: s.trim() })) }), 'Main')
 		const exec = cmd('echo')
-			.input(v.object({ msg: v.string() }))
+			.input(obj({ msg: Type.String() }))
 			.text({ tail })
 			.handle((i) => i.msg)
 			.build()
@@ -115,7 +95,7 @@ describe('cmdkit: text()', () => {
 
 		it('tokenizes quotes and escapes in flag values (default tokenizer)', async () => {
 			const exec = cmd('echo')
-				.input(v.object({ msg: v.string() }))
+				.input(obj({ msg: Type.String() }))
 				.text()
 				.handle((i) => i.msg)
 				.build()
@@ -127,7 +107,7 @@ describe('cmdkit: text()', () => {
 
 	it('accepts long aliases (camel/snake) and short flags when unique', async () => {
 		const exec = cmd('x')
-			.input(v.object({ userId: v.string(), force: v.optional(v.boolean()) }))
+			.input(obj({ userId: Type.String(), force: Type.Optional(Type.Boolean()) }))
 			.text()
 			.handle((i) => i)
 			.build()
@@ -140,7 +120,7 @@ describe('cmdkit: text()', () => {
 
 	it('drops auto short flags on conflicts (strategy B)', async () => {
 		const exec = cmd('x')
-			.input(v.object({ foo: v.string(), file: v.string() }))
+			.input(obj({ foo: Type.String(), file: Type.String() }))
 			.text()
 			.handle((i) => i)
 			.build()
@@ -151,16 +131,7 @@ describe('cmdkit: text()', () => {
 	it('rejects canonical name collisions (no ambiguous flags)', () => {
 		expect(() =>
 			cmd('x')
-				.input(
-					schemaFromJson({
-						type: 'object',
-						properties: {
-							fooBar: { type: 'string' },
-							'foo-bar': { type: 'string' },
-						},
-						required: ['fooBar', 'foo-bar'],
-					}),
-				)
+				.input(obj({ fooBar: Type.String(), 'foo-bar': Type.String() } as any))
 				.text()
 				.handle((i: any) => i)
 				.build(),
@@ -169,7 +140,11 @@ describe('cmdkit: text()', () => {
 
 	it('supports boolean short bundling (-abc)', async () => {
 		const exec = cmd('x')
-			.input(v.object({ alpha: v.optional(v.boolean()), beta: v.optional(v.boolean()), charlie: v.optional(v.boolean()) }))
+			.input(obj({
+				alpha: Type.Optional(Type.Boolean()),
+				beta: Type.Optional(Type.Boolean()),
+				charlie: Type.Optional(Type.Boolean()),
+			}))
 			.text()
 			.handle((i) => i)
 			.build()
@@ -188,7 +163,7 @@ describe('cmdkit: text()', () => {
 
 	it('allows explicit boolean values for short flags (-f false)', async () => {
 		const exec = cmd('x')
-			.input(v.object({ force: v.optional(v.boolean(), true) }))
+			.input(obj({ force: Type.Optional(Type.Boolean({ default: true })) }))
 			.text()
 			.handle((i) => i.force)
 			.build()
@@ -200,7 +175,7 @@ describe('cmdkit: text()', () => {
 
 	it('supports attached short values (-n10, -ufoo, -n-1)', async () => {
 		const exec = cmd('x')
-			.input(v.object({ num: v.number(), user: v.string() }))
+			.input(obj({ num: Type.Number(), user: Type.String() }))
 			.text()
 				.handle((i) => i)
 				.build()
@@ -212,7 +187,11 @@ describe('cmdkit: text()', () => {
 
 	it('prevents mixed short bundles when not all are boolean', async () => {
 		const exec = cmd('x')
-			.input(v.object({ alpha: v.optional(v.boolean()), beta: v.optional(v.boolean()), name: v.string() }))
+			.input(obj({
+				alpha: Type.Optional(Type.Boolean()),
+				beta: Type.Optional(Type.Boolean()),
+				name: Type.String(),
+			}))
 			.text()
 			.handle((i) => i)
 			.build()
@@ -223,7 +202,11 @@ describe('cmdkit: text()', () => {
 	it('prevents keyed flags from appearing inside implicit ParseBox tail (use `--` for explicit tail)', async () => {
 		const tail = textTail(new Runtime.Module({ Main: Runtime.Until(['\n'], (s) => ({ expr: s })) }), 'Main')
 		const exec = cmd('where')
-			.input(v.object({ user: v.string(), force: v.optional(v.boolean()), expr: v.string() }))
+			.input(obj({
+				user: Type.String(),
+				force: Type.Optional(Type.Boolean()),
+				expr: Type.String(),
+			}))
 			.text({ tail })
 			.handle((i) => i.expr)
 			.build()
@@ -237,13 +220,7 @@ describe('cmdkit: text()', () => {
 
 	it('enforces integer parsing when JSON Schema uses type: integer', async () => {
 		const exec = cmd('x')
-			.input(
-				schemaFromJson({
-					type: 'object',
-					properties: { count: { type: 'integer' } },
-					required: ['count'],
-				}),
-			)
+			.input(obj({ count: Type.Integer() }))
 			.text()
 			.handle((i: any) => i.count)
 			.build()
@@ -260,7 +237,7 @@ describe('cmdkit: text()', () => {
 			'Main',
 		)
 		const exec = cmd('args')
-			.input(v.object({ items: v.array(v.string()) }))
+			.input(obj({ items: Type.Array(Type.String()) }))
 			.text({ tail })
 			.handle((i) => i.items)
 			.build()
@@ -271,7 +248,7 @@ describe('cmdkit: text()', () => {
 	it('parses raw DSL tail into input fields (tail is text-only)', async () => {
 		const tail = textTail(new Runtime.Module({ Main: Runtime.Until(['\n'], (s) => ({ expr: s })) }), 'Main')
 		const exec = cmd('where')
-			.input(v.object({ user: v.string(), expr: v.string() }))
+			.input(obj({ user: Type.String(), expr: Type.String() }))
 			.text({ tail })
 			.handle((i) => ({ user: i.user, raw: i.expr }))
 			.build()

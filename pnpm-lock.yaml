@@ -111,19 +111,12 @@ importers:
       '@sinclair/parsebox':
         specifier: ^0.11.1
         version: 0.11.1
-      '@standard-schema/spec':
-        specifier: ^1.1.0
-        version: 1.1.0
-      '@valibot/to-json-schema':
-        specifier: ^1.5.0
-        version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
+      '@sinclair/typebox':
+        specifier: ^0.34.41
+        version: 0.34.48
       option-t:
         specifier: ^55.1.1
         version: 55.1.1
-    devDependencies:
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
 
   packages/promptkit:
     dependencies:
@@ -236,9 +229,6 @@ importers:
       pluxel-plugin-telegram:
         specifier: workspace:^
         version: link:../telegram
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
 
   plugins/chatbots/bot-suite:
     dependencies:
@@ -248,6 +238,9 @@ importers:
       '@pluxel/cmd':
         specifier: workspace:*
         version: link:../../../packages/cmd
+      '@sinclair/parsebox':
+        specifier: ^0.11.1
+        version: 0.11.1
       pluxel-plugin-bot-core:
         specifier: workspace:*
         version: link:../bot-core
@@ -263,9 +256,6 @@ importers:
       pluxel-plugin-telegram:
         specifier: workspace:^
         version: link:../telegram
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
 
   plugins/chatbots/kook:
     dependencies:
@@ -302,9 +292,6 @@ importers:
       pluxel-plugin-meme-worker:
         specifier: workspace:*
         version: link:../../../render/meme-worker
-      valibot:
-        specifier: ^1.2.0
-        version: 1.2.0(typescript@5.9.3)
 
   plugins/chatbots/telegram:
     dependencies:
@@ -404,12 +391,6 @@ importers:
       hono:
         specifier: ^4.11.9
         version: 4.11.9
-
-  plugins/infra/cmd-catalog:
-    dependencies:
-      '@pluxel/cmd':
-        specifier: workspace:*
-        version: link:../../../packages/cmd
 
   plugins/infra/otlp:
     dependencies:

@@ -1,4 +1,6 @@
-# cmdkit（精简版设计文档）：Schema-first 命令执行内核 + 文本路由 + phase 拦截器
+# @pluxel/cmd（内部代号：cmdkit）：TypeBox(JSON Schema)-first 命令执行内核 + 文本路由 + phase 拦截器
+
+说明：本文用 “cmdkit” 指代 `@pluxel/cmd` 这套内核与 API（只是内部代号，避免和 `cmd()` builder 混淆）。
 
 ## 1. 目标与边界
 
@@ -60,7 +62,7 @@
 - 未启用 `.text(...)`：产物没有 `execText`。
 
 ```ts
-import type { StandardSchemaV1, StandardJSONSchemaV1 } from "@standard-schema/spec";
+import type { Static, TSchema } from '@sinclair/typebox';
 
 export type CmdErrorCode =
   | "E_CMD_NOT_FOUND"
@@ -114,9 +116,8 @@ export interface Executable<I, O> {
   };
 }
 
-export type AnyStdSchema = StandardSchemaV1<any, any>;
-export type AnyStdJsonSchema = StandardJSONSchemaV1<any, any>;
-export type InferOut<S extends AnyStdSchema> = NonNullable<S["~standard"]["types"]>["output"];
+export type Schema = TSchema;
+export type Infer<S extends Schema> = Static<S>;
 
 export type PhaseResult<S> =
   | { kind: "continue"; state?: S; candidate?: unknown }
@@ -151,8 +152,10 @@ export interface Interceptor<S = unknown> {
 type State = { hasHandle: boolean; hasText: boolean };
 
 export interface CmdBuilder<I, O, S extends State> {
-  input<T extends AnyStdSchema>(schema: T): CmdBuilder<InferOut<T>, O, S>;
-  output<T extends AnyStdSchema>(schema: T): CmdBuilder<I, InferOut<T>, S>;
+  input<T extends Schema>(schema: T): CmdBuilder<Infer<T>, O, S>;
+  output<T extends Schema>(schema: T): CmdBuilder<I, Infer<T>, S>;
+  validateInput(...fns: Array<(input: I, ctx: ExecCtx) => void | ValidationIssue | ValidationIssue[] | Promise<void | ValidationIssue | ValidationIssue[]>>): CmdBuilder<I, O, S>;
+  validateOutput(...fns: Array<(output: O, ctx: ExecCtx) => void | ValidationIssue | ValidationIssue[] | Promise<void | ValidationIssue | ValidationIssue[]>>): CmdBuilder<I, O, S>;
 
   intercept<TState>(itc: Interceptor<TState>): CmdBuilder<I, O, S>;
 
@@ -217,7 +220,7 @@ cmd('echo').text({ triggers: ['e', 'say'] })
 
 解析规则（唯一且固定）：
 - 触发词匹配：按 triggers（空格分词）做最长匹配。
-- 解析输入：从 input JSON Schema（由 Standard Schema 派生）派生参数表，并支持：
+- 解析输入：从 input JSON Schema（TypeBox schema 的 JSON 视图）派生参数表，并支持：
   - `--key value` / `--key=value`
   - `--key` 的常见别名：同一参数默认接受 kebab/camel/snake 风格（例如 `--user-id` / `--userId` / `--user_id`）。
   - `key:value` / `key=value`
@@ -254,7 +257,7 @@ cmd('ping')
   .build()
 ```
 
-### 4.2.2 MCP/tool：显式 opt-in（`.mcp(...)`），与 cmd 共用 schema+handler
+### 4.2.2 MCP/tool：显式 opt-in（`.mcp(...)` / `.mcp()`），与 cmd 共用 schema+handler
 
 cmdkit 的“核心执行器”本质上就是 op：同一份 `input schema + handler` 可以同时用于：
 - Text 指令：`.text(...)` + router
@@ -263,17 +266,16 @@ cmdkit 的“核心执行器”本质上就是 op：同一份 `input schema + ha
 推荐写法：把 schema 定义成常量，然后两边复用。
 
 ```ts
-import * as v from 'valibot'
+import { obj, Type } from '@pluxel/cmd'
 import { cmd } from '@pluxel/cmd'
 
-const EchoInput = v.object({ msg: v.string() })
+const EchoInput = obj({ msg: Type.String() })
 
 const echo = cmd('echo')
   .input(EchoInput)
-  .mcp({
-    title: 'Echo',
-    description: 'Echo a message',
-  })
+  // `.mcp({ title })` defaults description from `doc.description` when omitted.
+  // `.mcp()` defaults title to `id` and description from `doc.description`.
+  .mcp({ title: 'Echo' })
   .doc({
     details: [
       'Text:',
@@ -298,13 +300,13 @@ const tool = {
 }
 ```
 
-`.mcp(...)` 是**显式声明**：只有你明确 opt-in 的 op 才会暴露 `exec.mcp` 元数据。
+`.mcp(...)` / `.mcp()` 是**显式声明**：只有你明确 opt-in 的 op 才会暴露 `exec.mcp` 元数据。
 这让“可被 MCP 调用”变得更确定（不会有隐式推断/桥接行为）。
 
-若你的 Standard Schema 无法自动转换为 JSON Schema，可在 `.mcp({ inputSchema: ... })` 中手动提供 `inputSchema` 覆盖。
+若你需要对外暴露的 JSON Schema 与内部 schema 不同，可在 `.mcp({ inputSchema: ... })` 中手动提供 `inputSchema` 覆盖。
 若你希望在支持 Structured Outputs 的 MCP SDK/Registry 中暴露输出结构，可：
 - 在 `.mcp({ outputSchema: ... })` 中手动提供输出 JSON Schema（可选，最明确）
-- 或使用 `.mcp({ deriveOutputSchema: true })` 让 cmdkit 从 `.output(schema)` best-effort 派生 `meta.outputSchema`（可选；仍然需要你显式声明 `.output(...)`；对 transform/pipe 类 schema 可能不精确，建议手写 `outputSchema` 覆盖）
+- 或使用 `.mcp({ deriveOutputSchema: true })` 让 cmdkit 从 `.output(schema)` 派生 `meta.outputSchema`（可选；仍然需要你显式声明 `.output(...)`）
 
 #### 4.2.2.1 从 mcp-lite 这类 minimal MCP server 的设计取向借鉴的几个“桥接”要点
 
@@ -376,7 +378,7 @@ export function createRouter(cfg?: {
 
 ## 5. Schema 派生的文本参数（build-time 一次性）
 
-* 核心只要求 `StandardSchemaV1`：用于 input/output validate。
+* 核心只要求 TypeBox schema（JSON Schema）：用于 input/output validate。
 * `text()` 会在 build-time 从 input JSON Schema 派生参数表（用于解析与 help 输出）：
   * `type: object` 的 `properties` 中，派生 `params`（保留字段 `_` 禁止使用）。
   * boolean 自动支持 `--no-<name>`。

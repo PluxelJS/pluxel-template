@@ -1,5 +1,5 @@
-import type { AnyStdSchema, BeforeResult, CmdErrorCode, ExecCtx, Interceptor } from './core'
-import { CmdError, normalizeError, nowMs, throwIfStopped, validateSchema, withSpan } from './core'
+import type { BeforeResult, CmdErrorCode, ExecCtx, Interceptor, ValidationSpec } from './core'
+import { CmdError, normalizeError, nowMs, throwIfStopped, validateWithCustom, withSpan } from './core'
 import { CMD_EVENT } from './events'
 import type { Result } from './result'
 import { createErr, createOk } from './result'
@@ -8,8 +8,8 @@ export type AnyFn = (...args: any[]) => any
 
 export type ExecSpec = {
 	id: string
-	input: AnyStdSchema
-	output?: AnyStdSchema
+	input: ValidationSpec<any>
+	output?: ValidationSpec<any>
 	interceptors: ReadonlyArray<Interceptor<any>>
 	handle?: AnyFn
 }
@@ -102,13 +102,13 @@ const reportFaultOnce = async (
 	}
 }
 
-const validateWithEvents = async <S extends AnyStdSchema>(
+const validateWithEvents = async <T>(
 	id: string,
-	schema: S,
+	spec: ValidationSpec<T>,
 	value: unknown,
 	kind: 'input' | 'output',
 	ctx: ExecCtx,
-): Promise<any> => {
+): Promise<T> => {
 	const startEvt = kind === 'input' ? CMD_EVENT.SCHEMA_INPUT_START : CMD_EVENT.SCHEMA_OUTPUT_START
 	const okEvt = kind === 'input' ? CMD_EVENT.SCHEMA_INPUT_OK : CMD_EVENT.SCHEMA_OUTPUT_OK
 	const failEvt = kind === 'input' ? CMD_EVENT.SCHEMA_INPUT_FAIL : CMD_EVENT.SCHEMA_OUTPUT_FAIL
@@ -116,7 +116,7 @@ const validateWithEvents = async <S extends AnyStdSchema>(
 
 	ctx.emit?.(startEvt, { id })
 	try {
-		const out = await validateSchema(schema, value, code, ctx)
+		const out = await validateWithCustom(spec, value, code, ctx)
 		ctx.emit?.(okEvt, { id })
 		return out
 	} catch (e) {
@@ -137,8 +137,8 @@ export const execPlan = async <I, O>(
 ): Promise<O> => {
 	const c = ctx ?? EMPTY_CTX
 	const id = spec.id
-	const inputSchema = spec.input
-	const outputSchema = spec.output
+	const inputSpec = spec.input
+	const outputSpec = spec.output
 
 	const start = nowMs(c)
 	c.emit?.(CMD_EVENT.EXEC_START, { id, atMs: start })
@@ -173,7 +173,7 @@ export const execPlan = async <I, O>(
 		if (shortCircuit) {
 			inputValue = undefined
 		} else {
-			inputValue = await validateWithEvents(id, inputSchema, curCandidate, 'input', c)
+			inputValue = await validateWithEvents(id, inputSpec, curCandidate, 'input', c)
 		}
 
 		if (!shortCircuit) {
@@ -209,8 +209,8 @@ export const execPlan = async <I, O>(
 			}
 		})
 
-		const finalOutput = outputSchema
-			? await validateWithEvents(id, outputSchema, outputCandidate, 'output', c)
+		const finalOutput = outputSpec
+			? await validateWithEvents(id, outputSpec as any, outputCandidate, 'output', c)
 			: (outputCandidate as O)
 
 		ok = true

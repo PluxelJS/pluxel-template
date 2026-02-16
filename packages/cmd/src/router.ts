@@ -33,10 +33,20 @@ export type RouterIssue =
 	| { kind: 'DUPLICATE_TRIGGER'; id: string; trigger: string }
 	| { kind: 'CONFLICTING_TRIGGER'; id: string; trigger: string; existingId: string }
 
-export type RouterExecutable = {
+export type TextRoutable<Ctx extends ExecCtx = ExecCtx> = {
 	id: string
-	execText?: (text: string, ctx?: ExecCtx) => Promise<Result<unknown, CmdError>>
-} & Record<string | symbol, unknown>
+		/**
+		 * Required: router is text-first; non-text executables must not be registered.
+		 *
+		 * Note: @pluxel/cmd-built executables also carry an internal token-aware runner,
+		 * but a plain `execText(text)` is sufficient.
+		 */
+	execText: (text: string, ctx?: Ctx) => Promise<Result<unknown, CmdError>>
+	/** Optional internal runner that can consume already-tokenized input. */
+	[CMDKIT_TEXT_RUNNER]?: TextRunner<Ctx>
+	/** Optional, but required unless `opts.triggers` is provided to add()/set(). */
+	meta?: { triggers: string[] }
+}
 
 export type RouterMatch = {
 	id: string
@@ -58,12 +68,16 @@ export interface Router<Ctx extends ExecCtx = ExecCtx> {
 		ignoreId?: string,
 	): { ok: true } | { ok: false; issues: RouterIssue[] }
 
-	add(exec: { id: string; meta?: { triggers: string[] }; [CMDKIT_TEXT_RUNNER]?: TextRunner<Ctx> }, opts?: { triggers: string[] }): void
+	add(exec: TextRoutable<Ctx>, opts?: { triggers: string[] }): void
+	/** Add multiple executables atomically (all-or-nothing). */
+	addMany(execs: Array<TextRoutable<Ctx>>): void
 	/** Upsert by id (remove old entry, then add). */
-	set(exec: { id: string; meta?: { triggers: string[] }; [CMDKIT_TEXT_RUNNER]?: TextRunner<Ctx> }, opts?: { triggers: string[] }): void
+	set(exec: TextRoutable<Ctx>, opts?: { triggers: string[] }): void
+	/** Upsert multiple executables atomically (all-or-nothing). */
+	setMany(execs: Array<TextRoutable<Ctx>>): void
 	remove(id: string): void
 	has(id: string): boolean
-	get(id: string): { id: string; triggers: string[]; exec: RouterExecutable } | undefined
+	get(id: string): { id: string; triggers: string[]; exec: TextRoutable<Ctx> } | undefined
 	list(): RouterEntry[]
 	match(text: string): RouterMatch | null
 	matchTokens(tokens: TextToken[]): RouterMatch | null
@@ -74,21 +88,22 @@ export interface Router<Ctx extends ExecCtx = ExecCtx> {
 	helpCommand(name: string): RouterHelpCommandResult | undefined
 }
 
-export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensitive?: boolean }): Router<Ctx> {
+export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensitive?: boolean; maxTextLength?: number }): Router<Ctx> {
 	const tokenize = defaultTokenizer
 	const norm = (s: string) => (cfg?.caseInsensitive ? s.toLowerCase() : s)
+	const maxTextLength = typeof cfg?.maxTextLength === 'number' ? cfg.maxTextLength : 16 * 1024
 
 	type Node = { exec?: any; consumed?: number; trigger?: string; next: Map<string, Node> }
 	const root: Node = { next: new Map() }
 
-	const entries = new Map<string, { exec: any; triggers: string[]; tokenized: Array<readonly string[]> }>()
+	const entries = new Map<string, { exec: TextRoutable<Ctx>; triggers: string[]; tokenized: Array<readonly string[]> }>()
 	const flatNames = new Map<string, string>() // normalized trigger -> exec.id
 
 	const canonTrigger = (raw: string) => splitSpace(raw).join(' ')
 	const keyOfTrigger = (raw: string) => norm(canonTrigger(raw))
 	const normalizeTriggers = (src: unknown) => (src as unknown[] | undefined)?.map(String).map(canonTrigger).filter(Boolean) ?? []
 
-	const put = (tokens: readonly string[], exec: any) => {
+	const put = (tokens: readonly string[], exec: TextRoutable<Ctx>) => {
 		let cur = root
 		for (const raw of tokens) {
 			const t = norm(raw)
@@ -106,7 +121,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 		cur.trigger = tokens.join(' ')
 	}
 
-	const del = (tokens: readonly string[], exec: any) => {
+	const del = (tokens: readonly string[], exec: TextRoutable<Ctx>) => {
 		const stack: Array<{ node: Node; token: string }> = []
 		let cur: Node | undefined = root
 		for (const raw of tokens) {
@@ -146,16 +161,13 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 	}
 
 	const dispatchMatched = async (match: { exec: any; consumed: number }, tokens: TextToken[], text: string | undefined, ctx?: Ctx) => {
-		const exec = match.exec as RouterExecutable
+		const exec = match.exec as TextRoutable<Ctx>
 		const runner: TextRunner<Ctx> | undefined = (exec as any)[CMDKIT_TEXT_RUNNER]
 		if (runner) return await runner({ tokens, consumed: match.consumed, ...(text !== undefined ? { text } : {}) }, ctx)
-		if (typeof exec.execText === 'function') {
-			// Prefer the original string when available to preserve whitespace exactly.
-			if (text !== undefined) return await exec.execText(text, ctx)
-			// Otherwise reconstruct from tokens; prefer `raw` to preserve quotes/escapes.
-			return await exec.execText(tokens.map((t) => t.raw).join(' '), ctx)
-		}
-		return createErr(new CmdError('E_INTERNAL', 'Internal error', { message: `Executable "${exec.id}" has no text runner (missing .text(...))` }))
+		// Prefer the original string when available to preserve whitespace exactly.
+		if (text !== undefined) return await exec.execText(text, ctx)
+		// Otherwise reconstruct from tokens; prefer `raw` to preserve quotes/escapes.
+		return await exec.execText(tokens.map((t) => t.raw).join(' '), ctx)
 	}
 
 	return {
@@ -205,6 +217,60 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 			for (const name of list) flatNames.set(keyOfTrigger(name), exec.id)
 		},
 
+		addMany(execs) {
+			const issues: RouterIssue[] = []
+
+			const seenIds = new Set<string>()
+			const seenKeys = new Map<string, string>() // normalized trigger -> id
+
+			// Seed with existing triggers.
+			for (const [id, e] of entries.entries()) {
+				for (const name of e.triggers) {
+					seenKeys.set(keyOfTrigger(name), id)
+				}
+			}
+
+			for (const exec of execs) {
+				const id = String(exec.id ?? '').trim()
+				const triggers = normalizeTriggers(exec.meta?.triggers)
+
+				if (!id) continue
+				if (seenIds.has(id)) issues.push({ kind: 'DUPLICATE_ID', id })
+				seenIds.add(id)
+
+				if (!triggers.length) {
+					issues.push({ kind: 'MISSING_TRIGGERS', id })
+					continue
+				}
+
+				const localSeen = new Set<string>()
+				for (const raw of triggers) {
+					if (localSeen.has(raw)) {
+						issues.push({ kind: 'DUPLICATE_TRIGGER', id, trigger: raw })
+						continue
+					}
+					localSeen.add(raw)
+
+					const key = keyOfTrigger(raw)
+					const existingId = seenKeys.get(key)
+					if (existingId && existingId !== id) {
+						issues.push({ kind: 'CONFLICTING_TRIGGER', id, trigger: raw, existingId })
+						continue
+					}
+					seenKeys.set(key, id)
+				}
+			}
+
+			if (issues.length) {
+				throw new CmdError('E_INTERNAL', 'Internal error', {
+					message: `router.addMany(...) rejected`,
+					details: { issues },
+				})
+			}
+
+			for (const exec of execs) this.add(exec)
+		},
+
 		set(exec, opts) {
 			// Pre-check to keep set() atomic: do not remove the existing entry when the upsert is invalid.
 			const checked = this.check(exec, opts, exec.id)
@@ -217,6 +283,63 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 
 			this.remove(exec.id)
 			this.add(exec, opts)
+		},
+
+		setMany(execs) {
+			const issues: RouterIssue[] = []
+
+			const replaceIds = new Set<string>(execs.map((e) => String(e.id ?? '').trim()).filter(Boolean))
+
+			// Seed with existing triggers excluding replaced ids.
+			const seenKeys = new Map<string, string>() // normalized trigger -> id
+			for (const [id, e] of entries.entries()) {
+				if (replaceIds.has(id)) continue
+				for (const name of e.triggers) {
+					seenKeys.set(keyOfTrigger(name), id)
+				}
+			}
+
+			// Validate incoming (also catches duplicates within the batch).
+			const seenIds = new Set<string>()
+			for (const exec of execs) {
+				const id = String(exec.id ?? '').trim()
+				const triggers = normalizeTriggers(exec.meta?.triggers)
+
+				if (!id) continue
+				if (seenIds.has(id)) issues.push({ kind: 'DUPLICATE_ID', id })
+				seenIds.add(id)
+
+				if (!triggers.length) {
+					issues.push({ kind: 'MISSING_TRIGGERS', id })
+					continue
+				}
+
+				const localSeen = new Set<string>()
+				for (const raw of triggers) {
+					if (localSeen.has(raw)) {
+						issues.push({ kind: 'DUPLICATE_TRIGGER', id, trigger: raw })
+						continue
+					}
+					localSeen.add(raw)
+
+					const key = keyOfTrigger(raw)
+					const existingId = seenKeys.get(key)
+					if (existingId && existingId !== id) {
+						issues.push({ kind: 'CONFLICTING_TRIGGER', id, trigger: raw, existingId })
+						continue
+					}
+					seenKeys.set(key, id)
+				}
+			}
+
+			if (issues.length) {
+				throw new CmdError('E_INTERNAL', 'Internal error', {
+					message: `router.setMany(...) rejected`,
+					details: { issues },
+				})
+			}
+
+			for (const exec of execs) this.set(exec)
 		},
 
 		remove(id) {
@@ -237,7 +360,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 		get(id) {
 			const e = entries.get(id)
 			if (!e) return undefined
-			return { id, triggers: e.triggers.slice(), exec: e.exec as RouterExecutable }
+			return { id, triggers: e.triggers.slice(), exec: e.exec as TextRoutable<Ctx> }
 		},
 
 		list() {
@@ -247,6 +370,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 		},
 
 		match(text) {
+			if (maxTextLength > 0 && text.length > maxTextLength) return null
 			const tokens = tokenize(text)
 			const match = findLongestTokens(tokens)
 			if (!match) return null
@@ -261,6 +385,9 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 
 		async dispatch(text, ctx) {
 			try {
+				if (maxTextLength > 0 && text.length > maxTextLength) {
+					return createErr(new CmdError('E_TEXT_PARSE', 'Invalid command text', { details: { reason: 'TEXT_TOO_LONG' } }))
+				}
 				const tokens = tokenize(text)
 				const match = findLongestTokens(tokens)
 				if (!match) return createErr(new CmdError('E_CMD_NOT_FOUND', 'Unknown command', { details: { text } }))

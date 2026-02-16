@@ -1,5 +1,5 @@
-import type { AnyStdSchema } from './core'
-import { CmdError, getInputJsonSchema } from './core'
+import type { Schema } from './core'
+import { CmdError, toJsonSchema } from './core'
 import { defaultTokenizer, type TextToken, type TextTokenizer } from './tokenize'
 import { splitSpace, uniqueStrings } from './internal/strings'
 import type { TextInvocation } from './text-runner'
@@ -8,13 +8,14 @@ import type { TextTail } from './text-tail'
 export type TextConfig = {
 	/** Text triggers (command names). Default: `[id]`. */
 	triggers?: string[]
+
 	/**
 	 * Optional ParseBox tail parser (text-only).
 	 *
-	 * When present, cmdkit parses "the rest of the text" with ParseBox and expects
+	 * When present, @pluxel/cmd parses "the rest of the text" with ParseBox and expects
 	 * it to return an object patch merged into the real input (after flags parsing).
 	 *
-	 * Note: cmdkit appends a trailing `\n` to the tail text before invoking ParseBox,
+	 * Note: @pluxel/cmd appends a trailing `\n` to the tail text before invoking ParseBox,
 	 * so `Runtime.Until(['\n'], ...)` works as “until end-of-line”.
 	 *
 	 * Rules:
@@ -128,11 +129,11 @@ const toParamType = (schema: any): { type: ParamType; integer: boolean } | null 
 	return null
 }
 
-const deriveInputModel = (schema: AnyStdSchema): InputModel => {
+const deriveInputModel = (schema: Schema): InputModel => {
 	const cached = INPUT_MODEL_CACHE.get(schema as any)
 	if (cached) return cached
 
-	const js = getInputJsonSchema(schema)
+	const js = toJsonSchema(schema)
 	const root: any = js && typeof js === 'object' ? js : undefined
 	if (!root || typeof root !== 'object') {
 		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'text(): requires JSON Schema for input schema derivation' })
@@ -643,7 +644,7 @@ const matchAnyName = (names: ReadonlyArray<readonly string[]>, tokens: TextToken
 	return best ?? null
 }
 
-export const compileTextPlan = (id: string, inputSchema: AnyStdSchema, cfg: TextConfig): CompiledText => {
+export const compileTextPlan = (id: string, inputSchema: Schema, cfg: TextConfig): CompiledText => {
 	const providedTriggers = cfg.triggers ? uniqueStrings(cfg.triggers) : []
 	const triggers = providedTriggers.length > 0 ? providedTriggers : [id]
 	const tokenizedNames = triggers.map(splitSpace).filter((x) => x.length > 0)

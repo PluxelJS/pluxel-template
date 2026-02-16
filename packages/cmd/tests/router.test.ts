@@ -128,6 +128,14 @@ describe('cmdkit: router', () => {
 		await expect(router.dispatch('ping "unterminated')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
 	})
 
+	it('guards against overly long text before tokenization', async () => {
+		const router = createRouter({ maxTextLength: 8 })
+		const exec = cmd('a').text({ triggers: ['ping'] }).handle(() => 'a').build()
+		router.add(exec)
+
+		await expect(router.dispatch('ping --x 123')).resolves.toMatchObject({ ok: false, err: { code: 'E_TEXT_PARSE', details: { reason: 'TEXT_TOO_LONG' } } })
+	})
+
 	it('provides diagnostics via check() (no mutation)', () => {
 		const router = createRouter({ caseInsensitive: true })
 		const a = cmd('a').text({ triggers: ['ping'] }).handle(() => 'a').build()
@@ -138,5 +146,31 @@ describe('cmdkit: router', () => {
 		if (!checked.ok) {
 			expect(checked.issues.some((x) => x.kind === 'CONFLICTING_TRIGGER')).toBe(true)
 		}
+	})
+
+	it('addMany() is atomic', () => {
+		const router = createRouter({ caseInsensitive: true })
+		const a = cmd('a').text({ triggers: ['x'] }).handle(() => 1).build()
+		const b = cmd('b').text({ triggers: ['x'] }).handle(() => 2).build()
+
+		expect(() => router.addMany([a, b])).toThrow()
+		expect(router.list()).toEqual([])
+
+		router.addMany([a])
+		expect(router.list().map((e) => e.id)).toEqual(['a'])
+	})
+
+	it('setMany() is atomic', async () => {
+		const router = createRouter({ caseInsensitive: true })
+		const a1 = cmd('a').text({ triggers: ['ping'] }).handle(() => 'a1').build()
+		const b = cmd('b').text({ triggers: ['pong'] }).handle(() => 'b').build()
+		router.add(a1)
+		router.add(b)
+
+		const a2 = cmd('a').text({ triggers: ['pong'] }).handle(() => 'a2').build()
+		expect(() => router.setMany([a2])).toThrow()
+
+		await expect(router.dispatch('ping')).resolves.toEqual({ ok: true, val: 'a1', err: null })
+		await expect(router.dispatch('pong')).resolves.toEqual({ ok: true, val: 'b', err: null })
 	})
 })

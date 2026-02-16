@@ -1,6 +1,7 @@
-import type { AnyStdSchema } from './core'
-import { CmdError, getInputJsonSchema, getOutputJsonSchema } from './core'
-import type { DocTextSource } from './doc'
+import type { Schema } from './core'
+import { CmdError, toJsonSchema } from './core'
+import type { DocContext, DocTextSource } from './doc'
+import { resolveText } from './doc'
 import { isNonEmptyString } from './internal/strings'
 
 export type McpConfig = {
@@ -14,36 +15,39 @@ export type McpConfig = {
 	/**
 	 * Human-friendly title (supports i18n via function).
 	 * Some MCP registries/UI can display it; core treats it as metadata.
+	 *
+	 * Default: `id`.
 	 */
-	title: DocTextSource
+	title?: DocTextSource
 
 	/**
 	 * One-line summary (supports i18n via function).
 	 * This is the canonical MCP tool `description`.
-	 */
-	description: DocTextSource
-
-	/**
-	 * Optional JSON Schema override for MCP.
 	 *
-	 * If omitted, cmdkit derives it from the input Standard Schema at build-time.
+	 * Default (when omitted): `doc.description` if available, otherwise `title`/`id`.
 	 */
-	inputSchema?: Record<string, unknown>
+	description?: DocTextSource
 
-	/**
-	 * Optional output JSON Schema for MCP (structured outputs).
-	 *
-	 * If provided, cmdkit uses it as-is.
-	 */
-	outputSchema?: Record<string, unknown>
+		/**
+		 * Optional JSON Schema override for MCP.
+		 *
+		 * If omitted, @pluxel/cmd uses the input TypeBox schema (JSON-serializable view).
+		 */
+		inputSchema?: Record<string, unknown>
 
-	/**
-	 * Whether to derive `outputSchema` from the cmdkit output Standard Schema (when present).
-	 *
-	 * Default: false (explicit opt-in to avoid accidentally exposing internal output structure).
-	 * Note: derivation is best-effort and may be inaccurate for transform/pipe schemas; prefer `outputSchema` override.
-	 */
-	deriveOutputSchema?: boolean
+		/**
+		 * Optional output JSON Schema for MCP (structured outputs).
+		 *
+		 * If provided, @pluxel/cmd uses it as-is.
+		 */
+		outputSchema?: Record<string, unknown>
+
+		/**
+		 * Whether to derive `outputSchema` from the cmd output schema (when present).
+		 *
+		 * Default: false (explicit opt-in to avoid accidentally exposing internal output structure).
+		 */
+		deriveOutputSchema?: boolean
 }
 
 export type McpMeta = {
@@ -54,7 +58,23 @@ export type McpMeta = {
 	outputSchema?: Record<string, unknown>
 }
 
-export const compileMcpMeta = (id: string, input: AnyStdSchema, output: AnyStdSchema | undefined, cfg: McpConfig): McpMeta => {
+export type McpToolDef = {
+	name: string
+	title: string
+	description: string
+	inputSchema: Record<string, unknown>
+	outputSchema?: Record<string, unknown>
+}
+
+export const resolveMcpToolDef = (meta: McpMeta, ctx: DocContext): McpToolDef => ({
+	name: meta.name,
+	title: resolveText(meta.title, ctx),
+	description: resolveText(meta.description, ctx),
+	inputSchema: meta.inputSchema,
+	...(meta.outputSchema ? { outputSchema: meta.outputSchema } : {}),
+})
+
+export const compileMcpMeta = (id: string, input: Schema, output: Schema | undefined, cfg: McpConfig): McpMeta => {
 	if (typeof cfg.title === 'string' && !isNonEmptyString(cfg.title)) {
 		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'mcp(): title must be a non-empty string' })
 	}
@@ -67,15 +87,11 @@ export const compileMcpMeta = (id: string, input: AnyStdSchema, output: AnyStdSc
 		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'mcp(): invalid name' })
 	}
 
-	const inputSchema = cfg.inputSchema ?? getInputJsonSchema(input)
-	if (!inputSchema) {
-		throw new CmdError('E_INTERNAL', 'Internal error', {
-			message: 'mcp(): failed to derive JSON Schema from input schema (provide mcp.inputSchema override)',
-		})
-	}
+	const title: DocTextSource = cfg.title ?? id
+	const description: DocTextSource = cfg.description ?? cfg.title ?? id
 
-	const outputSchema =
-		cfg.outputSchema ?? (cfg.deriveOutputSchema && output ? getOutputJsonSchema(output) : undefined)
+	const inputSchema = cfg.inputSchema ?? toJsonSchema(input)
+	const outputSchema = cfg.outputSchema ?? (cfg.deriveOutputSchema && output ? toJsonSchema(output) : undefined)
 
-	return { name, title: cfg.title, description: cfg.description, inputSchema, ...(outputSchema ? { outputSchema } : {}) }
+	return { name, title, description, inputSchema, ...(outputSchema ? { outputSchema } : {}) }
 }

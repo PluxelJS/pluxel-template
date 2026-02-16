@@ -1,21 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AnyStdSchema } from '../src'
-import { CmdError, cmd } from '../src'
-
-const schemaFromJson = (opts: { input: Record<string, unknown>; output?: Record<string, unknown> }): AnyStdSchema =>
-	({
-		'~standard': {
-			version: 1,
-			vendor: 'test',
-			types: { input: {} as any, output: {} as any },
-			validate: (value: unknown) => ({ value }),
-			jsonSchema: {
-				input: () => opts.input,
-				...(opts.output ? { output: () => opts.output } : {}),
-			},
-		},
-	} as any)
+import { CmdError, cmd, obj, resolveMcpToolDef, Type } from '../src'
 
 describe('cmdkit: mcp()', () => {
 	it('is opt-in (missing .mcp() => exec.mcp is undefined)', () => {
@@ -32,7 +17,7 @@ describe('cmdkit: mcp()', () => {
 		} as const
 
 		const exec = cmd('echo')
-			.input(schemaFromJson({ input: js as any }))
+			.input(obj({ msg: Type.String() }))
 			.mcp({ title: 'Echo', description: 'Echo a message' })
 			.handle(() => 'ok')
 			.build()
@@ -48,8 +33,8 @@ describe('cmdkit: mcp()', () => {
 		const outJs = { type: 'object', properties: { ok: { type: 'boolean' } } }
 
 		const exec = cmd('x')
-			.input(schemaFromJson({ input: inJs }))
-			.output(schemaFromJson({ input: inJs, output: outJs }) as any)
+			.input(obj({}))
+			.output(obj({ ok: Type.Boolean() }))
 			.mcp({ title: 'X', description: 'X', deriveOutputSchema: true })
 			.handle(() => ({ ok: true }))
 			.build()
@@ -63,7 +48,7 @@ describe('cmdkit: mcp()', () => {
 
 	it('supports i18n via function sources', () => {
 		const exec = cmd('echo')
-			.input(schemaFromJson({ input: { type: 'object', properties: {} } }))
+			.input(obj({}))
 			.mcp({
 				title: (ctx) => (ctx.locale === 'zh-CN' ? '复读' : 'Echo'),
 				description: (ctx) => (ctx.locale === 'zh-CN' ? '复读一段消息' : 'Echo a message'),
@@ -76,19 +61,46 @@ describe('cmdkit: mcp()', () => {
 		expect(typeof meta.description).toBe('function')
 		expect((meta.title as any)({ locale: 'zh-CN' })).toBe('复读')
 		expect((meta.description as any)({ locale: 'en-US' })).toBe('Echo a message')
+
+		expect(resolveMcpToolDef(meta, { locale: 'zh-CN' })).toMatchObject({
+			name: 'echo',
+			title: '复读',
+			description: '复读一段消息',
+		})
 	})
 
-	it('throws when input JSON Schema cannot be derived and no override is provided', () => {
-		const badSchema: AnyStdSchema =
-			({
-				'~standard': {
-					version: 1,
-					vendor: 'test',
-					types: { input: {} as any, output: {} as any },
-					validate: (value: unknown) => ({ value }),
-				},
-			} as any)
+	it('defaults MCP description from doc.description when omitted', () => {
+		const exec = cmd('x')
+			.doc({ description: 'Doc desc' })
+			.input(obj({}))
+			.mcp({ title: 'X' })
+			.handle(() => 'ok')
+			.build()
 
+		expect(resolveMcpToolDef(exec.mcp!, {})).toMatchObject({
+			name: 'x',
+			title: 'X',
+			description: 'Doc desc',
+		})
+	})
+
+	it('supports mcp() with no args (defaults title/description)', () => {
+		const exec = cmd('x')
+			.doc({ description: 'Doc desc' })
+			.input(obj({}))
+			.mcp()
+			.handle(() => 'ok')
+			.build()
+
+		expect(resolveMcpToolDef(exec.mcp!, {})).toMatchObject({
+			name: 'x',
+			title: 'x',
+			description: 'Doc desc',
+		})
+	})
+
+	it('throws when schema cannot be compiled', () => {
+		const badSchema = { type: 'object', properties: {} } as any
 		try {
 			cmd('bad')
 				.input(badSchema)

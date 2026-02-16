@@ -1,15 +1,21 @@
 export { CmdError, kindOfCmdErrorCode, toCmdError } from './core'
 export type {
-	AnyStdSchema,
 	CmdErrorCode,
 	CmdErrorKind,
 	CmdErrorDetails,
+	CustomValidator,
 	ExecCtx,
+	Infer,
 	Interceptor,
+	JsonSchema,
+	Schema,
 	StrictEmptyObject,
-	VSchema,
 	ValidationIssue,
 } from './core'
+export { issue, toJsonSchema } from './core'
+
+export { Type, TypeBox, obj, openObj } from './typebox'
+export type { Static, TSchema, TAnySchema, TProperties } from './typebox'
 
 export { cmd } from './cmd'
 export type {
@@ -23,13 +29,18 @@ export type {
 	Err,
 	Executable,
 	ExecutableMeta,
+	McpToolDef,
+	McpOp,
+	McpExecutable,
 	TextConfig,
 	McpConfig,
-	McpExecutable,
 	McpMeta,
 	Ok,
+	Op,
 	ParamSpec,
 	Result,
+	TextMcpOp,
+	TextOp,
 	TextExecutable,
 } from './cmd'
 export {
@@ -43,6 +54,7 @@ export {
 	isMcpExecutable,
 	isOk,
 	isTextExecutable,
+	resolveMcpToolDef,
 	resolveDoc,
 	resolveText,
 	unwrapErr,
@@ -58,6 +70,7 @@ export type {
 	RouterHelpIndexResult,
 	RouterIssue,
 	RouterMatch,
+	TextRoutable,
 } from './router'
 export type { TextToken } from './tokenize'
 

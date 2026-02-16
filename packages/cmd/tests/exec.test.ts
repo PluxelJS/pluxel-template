@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import * as v from 'valibot'
+import { obj, Type } from '../src'
 
 import { CmdError, cmd } from '../src'
 
 describe('cmdkit: exec', () => {
 	it('run() validates input and output', async () => {
 		const inc = cmd('inc')
-			.input(v.object({ x: v.number() }))
-			.output(v.object({ y: v.number() }))
+			.input(obj({ x: Type.Number() }))
+			.output(obj({ y: Type.Number() }))
 			.handle(({ x }) => ({ y: x + 1 }))
 			.build()
 
@@ -17,11 +17,22 @@ describe('cmdkit: exec', () => {
 		await expect(inc.exec({ x: 'nope' } as any)).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_INPUT_VALIDATION' } })
 	})
 
+	it('treats root object schemas as strict by default', async () => {
+		const exec = cmd('x')
+			// Note: no `additionalProperties` option.
+			.input(Type.Object({ a: Type.String() }))
+			.handle((i) => i.a)
+			.build()
+
+		await expect(exec.exec({ a: 'ok', extra: 1 } as any)).resolves.toMatchObject({ ok: false, err: { code: 'E_INPUT_VALIDATION' } })
+		await expect(exec.exec({ a: 'ok' } as any)).resolves.toEqual({ ok: true, val: 'ok', err: null })
+	})
+
 	it('supports shortCircuit in before() and still validates output', async () => {
 		let called = false
 
 		const exec = cmd('sc')
-			.output(v.string())
+			.output(Type.String())
 			.intercept({
 				before: () => ({ kind: 'shortCircuit', outputCandidate: 'ok' }),
 			})
@@ -49,7 +60,7 @@ describe('cmdkit: exec', () => {
 
 	it('onError can recover only when canRecover=true', async () => {
 		const exec = cmd('recover')
-			.output(v.number())
+			.output(Type.Number())
 			.intercept({
 				canRecover: true,
 				onError: (_ctx, err) => {
@@ -69,7 +80,7 @@ describe('cmdkit: exec', () => {
 		const calls: string[] = []
 
 		const exec = cmd('order')
-			.output(v.number())
+			.output(Type.Number())
 			.intercept({
 				before: () => {
 					calls.push('A.before')
@@ -120,7 +131,7 @@ describe('cmdkit: exec', () => {
 
 	it('validates output after afterOutput transforms (final output must match schema)', async () => {
 		const exec = cmd('afterOutput.validate')
-			.output(v.number())
+			.output(Type.Number())
 			.intercept({
 				afterOutput: () => ({ kind: 'transform', outputCandidate: 'nope' }),
 			})
@@ -180,5 +191,23 @@ describe('cmdkit: exec', () => {
 			expect(res.err).toBeInstanceOf(CmdError)
 			expect(res.err).toMatchObject({ code: 'E_DEPENDENCY', kind: 'fault' })
 		}
+	})
+
+	it('aggregates validateInput() issues (no fail-fast)', async () => {
+		const exec = cmd('v')
+			.input(obj({ a: Type.String(), b: Type.String() }))
+			.validateInput(() => [{ path: ['a'], message: 'Bad A' }])
+			.validateInput(() => [{ path: ['b'], message: 'Bad B' }])
+			.handle(() => 'ok')
+			.build()
+
+		await expect(exec.exec({ a: 'x', b: 'y' })).resolves.toMatchObject({
+			ok: false,
+			val: null,
+			err: {
+				code: 'E_INPUT_VALIDATION',
+				details: { issues: [{ path: ['a'] }, { path: ['b'] }] },
+			},
+		})
 	})
 })

@@ -1,18 +1,21 @@
 # @pluxel/cmd — Usage
 
 `@pluxel/cmd` is a schema-first command runtime:
-- `input/output` validation via **Standard Schema v1**
+- `input/output` validation via **TypeBox (JSON Schema)**
 - text commands via a **single schema-derived flag parser**
 - optional ParseBox-powered tail DSL (text-only patch)
+
+Notes:
+- Object schemas are treated as **strict** by default (unknown keys rejected) when `additionalProperties` is omitted. To allow unknown keys, set `additionalProperties: true` explicitly or use `openObj(...)`.
+- `@pluxel/cmd` re-exports TypeBox as `Type` (common) and `TypeBox` (full namespace).
 
 This document is about **how to use** the API. For design rationale, see `packages/cmd/DESIGN.md`.
 
 ## Quick Start
 
 ```ts
-import * as v from 'valibot'
 import { Runtime } from '@sinclair/parsebox'
-import { cmd, createRouter, textTail } from '@pluxel/cmd'
+import { cmd, createRouter, obj, resolveMcpToolDef, textTail, Type } from '@pluxel/cmd'
 
 const whereTail = textTail(
   new Runtime.Module({
@@ -23,16 +26,24 @@ const whereTail = textTail(
 )
 
 const where = cmd('where')
-  .input(v.object({
-    userId: v.string(),
-    force: v.optional(v.boolean()),
-    expr: v.string(),
+  .input(obj({
+    userId: Type.String(),
+    force: Type.Optional(Type.Boolean()),
+    expr: Type.String(),
   }))
   .text({ tail: whereTail })    // tail is text-only (keeps MCP schema clean)
+  .doc({ description: 'Filter users (tail DSL supported)' })
+  .mcp({ title: 'Where' })
   .handle((input) => input)
   .build()
 
-const router = createRouter({ caseInsensitive: true })
+// Optional: expose as an MCP tool (data-only meta).
+// - `.mcp({ title })` defaults description from `doc.description` when omitted
+// - `.mcp()` defaults title to `id` and description from `doc.description`
+// const tool = resolveMcpToolDef(where.mcp!, { locale: 'zh-CN' })
+
+// Optional safety: cap input length before tokenization (default: 16 KiB).
+const router = createRouter({ caseInsensitive: true, maxTextLength: 16 * 1024 })
 router.add(where)
 
 await router.dispatch('where --user-id u1 --force x:"y z" and k=1')
@@ -42,17 +53,37 @@ await router.dispatch('where --user-id u1 -- x:"y z" and --literal -x')
 
 ## Examples
 
+### Custom validation (server-only, aggregated)
+
+JSON Schema can't express all constraints (cross-field checks, external lookups, tenancy rules, etc).
+Use `validateInput()` / `validateOutput()` for extra checks; all issues are aggregated into a single validation error.
+
+```ts
+import { cmd, issue, obj, Type } from '@pluxel/cmd'
+
+export const createUser = cmd('user.create')
+  .input(obj({ email: Type.String({ format: 'email' }), tenantId: Type.String() }))
+  .validateInput(
+    async (i) => (i.tenantId === 'root' ? issue('tenantId is reserved', { path: ['tenantId'] }) : undefined),
+    async (_i, ctx) => {
+      // ctx can carry request-scoped services via ctx.meta (db, auth, etc)
+      return undefined
+    },
+  )
+  .handle(async () => ({ ok: true }))
+  .build()
+```
+
 ### 1) Flags only (aliases + short + quoting)
 
 ```ts
-import * as v from 'valibot'
-import { cmd } from '@pluxel/cmd'
+import { cmd, obj, Type } from '@pluxel/cmd'
 
 export const ban = cmd('ban')
-  .input(v.object({
-    userId: v.string(),
-    reason: v.optional(v.string()),
-    force: v.optional(v.boolean()),
+  .input(obj({
+    userId: Type.String(),
+    reason: Type.Optional(Type.String()),
+    force: Type.Optional(Type.Boolean()),
   }))
   .text()
   .handle((i) => i)
@@ -68,9 +99,9 @@ Accepted inputs:
 
 ```ts
 export const label = cmd('label')
-  .input(v.object({
-    ids: v.array(v.number()),
-    tag: v.string(),
+  .input(obj({
+    ids: Type.Array(Type.Number()),
+    tag: Type.String(),
   }))
   .text()
   .handle((i) => i)
@@ -86,10 +117,10 @@ Accepted inputs:
 
 ```ts
 export const patch = cmd('patch')
-  .input(v.object({
-    id: v.string(),
+  .input(obj({
+    id: Type.String(),
     // Note: `json` params are object-typed (use a schema that maps to JSON Schema `{ type: "object" }`).
-    data: v.record(v.string(), v.unknown()),
+    data: Type.Record(Type.String(), Type.Unknown()),
   }))
   .text()
   .handle((i) => i)
@@ -103,7 +134,7 @@ Accepted inputs:
 
 ```ts
 import { Runtime } from '@sinclair/parsebox'
-import { textTail } from '@pluxel/cmd'
+import { cmd, obj, textTail, Type } from '@pluxel/cmd'
 
 const whereTail = textTail(
   new Runtime.Module({
@@ -122,10 +153,10 @@ const whereTail = textTail(
 )
 
 export const where = cmd('where')
-  .input(v.object({
-    userId: v.string(),
-    expr: v.string(),
-    limit: v.optional(v.number()),
+  .input(obj({
+    userId: Type.String(),
+    expr: Type.String(),
+    limit: Type.Optional(Type.Number()),
   }))
   .text({ tail: whereTail })
   .handle((i) => i)
@@ -145,10 +176,10 @@ Notes:
 
 ```ts
 export const run = cmd('run')
-  .input(v.object({
-    verbose: v.optional(v.boolean()),
-    dryRun: v.optional(v.boolean()),
-    jobs: v.optional(v.number()),
+  .input(obj({
+    verbose: Type.Optional(Type.Boolean()),
+    dryRun: Type.Optional(Type.Boolean()),
+    jobs: Type.Optional(Type.Number()),
   }))
   .text()
   .handle((i) => i)
@@ -170,6 +201,24 @@ router.add(ban)
 
 router.helpIndex()
 router.helpCommand('ban')       // by id or trigger
+```
+
+### Type narrowing (Op ⇢ text / MCP)
+
+`cmd().build()` always returns an `Op` (`Executable`). You can narrow it at runtime:
+
+```ts
+import { isMcpExecutable, isTextExecutable, resolveMcpToolDef } from '@pluxel/cmd'
+
+if (isTextExecutable(ban)) {
+  await ban.execText('ban --user-id u1')
+}
+
+if (isMcpExecutable(ban)) {
+  // typed: ban.mcp.title / description / inputSchema / outputSchema?
+  const tool = resolveMcpToolDef(ban.mcp, { locale: 'en-US' })
+  tool.title
+}
 ```
 
 ## Text Commands
@@ -227,7 +276,7 @@ If you need “readable string DSL” after the flags (filters, expressions, rou
 provide a ParseBox parser via `text({ tail })`, and map it into your real input fields.
 
 Notes:
-- cmdkit appends a trailing `\\n` when invoking the ParseBox tail parser, so `Runtime.Until(['\\n'], ...)` works as “until end-of-line”.
+- `@pluxel/cmd` appends a trailing `\\n` when invoking the ParseBox tail parser, so `Runtime.Until(['\\n'], ...)` works as “until end-of-line”.
 
 ### Tail start rules (no ambiguity)
 

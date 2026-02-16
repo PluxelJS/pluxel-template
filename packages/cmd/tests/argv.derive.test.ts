@@ -1,32 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AnyStdSchema } from '../src'
 import { cmd } from '../src'
-
-const schemaFromJson = (inputJsonSchema: Record<string, unknown>): AnyStdSchema =>
-	({
-		'~standard': {
-			version: 1,
-			vendor: 'test',
-			types: { input: {} as any, output: {} as any },
-			validate: (value: unknown) => ({ value }),
-			jsonSchema: {
-				input: () => inputJsonSchema,
-			},
-		},
-	} as any)
+import { obj, Type } from '../src'
 
 describe('cmdkit: schema -> params derivation', () => {
 	it('fills ParamSpec.description from JSON Schema description/title', () => {
 		const exec = cmd('x')
 			.input(
-				schemaFromJson({
-					type: 'object',
-					properties: {
-						foo: { type: 'string', description: 'Foo desc' },
-						bar: { type: 'number', title: 'Bar title' },
-					},
-					required: ['foo'],
+				obj({
+					foo: Type.String({ description: 'Foo desc' }),
+					bar: Type.Optional(Type.Number({ title: 'Bar title' })),
 				}),
 			)
 			.text()
