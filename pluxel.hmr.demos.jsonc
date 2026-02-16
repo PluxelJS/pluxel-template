@@ -14,9 +14,7 @@
 			"plugins/func",
 			"plugins/native",
 			"plugins/builtin",
-			"plugins/render",
-			"plugins/chatbots",
-			"plugins/univer"
+			"plugins/render"
 		],
 		"exclude": [
 			"**/node_modules/**",

@@ -4,7 +4,7 @@
 // Manual edits are allowed but may be overwritten by the generator.
 {
 	"version": 1,
-	"profile": "univer",
+	"profile": "default",
 	"defaults": {
 		"roots": [
 			"packages",
@@ -14,9 +14,7 @@
 			"plugins/func",
 			"plugins/native",
 			"plugins/builtin",
-			"plugins/render",
-			"plugins/chatbots",
-			"plugins/univer"
+			"plugins/render"
 		],
 		"exclude": [
 			"**/node_modules/**",
@@ -39,7 +37,6 @@
 				"@pluxel/toolkit",
 				"pluxel-plugin-llm-hub",
 				"pluxel-plugin-bullmq",
-				"pluxel-plugin-cmd-catalog",
 				"pluxel-plugin-drizzle-orm",
 				"pluxel-plugin-echarts",
 				"pluxel-plugin-font-manager",
@@ -52,38 +49,6 @@
 				"pluxel-plugin-poll-kernel",
 				"pluxel-plugin-redis",
 				"pluxel-plugin-s3mini"
-			],
-			"builtin": [
-				"@pluxel/graphql",
-				"@pluxel/websocket",
-				"@pluxel/wretch"
-			]
-		},
-		"univer": {
-			"enabled": [
-				"@pluxel/cmd",
-				"@pluxel/promptkit",
-				"@pluxel/toolkit",
-				"@pluxel/univer-headless",
-				"pluxel-plugin-bullmq",
-				"pluxel-plugin-cmd-catalog",
-				"pluxel-plugin-drizzle-orm",
-				"pluxel-plugin-echarts",
-				"pluxel-plugin-font-manager",
-				"pluxel-plugin-kv",
-				"pluxel-plugin-ledger",
-				"pluxel-plugin-ledger-mikro-orm",
-				"pluxel-plugin-llm-hub",
-				"pluxel-plugin-mikro-orm",
-				"pluxel-plugin-otlp",
-				"pluxel-plugin-otlp-viewer",
-				"pluxel-plugin-poll-kernel",
-				"pluxel-plugin-redis",
-				"pluxel-plugin-s3mini",
-				"pluxel-plugin-univer",
-				"pluxel-plugin-univer-ai",
-				"pluxel-plugin-univer-loopback",
-				"pluxel-plugin-univer-workbooks"
 			],
 			"builtin": [
 				"@pluxel/graphql",

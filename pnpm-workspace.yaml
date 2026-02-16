@@ -4,6 +4,9 @@ packages:
   - plugins/**
   # vendored/bundled packages (not real workspaces)
   - '!plugins/native/napi-rs/*__*'
+  # product repos live elsewhere (see docs/MULTI_REPO.md)
+  - '!plugins/chatbots/**'
+  - '!plugins/univer/**'
 
 onlyBuiltDependencies:
   - esbuild

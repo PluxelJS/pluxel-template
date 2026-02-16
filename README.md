@@ -1,18 +1,16 @@
 ## pluxel-template（开箱即用、可复现）
 
-这个模板把 `plugins/chatbots/` 作为 **git submodule** 固定到一个 commit，确保工作区依赖与 HMR 扫描内容可复现。
+这个仓库是 Pluxel 的「基础工作区」：提供共享的 `packages/*` 与可复用的 `plugins/*`，以及一个通用的 HMR Host 入口（`src/index.ts`）。
+
+产品向的工作区（例如 chatbot / univer）建议拆成独立仓库，并把本仓库作为 submodule 引入；见 `docs/MULTI_REPO.md`。
 
 ### 快速开始
 
 > 依赖约定：本模板默认通过 `link:../pluxel/...` 引用 Pluxel 主仓库，所以请把 Pluxel 仓库放在与本仓库同级的 `../pluxel`。
 
-1) 拉取（推荐带 submodule）：
+1) 拉取：
 
-- `git clone --recurse-submodules <repo> pluxel-template`
-
-如果你已经 clone 了：
-
-- `git submodule update --init --recursive`
+- `git clone <repo> pluxel-template`
 
 2) 安装依赖：
 
@@ -34,14 +32,6 @@
 
 - `pnpm dev:demos`（使用 `pluxel.hmr.demos.jsonc` 加载 `docs/pluxel-demos/` 下的演示插件）
 
-需要 Univer 相关能力时：
-
-- 仅后端（`univer` profile）：`pnpm dev:univer`
-  - 后端 HMR Host：`http://localhost:3000`（API 在 `/api/*`）
-- 仅前端（Vite）：`pnpm dev:univer:web`
-  - Univer 前端：`http://localhost:5174`（通过代理访问 `/api/*`）
-- 同时启动（保留旧的一键全量）：`pnpm dev:full`
-
 ### 测试
 
 - 默认（Turbo + cache）：`pnpm test`
@@ -50,7 +40,6 @@
 
 ### 约定
 
-- `plugins/chatbots/` 是 submodule：用 `git submodule status` 查看固定版本；更新时请显式 `git -C plugins/chatbots pull` + 在主仓库提交 gitlink 变更。
 - 启动入口在 `src/index.ts`。
 - 运行态配置/持久化默认写入 `.pluxel/`（gitignore），避免污染工作区。
 

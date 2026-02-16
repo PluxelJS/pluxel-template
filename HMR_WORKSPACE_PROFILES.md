@@ -107,10 +107,10 @@ export type PluxelHmrConfigV1 = {
   },
   "profiles": {
     "dev": {
-      "enabled": ["pluxel-plugin-kook", "pluxel-plugin-cmd-catalog"]
+      "enabled": ["pluxel-plugin-kv", "pluxel-plugin-llm-hub"]
     },
     "minimal": {
-      "enabled": ["pluxel-plugin-cmd-catalog"],
+      "enabled": ["pluxel-plugin-kv"],
       "exclude": ["plugins/native/napi-rs/*__*"]
     }
   }

@@ -1,3 +1,0 @@
-[submodule "chatbots"]
-	path = plugins/chatbots
-	url = https://github.com/ahdg6/chatbots.git
