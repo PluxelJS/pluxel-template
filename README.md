@@ -4,6 +4,8 @@
 
 产品向的工作区（例如 chatbot / univer）建议拆成独立仓库，并把本仓库作为 submodule 引入；见 `docs/MULTI_REPO.md`。
 
+如果你是第一次读本仓库代码（或你在用 LLM 辅助阅读/改造），先从 `docs/README.md` 与 `docs/REPO_MAP.md` 开始能节省很多时间。
+
 ### 快速开始
 
 > 依赖约定：本模板默认通过 `link:../pluxel/...` 引用 Pluxel 主仓库，所以请把 Pluxel 仓库放在与本仓库同级的 `../pluxel`。

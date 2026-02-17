@@ -2,6 +2,10 @@
 
 目标：把产品向代码（例如 Chatbots / Univer）放在各自独立仓库中；共享的 `packages/*` / 通用 `plugins/*` 留在 `pluxel-template`。产品仓库通过 **git submodule** 引入 `pluxel-template`，开发产品时如需改上游，直接在 submodule 里改并向上游提 PR。
 
+如果你在产品仓库里使用 LLM 辅助阅读/改造，建议先读上游的结构说明：
+- `vendor/pluxel-template/docs/README.md`
+- `vendor/pluxel-template/docs/REPO_MAP.md`
+
 ## 推荐目录结构
 
 ```
