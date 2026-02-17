@@ -8,7 +8,7 @@
 	"settings": {
 		"ColorfulMonorepo.workspaces.collection": [
 			{
-				"path": "/home/ahdg/code/pluxel-workspace/pluxel-template",
+				"path": ".",
 				"packageName": "pluxel-template",
 				"label": "🌱  pluxel-template",
 				"foreground": "#ffffff",

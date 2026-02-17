@@ -1,0 +1,10 @@
+packages:
+  - plugins/**
+  - vendor/pluxel-template/packages/**
+  - vendor/pluxel-template/plugins/**
+  - '!vendor/pluxel-template/plugins/native/napi-rs/*__*'
+
+public-hoist-pattern:
+  - '@pluxel/core'
+  - '@pluxel/hmr'
+

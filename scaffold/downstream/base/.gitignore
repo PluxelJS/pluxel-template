@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.turbo/
+.pluxel/
+data/
+*.log
+.env
+.env.*
+
+vendor/pluxel-template
+vendor/pluxel
+

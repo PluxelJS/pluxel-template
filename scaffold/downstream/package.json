@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "name": "__NAME__",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Downstream workspace (vendored from pluxel-template).",
+  "scripts": {
+    "bootstrap": "node ./setup.mjs bootstrap",
+    "dev": "node --conditions=@pluxel/hmr src/host.ts",
+    "hmr:doctor": "pluxel hmr doctor"
+  },
+  "dependencies": {
+    "@pluxel/cli": "link:./vendor/pluxel/packages/cli",
+    "@pluxel/core": "link:./vendor/pluxel/packages/core",
+    "@pluxel/hmr": "link:./vendor/pluxel/packages/hmr"
+  },
+  "devDependencies": {
+    "unplugin-macros": "^0.18.7"
+  }
+}
+
