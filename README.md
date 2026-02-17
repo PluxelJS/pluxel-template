@@ -2,9 +2,10 @@
 
 这个仓库是 Pluxel 的「基础工作区」：提供共享的 `packages/*` 与可复用的 `plugins/*`，以及一个通用的 HMR Host 入口（`src/index.ts`）。
 
-产品向的工作区（例如 chatbot / univer）建议拆成独立仓库，并把本仓库作为 submodule 引入；见 `docs/MULTI_REPO.md`。
+如果你是第一次读本仓库代码（或你在用 LLM 辅助阅读/改造），优先读：
 
-如果你是第一次读本仓库代码（或你在用 LLM 辅助阅读/改造），先从 `docs/README.md` 与 `docs/REPO_MAP.md` 开始能节省很多时间。
+1) `docs/REPO_MAP.md`
+2) `HMR_WORKSPACE_PROFILES.md`
 
 ### 快速开始
 

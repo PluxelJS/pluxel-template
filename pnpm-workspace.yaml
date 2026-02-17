@@ -4,7 +4,7 @@ packages:
   - plugins/**
   # vendored/bundled packages (not real workspaces)
   - '!plugins/native/napi-rs/*__*'
-  # product repos live elsewhere (see docs/MULTI_REPO.md)
+  # product repos live elsewhere (downstream workspaces)
   - '!plugins/chatbots/**'
   - '!plugins/univer/**'
 
