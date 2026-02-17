@@ -41,14 +41,6 @@
 - 全量（Vitest workspace）：`pnpm test:full`
 - 跑单包：`pnpm --filter '<pkg-name>' test`
 
-### 多仓工作区（下游产品仓库）
-
-如果你在本地使用 `pluxel-workspace/` 多仓布局（`pluxel/`、`pluxel-template/`、`pluxel-chatbots/`、`pluxel-univer/` 同级），可在产品仓库直接运行：
-
-- `pnpm run bootstrap`
-
-它会通过 `scripts/workspace.sh` 自动挂载 `vendor/pluxel-template/{packages,plugins,agents}` 并完成依赖安装。
-
 ### 约定
 
 - 启动入口在 `src/index.ts`。
