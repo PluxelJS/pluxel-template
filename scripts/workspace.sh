@@ -72,8 +72,10 @@ bootstrap_product() {
 		exit 2
 	fi
 
-	# Template may contain upstream submodules (optional); keep silent if none.
-	git -C "$template_dir" submodule update --init --recursive >/dev/null 2>&1 || true
+	# Template may contain upstream submodules (optional).
+	if [ -f "$template_dir/.gitmodules" ]; then
+		git -C "$template_dir" submodule update --init --recursive
+	fi
 
 	echo "[workspace] build upstream dist outputs (pluxel)"
 	pnpm -C "$workspace_dir/pluxel" install
