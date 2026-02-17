@@ -11,7 +11,7 @@
 - 提供一个通用的 HMR Host 入口（`src/index.ts`）
 - 提供项目内的 Codex/LLM workflows（`agents/*`）
 
-产品向仓库（例如 chatbots/univer）通常作为独立仓库存在，并在本地多仓工作区里把本仓库“挂载”进去（例如 `vendor/pluxel-template` 下只 symlink `packages/` 与 `plugins/`），然后只在下游仓库里维护：
+产品向仓库（例如 chatbots/univer）通常作为独立仓库存在，并在本地多仓工作区里把本仓库“挂载”进去（例如 `vendor/pluxel-template` 下只 symlink `packages/` / `plugins/` / `agents/` 与 `AGENTS.md`），然后只在下游仓库里维护：
 
 - 自己的 host 入口（例如 `src/host.ts`）
 - 自己的 `pluxel.hmr.jsonc`（workspace roots/profile enabled 集合）
