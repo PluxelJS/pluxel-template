@@ -1,6 +1,6 @@
 # 写日志（LogTape）— 快速规则
 
-只要你改了 `logger.*` 调用，就先对齐本文。深度审计再开 `references/logusage.full.md`。
+只要你改了 `logger.*` 调用，就先对齐本文。深度审计/规范细节以 `../../../LogUsage.md` 为准。
 
 ## 先选调用形式
 

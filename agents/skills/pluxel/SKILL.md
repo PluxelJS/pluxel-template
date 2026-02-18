@@ -27,6 +27,20 @@ description: Use when working on Pluxel（插件系统与 demos、HMR/MCP、日�
 # 先看看 repo 里有哪些可用脚本（避免猜不存在的命令）
 pnpm -s run | rg -n "^(dev|hmr)|plugins-host|test"
 
+# 一次性 agent 入口（适合 code agent / CI / 生成可读日志，不会一直 watch 挂住）
+# 输出：
+# - logs/hmr.llm.txt（LLM 友好精简日志）
+# - logs/hmr.agent.summary.json（结构化摘要：ok / errors / idleTimedOut|stableTimedOut|shutdownTimedOut）
+pnpm -s exec pluxel-hmr agent --clean --json
+#（模板项目也可用脚本：`pnpm -s run hmr:agent`）
+#
+# 说明：
+# - 默认是 state-based：warmup 后 drain 内部 batch 队列（不靠 timeout 判“稳定”）
+# - 如需“安静窗口”语义再加：`--quiet-ms 250`（这属于时间语义，建议只在必要时启用）
+# - `--timeout-ms` 同时作为 drain/stable/shutdown 的兜底超时（默认 10000ms；重项目可提高）
+# - `--json` 输出是可机器解析的纯 JSON（运行期间 stdout 会被抑制，避免污染 JSON）
+# - 若你在 workspace 里改了 `@pluxel/hmr` 的 CLI 源码，需在 `@pluxel/hmr` 包目录先执行 `pnpm build` 更新 dist（bin 默认优先加载 dist）。
+
 # 依赖类型入口（.d.ts）
 node scripts/resolve-dts.mjs <pkg> --cwd <dir> [--importer <file>]
 

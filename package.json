@@ -8,6 +8,7 @@
 		"bootstrap": "node ./setup.mjs bootstrap-template",
 		"doctor": "node scripts/doctor.mjs",
 		"hmr:doctor": "pluxel hmr doctor",
+		"hmr:agent": "pluxel-hmr agent --clean --json",
 		"predev": "node scripts/predev.mjs",
 		"dev": "node scripts/dev.mjs",
 		"dev:demos": "node scripts/dev-demos.mjs",

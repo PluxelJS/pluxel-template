@@ -3,7 +3,7 @@
 - 改 `logger.*` 调用（callsite）→ `references/logusage.md`
 - 改 runtime logs（store / range / follow / cursor / SSE）→ `references/runtime-logs-v1.md`
 
-深度参考（只在批量审计时打开）：`references/logusage.full.md`
+深度参考（只在批量审计时打开，规范细节源）：`../../../LogUsage.md`
 
 ## 判断你在改哪一层
 

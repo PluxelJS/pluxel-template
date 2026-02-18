@@ -2,9 +2,12 @@
 
 上游基础工作区：共享 `packages/*`、通用 `plugins/*`、Host 入口 `src/index.ts`、LLM workflows `agents/*`。
 
-先读：
-- `docs/REPO_MAP.md`
-- `HMR_WORKSPACE_PROFILES.md`
+## Docs (canonical)
+
+- Repo/entry map（先用它定位“入口/配置/代码在哪”）：`docs/REPO_MAP.md`
+- HMR workspace profiles（“哪些包会被加载/如何分 profile”）：`HMR_WORKSPACE_PROFILES.md`
+- LLM/Codex workflow（入口）：`AGENTS.md`
+- Logging rules（LogTape，调用规范）：`agents/LogUsage.md`
 
 ### 本仓库启动（最短）
 

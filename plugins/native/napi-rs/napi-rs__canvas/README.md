@@ -12,7 +12,7 @@ Google Skia binding to Node.js via [Node-API](https://napi.rs), **0 System depen
 ⚠️ This project is in pre-release stage. And there may be some bugs.<br/>
 For details on planned features and future direction please refer to the [Roadmap](https://github.com/Brooooooklyn/canvas/issues/113).
 
-[中文文档](./README-zh.md)
+中文文档：`README-zh.md`（上游仓库提供；本仓库未 vendored）
 
 # Install
 
@@ -93,7 +93,7 @@ async function main() {
 main()
 ```
 
-![](./example/simple.png)
+_(image omitted: `example/simple.png` — not vendored in this repo)_
 
 ## Emoji text
 
@@ -122,11 +122,11 @@ const b = canvas.toBuffer('image/png')
 writeFileSync(join(__dirname, 'draw-emoji.png'), b)
 ```
 
-![](./example/draw-emoji.png)
+_(image omitted: `example/draw-emoji.png` — not vendored in this repo)_
 
 # Performance
 
-See [benchmark](./benchmark) for benchmark code.
+See `benchmark/` for benchmark code (not vendored in this repo).
 
 Hardware info:
 
@@ -260,7 +260,7 @@ pathOne.op(pathTwo, PathOp.Intersect).toSVGString()
 - **Intersect**, exclusive-or the two paths
 - **XOR**, subtract the first path from the op path
 
-![boolean-operations](./docs/imgs/boolean-operations.svg)
+_(image omitted: `docs/imgs/boolean-operations.svg` — not vendored in this repo)_
 
 ### Covert `FillType` in **_Path_**
 
@@ -269,7 +269,7 @@ pathOne.op(pathTwo, PathOp.Intersect).toSVGString()
 You can convert `fill-rule="evenodd"` to `fill-rule="nonzero"` in SVG.
 This is useful for **OpenType** font-related tools, as `fill-rule="nonzero"` is only supported in **OpenType** fonts.
 
-![SVG fill-rule](./docs/imgs/asWinding@2x.png)
+_(image omitted: `docs/imgs/asWinding@2x.png` — not vendored in this repo)_
 
 ```js
 const pathCircle = new Path2D(
@@ -288,7 +288,7 @@ Set the path to the same non-overlapping contour as the original path area, whic
 
 <img width="800" src="./docs/imgs/simplify.png" >
 
-[SVG with overlapping paths](./docs/imgs/overlapping-path.svg) (Left)
+SVG with overlapping paths: `docs/imgs/overlapping-path.svg` (Left; not vendored in this repo)
 
 ```js
 const path =
@@ -298,7 +298,9 @@ path.simplify().toSVGString()
 // => "M89.005 3.818L2.933 89.89Q1.526 91.296 0.765 93.134Q0.004 94.972 0.004 96.961Q0.004 98.95 0.765 100.788Q1.526 102.625 2.933 104.032Q4.339 105.439 6.177 106.2Q8.015 106.961 10.004 106.961Q11.993 106.961 13.831 106.2Q15.668 105.439 17.075 104.032L96.076 25.031L175.077 104.032Q176.484 105.439 178.322 106.2Q180.159 106.961 182.148 106.961Q184.138 106.961 185.975 106.2Q187.813 105.439 189.219 104.032Q190.626 102.625 191.387 100.788Q192.148 98.95 192.148 96.961Q192.148 94.972 191.387 93.134Q190.626 91.296 189.22 89.89L103.147 3.818Q101.741 2.411 99.903 1.65Q98.065 0.889 96.076 0.889Q94.087 0.889 92.249 1.65Q90.412 2.411 89.005 3.818Z"
 ```
 
-# [Example](./example/tiger.js)
+# Example
+
+Source: `example/tiger.js` (not vendored in this repo)
 
 > The tiger.json was serialized from [gojs/samples/tiger](https://github.com/NorthwoodsSoftware/GoJS/blob/master/samples/tiger.html)
 
