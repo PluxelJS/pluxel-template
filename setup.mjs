@@ -82,6 +82,9 @@ async function linkVendorTemplate(productDir) {
 	await linkFileOrDir(path.join(vendorRoot, 'plugins'), path.join(templateRoot, 'plugins'))
 	await linkFileOrDir(path.join(vendorRoot, 'agents'), path.join(templateRoot, 'agents'))
 	await linkFileOrDir(path.join(vendorRoot, 'AGENTS.md'), path.join(templateRoot, 'AGENTS.md'))
+	// Ensure vendored sources can resolve their `extends: "../../../tsconfig*.json"` against the downstream root.
+	await linkFileOrDir(path.join(vendorRoot, 'tsconfig.base.json'), path.join(productDir, 'tsconfig.base.json'))
+	await linkFileOrDir(path.join(vendorRoot, 'tsconfig.json'), path.join(productDir, 'tsconfig.json'))
 }
 
 async function linkVendorPluxel(productDir) {
