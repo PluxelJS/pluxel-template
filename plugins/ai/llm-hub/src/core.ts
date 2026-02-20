@@ -20,7 +20,10 @@ export type LLMConnectionOptions = {
 }
 
 export type LLMResolvedProfile = Readonly<
-	Omit<Pick<LLMProfileDoc, 'id' | 'title' | 'provider' | 'model' | 'baseURL' | 'config' | 'options'>, 'config' | 'options'> & {
+	Omit<
+		Pick<LLMProfileDoc, 'id' | 'title' | 'provider' | 'model' | 'baseURL' | 'modelListPath' | 'config' | 'options'>,
+		'config' | 'options'
+	> & {
 		config: Readonly<Record<string, unknown>>
 		options: Readonly<Record<string, unknown>>
 	}

@@ -29,6 +29,13 @@ export type LLMProfileDoc = {
 	provider: string
 	model?: string
 	baseURL?: string
+	/**
+	 * Model list endpoint path override (OpenAI-compatible by default: `/models`).
+	 * - `undefined`/empty: use default `/models`
+	 * - `null`: disable model listing UI fetch
+	 * - absolute URL: allowed (starts with `http`)
+	 */
+	modelListPath?: string | null
 	config: Record<string, unknown>
 	options: Record<string, unknown>
 	circuit?: Partial<LLMCircuitConfig>

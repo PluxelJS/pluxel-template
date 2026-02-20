@@ -113,6 +113,25 @@ This is intentionally close to common ecosystem conventions:
 - `profile.baseURL` is the upstream base URL (OpenAI-compatible proxies, self-hosted endpoints, etc.).
 - `conn.fetch` is the single extension point for future cross-cutting features (usage accounting, tracing, retry, rate-limiters).
 
+## Model discovery (OpenAI-compatible)
+
+This hub intentionally does **not** hardcode model enums. For OpenAI-compatible endpoints, you can use the community-standard
+`GET /models` pattern:
+
+```ts
+import { fetchModelList } from 'pluxel-plugin-llm-hub/models'
+import type { LLM } from 'pluxel-plugin-llm-hub'
+
+async function list(llm: LLM) {
+	const conn = await llm.connection()
+	return await fetchModelList({
+		baseURL: conn.profile.baseURL ?? '',
+		apiKey: conn.apiKey,
+		modelListPath: conn.profile.modelListPath,
+	})
+}
+```
+
 ## Vercel AI SDK (recommended)
 
 Vercel AI SDK is a good “community standard” to target because it normalizes the **call surface** (model, tools, streaming, usage).
@@ -175,6 +194,27 @@ without changing the hub surface:
 ```json
 {
   "axProvider": "openai-responses"
+}
+```
+
+## Vercel AI SDK v5 via Ax (optional adapter)
+
+If you want AI SDK’s normalized call surface (tools/streaming/usage) but still keep Ax as the backend implementation,
+use `@ax-llm/ax-ai-sdk-provider`:
+
+```sh
+pnpm add @ax-llm/ax @ax-llm/ax-ai-sdk-provider
+```
+
+```ts
+import { generateText } from 'ai'
+import type { LLM } from 'pluxel-plugin-llm-hub'
+import { createAxAISDKProviderFromLLM } from 'pluxel-plugin-llm-hub/adapters/ax-ai-sdk-provider'
+
+async function run(llm: LLM) {
+	const model = await createAxAISDKProviderFromLLM(llm)
+	const out = await generateText({ model, messages: [{ role: 'user', content: 'hi' }] })
+	return out.text
 }
 ```
 

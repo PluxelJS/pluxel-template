@@ -4,6 +4,9 @@ import { withHost } from '@pluxel/test'
 
 import { LLM, LLMHub } from '../src'
 import { createAxAIFromConnection } from '../src/adapters/ax'
+import { createAxAISDKProviderFromConnection } from '../src/adapters/ax-ai-sdk-provider'
+import { AxAIProvider } from '@ax-llm/ax-ai-sdk-provider'
+import { fetchModelList } from '../src/models'
 
 describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 	it('creates a profile, sets apiKey, and resolves AxAI', async () => {
@@ -19,6 +22,35 @@ describe('pluxel-plugin-llm-hub: profiles + routing + circuit breaker', () => {
 			const ai = createAxAIFromConnection(await host.require(LLM).connection())
 			expect(ai.getName().toLowerCase()).toBe('openai')
 		})
+	})
+
+	it('wraps AxAI as an AI SDK v5 model (AxAIProvider)', async () => {
+		await withHost(async (host) => {
+			host.add(LLMHub)
+			await host.commit()
+
+			const hub = host.require(LLMHub)
+			await hub.createProfile({ provider: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-test' })
+
+			const model = createAxAISDKProviderFromConnection(await host.require(LLM).connection())
+			expect(model).toBeInstanceOf(AxAIProvider)
+		})
+	})
+
+	it('fetches OpenAI-compatible models list via GET /models', async () => {
+		const originalFetch = (globalThis as any).fetch
+		;(globalThis as any).fetch = async () =>
+			({
+				ok: true,
+				status: 200,
+				json: async () => ({ data: [{ id: 'gpt-4o-mini' }, { id: 'gpt-4.1' }] }),
+			}) as any
+		try {
+			const models = await fetchModelList({ baseURL: 'https://api.example.com/v1', apiKey: 'sk-test' })
+			expect(models).toEqual(['gpt-4.1', 'gpt-4o-mini'])
+		} finally {
+			;(globalThis as any).fetch = originalFetch
+		}
 	})
 
 	it('resolves a generic connection()', async () => {

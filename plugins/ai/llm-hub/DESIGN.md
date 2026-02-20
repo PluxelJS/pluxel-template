@@ -25,7 +25,10 @@ This plugin is intentionally split into layers to keep the “hub” from turnin
 - `LLMHub` (`src/hub.ts`): default provider implementation (profiles + vault + routing + health).
 - Optional adapters:
   - Ax: `pluxel-plugin-llm-hub/adapters/ax`
+  - Ax → Vercel AI SDK v5: `pluxel-plugin-llm-hub/adapters/ax-ai-sdk-provider`
   - Vercel AI SDK options helper: `pluxel-plugin-llm-hub/aisdk`
+- Optional utilities:
+  - OpenAI-compatible model discovery (`GET /models`): `pluxel-plugin-llm-hub/models`
 - UI + RPC (`src/ui/*`, `src/rpc.ts`): management surface only; not required for using `LLM.connection()`.
 
 ## Public surface (kept intentionally small)

@@ -13,9 +13,17 @@
 			"@pluxel/hmr": "./src/adapters/ax.ts",
 			"default": "./dist/adapters/ax.mjs"
 		},
+		"./adapters/ax-ai-sdk-provider": {
+			"@pluxel/hmr": "./src/adapters/ax-ai-sdk-provider.ts",
+			"default": "./dist/adapters/ax-ai-sdk-provider.mjs"
+		},
 		"./aisdk": {
 			"@pluxel/hmr": "./src/aisdk.ts",
 			"default": "./dist/aisdk.mjs"
+		},
+		"./models": {
+			"@pluxel/hmr": "./src/models.ts",
+			"default": "./dist/models.mjs"
 		},
 		"./package.json": "./package.json"
 	},
@@ -32,21 +40,28 @@
 		"test": "pnpm run typecheck && vitest run -c ./vitest.config.ts"
 	},
 	"peerDependencies": {
-		"@ax-llm/ax": "^15.0.0"
+		"@ax-llm/ax": "^15.0.0 || ^16.0.0",
+		"@ax-llm/ax-ai-sdk-provider": "^16.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@ax-llm/ax": {
 			"optional": true
+		},
+		"@ax-llm/ax-ai-sdk-provider": {
+			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ax-llm/ax": "^16.1.6"
+		"@ax-llm/ax": "^16.1.6",
+		"@ax-llm/ax-ai-sdk-provider": "^16.1.6"
 	},
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.mjs",
 			"./adapters/ax": "./dist/adapters/ax.mjs",
+			"./adapters/ax-ai-sdk-provider": "./dist/adapters/ax-ai-sdk-provider.mjs",
 			"./aisdk": "./dist/aisdk.mjs",
+			"./models": "./dist/models.mjs",
 			"./package.json": "./package.json"
 		},
 		"access": "public",

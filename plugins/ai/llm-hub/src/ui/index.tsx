@@ -40,6 +40,7 @@ import type { LLMHubRequest, LLMHubResponse } from '../rpc'
 import type { LLMHubSettingsDoc } from '../settings'
 import type { LLMProfilePublic } from '../profiles'
 import { resolveModelListUrl } from '../models'
+import { PRESET_OPTIONS, resolvePreset, DEFAULT_PROVIDER_PRESETS } from './presets'
 
 type RequestFn = <T extends LLMHubRequest>(req: T) => Promise<LLMHubResponse<T>>
 
@@ -48,119 +49,7 @@ type RuntimeApi = Readonly<{
 	request: RequestFn
 }>
 
-type ProviderPreset = Readonly<{
-	id: string
-	label: string
-	provider: string
-	baseURL?: string
-	modelHint?: string
-	modelListPath?: string | null
-	note?: string
-}>
-
-const PROVIDER_PRESETS: ProviderPreset[] = [
-	{
-		id: 'openai',
-		label: 'OpenAI',
-		provider: 'openai',
-		baseURL: 'https://api.openai.com/v1',
-		modelHint: 'gpt-4o-mini',
-	},
-	{
-		id: 'deepseek',
-		label: 'DeepSeek (OpenAI-compatible)',
-		provider: 'deepseek',
-		baseURL: 'https://api.deepseek.com',
-		modelHint: 'deepseek-chat',
-	},
-	{
-		id: 'mistral',
-		label: 'Mistral (OpenAI-compatible)',
-		provider: 'mistral',
-		baseURL: 'https://api.mistral.ai/v1',
-		modelHint: 'mistral-large-latest',
-	},
-	{
-		id: 'groq',
-		label: 'Groq (OpenAI-compatible)',
-		provider: 'groq',
-		baseURL: 'https://api.groq.com/openai/v1',
-		modelHint: 'llama-3.3-70b-versatile',
-	},
-	{
-		id: 'openrouter',
-		label: 'OpenRouter (OpenAI-compatible)',
-		provider: 'openrouter',
-		baseURL: 'https://openrouter.ai/api/v1',
-		modelHint: 'openai/gpt-4o-mini',
-	},
-	{
-		id: 'together',
-		label: 'Together (OpenAI-compatible)',
-		provider: 'together',
-		baseURL: 'https://api.together.xyz/v1',
-		modelHint: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
-	},
-	{
-		id: 'anthropic',
-		label: 'Anthropic',
-		provider: 'anthropic',
-		modelHint: 'claude-3-5-sonnet-latest',
-		modelListPath: null,
-		note: 'Anthropic API 非 OpenAI 兼容，暂不支持自动拉取 models。',
-	},
-	{
-		id: 'google',
-		label: 'Google Gemini',
-		provider: 'google',
-		modelHint: 'gemini-1.5-pro',
-		modelListPath: null,
-		note: 'Gemini API 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
-	},
-	{
-		id: 'cohere',
-		label: 'Cohere',
-		provider: 'cohere',
-		modelHint: 'command-r-plus',
-		modelListPath: null,
-		note: 'Cohere API 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
-	},
-	{
-		id: 'qwen',
-		label: 'Qwen (DashScope)',
-		provider: 'qwen',
-		modelHint: 'qwen-max',
-		modelListPath: null,
-		note: 'DashScope 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
-	},
-	{
-		id: 'zhipu',
-		label: 'Zhipu',
-		provider: 'zhipu',
-		modelHint: 'glm-4',
-		modelListPath: null,
-		note: '智谱 API 非 OpenAI 兼容，请手动填写模型名并按需配置 baseURL。',
-	},
-	{
-		id: 'moonshot',
-		label: 'Moonshot',
-		provider: 'moonshot',
-		modelHint: 'moonshot-v1-8k',
-		modelListPath: null,
-		note: 'Moonshot API 配置差异较多，建议手动填写模型名与 baseURL。',
-	},
-	{
-		id: 'custom',
-		label: 'Other / Custom',
-		provider: 'custom',
-	},
-]
-
-const PRESET_OPTIONS = PROVIDER_PRESETS.map((p) => ({ value: p.id, label: p.label }))
-
-function resolvePreset(id: string | null) {
-	return PROVIDER_PRESETS.find((p) => p.id === id) ?? PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1]
-}
+const PROVIDER_PRESETS = DEFAULT_PROVIDER_PRESETS
 
 async function fetchModelList(input: {
 	baseURL: string
@@ -260,6 +149,8 @@ function LLMProfilesPanel() {
 	const [createModelLoading, setCreateModelLoading] = useState(false)
 	const [createModelError, setCreateModelError] = useState<string | null>(null)
 	const [createBaseURL, setCreateBaseURL] = useState('')
+	const [createModelListEnabled, setCreateModelListEnabled] = useState(true)
+	const [createModelListPath, setCreateModelListPath] = useState('')
 	const [createApiKey, setCreateApiKey] = useState('')
 	const [createPriority, setCreatePriority] = useState<number>(0)
 	const [createCircuitEnabled, setCreateCircuitEnabled] = useState(true)
@@ -278,6 +169,8 @@ function LLMProfilesPanel() {
 	const [editModelLoading, setEditModelLoading] = useState(false)
 	const [editModelError, setEditModelError] = useState<string | null>(null)
 	const [editBaseURL, setEditBaseURL] = useState('')
+	const [editModelListEnabled, setEditModelListEnabled] = useState(true)
+	const [editModelListPath, setEditModelListPath] = useState('')
 	const [editApiKey, setEditApiKey] = useState('')
 	const [editEnabled, setEditEnabled] = useState(true)
 	const [editPriority, setEditPriority] = useState<number>(0)
@@ -350,6 +243,8 @@ function LLMProfilesPanel() {
 		applyCreatePreset(createPresetId)
 		setCreateTitle('')
 		setCreateApiKey('')
+		setCreateModelListEnabled(true)
+		setCreateModelListPath('')
 		setCreatePriority(0)
 		setCreateCircuitEnabled(defaultCircuit.enabled)
 		setCreateFailureThreshold(defaultCircuit.failureThreshold)
@@ -395,7 +290,7 @@ function LLMProfilesPanel() {
 			const models = await fetchModelList({
 				baseURL,
 				apiKey: createApiKey,
-				modelListPath: preset.modelListPath,
+				modelListPath: createModelListEnabled ? (createModelListPath.trim() || undefined) : null,
 			})
 			setCreateModelOptions(models)
 			if (!createModel && models.length) setCreateModel(models[0])
@@ -404,7 +299,7 @@ function LLMProfilesPanel() {
 		} finally {
 			setCreateModelLoading(false)
 		}
-	}, [createApiKey, createBaseURL, createModel, createPresetId])
+	}, [createApiKey, createBaseURL, createModel, createModelListEnabled, createModelListPath, createPresetId])
 
 	const loadEditModels = useCallback(async () => {
 		const preset = resolvePreset(editPresetId)
@@ -415,7 +310,7 @@ function LLMProfilesPanel() {
 			const models = await fetchModelList({
 				baseURL,
 				apiKey: editApiKey,
-				modelListPath: preset.modelListPath,
+				modelListPath: editModelListEnabled ? (editModelListPath.trim() || undefined) : null,
 				profileId: editId ?? undefined,
 			})
 			setEditModelOptions(models)
@@ -425,7 +320,7 @@ function LLMProfilesPanel() {
 		} finally {
 			setEditModelLoading(false)
 		}
-	}, [editApiKey, editBaseURL, editModel, editPresetId])
+	}, [editApiKey, editBaseURL, editId, editModel, editModelListEnabled, editModelListPath, editPresetId])
 
 	const openCreate = useCallback(() => {
 		resetCreateForm()
@@ -470,6 +365,7 @@ function LLMProfilesPanel() {
 					provider,
 					model: createModel.trim() || undefined,
 					baseURL: createBaseURL.trim() || undefined,
+					modelListPath: createModelListEnabled ? (createModelListPath.trim() || undefined) : null,
 					priority: createPriority,
 					circuit: {
 						enabled: createCircuitEnabled,
@@ -494,6 +390,8 @@ function LLMProfilesPanel() {
 		createCircuitEnabled,
 		createConfigJson,
 		createFailureThreshold,
+		createModelListEnabled,
+		createModelListPath,
 		createModel,
 		createOpenSeconds,
 		createOptionsJson,
@@ -515,6 +413,8 @@ function LLMProfilesPanel() {
 			setEditModelOptions([])
 			setEditModelError(null)
 			setEditBaseURL(p.baseURL ?? '')
+			setEditModelListEnabled(p.modelListPath !== null)
+			setEditModelListPath(typeof p.modelListPath === 'string' ? p.modelListPath : '')
 			setEditApiKey('')
 			setEditEnabled(!!p.enabled)
 			setEditPriority(p.priority ?? 0)
@@ -552,6 +452,7 @@ function LLMProfilesPanel() {
 					provider,
 					model: editModel.trim() || undefined,
 					baseURL: editBaseURL.trim() || undefined,
+					modelListPath: editModelListEnabled ? (editModelListPath.trim() || undefined) : null,
 					priority: editPriority,
 					circuit: {
 						enabled: editCircuitEnabled,
@@ -583,6 +484,8 @@ function LLMProfilesPanel() {
 		editEnabled,
 		editFailureThreshold,
 		editId,
+		editModelListEnabled,
+		editModelListPath,
 		editModel,
 		editOpenSeconds,
 		editOptionsJson,
@@ -596,8 +499,14 @@ function LLMProfilesPanel() {
 
 	const createPreset = resolvePreset(createPresetId)
 	const editPreset = resolvePreset(editPresetId)
-	const createModelListUrl = resolveModelListUrl(createBaseURL.trim() || createPreset.baseURL || '', createPreset.modelListPath)
-	const editModelListUrl = resolveModelListUrl(editBaseURL.trim() || editPreset.baseURL || '', editPreset.modelListPath)
+	const createModelListUrl = resolveModelListUrl(
+		createBaseURL.trim() || createPreset.baseURL || '',
+		createModelListEnabled ? (createModelListPath.trim() || undefined) : null,
+	)
+	const editModelListUrl = resolveModelListUrl(
+		editBaseURL.trim() || editPreset.baseURL || '',
+		editModelListEnabled ? (editModelListPath.trim() || undefined) : null,
+	)
 	const showCreateBaseURL = createPreset.id === 'custom' || !createPreset.baseURL
 	const showEditBaseURL = editPreset.id === 'custom' || !editPreset.baseURL
 
@@ -899,7 +808,7 @@ function LLMProfilesPanel() {
 					) : null}
 					{!createModelListUrl ? (
 						<Text size="xs" c="dimmed">
-							该 provider 暂不支持自动拉取 models（或 baseURL 未配置），请手动填写模型名。
+							无法自动拉取 models（需要 Base URL 且启用 Model list）。默认请求 OpenAI-compatible `/models`，可在 Advanced 中调整路径或关闭。
 						</Text>
 					) : null}
 					<TextInput
@@ -924,6 +833,20 @@ function LLMProfilesPanel() {
 											placeholder={createPreset.baseURL ?? 'https://api.openai.com/v1'}
 										/>
 									) : null}
+									<Group grow align="end">
+										<Switch
+											label="Model list enabled"
+											checked={createModelListEnabled}
+											onChange={(e) => setCreateModelListEnabled(e.currentTarget.checked)}
+										/>
+										<TextInput
+											label="Model list path (optional)"
+											value={createModelListPath}
+											onChange={(e) => setCreateModelListPath(e.currentTarget.value)}
+											disabled={!createModelListEnabled}
+											placeholder="/models"
+										/>
+									</Group>
 									<NumberInput label="Priority" value={createPriority} onChange={(v) => setCreatePriority(Number(v) || 0)} />
 									<Group grow>
 										<Switch
@@ -1026,7 +949,7 @@ function LLMProfilesPanel() {
 					) : null}
 					{!editModelListUrl ? (
 						<Text size="xs" c="dimmed">
-							该 provider 暂不支持自动拉取 models（或 baseURL 未配置），请手动填写模型名。
+							无法自动拉取 models（需要 Base URL 且启用 Model list）。默认请求 OpenAI-compatible `/models`，可在 Advanced 中调整路径或关闭。
 						</Text>
 					) : null}
 					<Group grow align="end">
@@ -1070,6 +993,20 @@ function LLMProfilesPanel() {
 											placeholder={editPreset.baseURL ?? 'https://api.openai.com/v1'}
 										/>
 									) : null}
+									<Group grow align="end">
+										<Switch
+											label="Model list enabled"
+											checked={editModelListEnabled}
+											onChange={(e) => setEditModelListEnabled(e.currentTarget.checked)}
+										/>
+										<TextInput
+											label="Model list path (optional)"
+											value={editModelListPath}
+											onChange={(e) => setEditModelListPath(e.currentTarget.value)}
+											disabled={!editModelListEnabled}
+											placeholder="/models"
+										/>
+									</Group>
 									<NumberInput label="Priority" value={editPriority} onChange={(v) => setEditPriority(Number(v) || 0)} />
 									<Group grow>
 										<Switch label="Circuit enabled" checked={editCircuitEnabled} onChange={(e) => setEditCircuitEnabled(e.currentTarget.checked)} />

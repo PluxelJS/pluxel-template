@@ -14,11 +14,18 @@ import type { LLMHubSettingsDoc } from './settings'
 import { LLM_COLLECTION_SETTINGS, defaultSettings } from './settings'
 
 import { effectiveCircuitConfig, effectiveHealth, healthOnFailure, healthOnSuccess, isCircuitOpen, isFailureStatus } from './internal/health'
-import { normalizeCircuitConfig, normalizeObject, normalizeOptionalString, normalizePriority, normalizeRequiredString } from './internal/input'
+import {
+	normalizeCircuitConfig,
+	normalizeObject,
+	normalizeOptionalString,
+	normalizeOptionalStringOrNull,
+	normalizePriority,
+	normalizeRequiredString,
+} from './internal/input'
 import { migrateLegacyProfiles } from './internal/migrations'
 import { normalizeProfileDoc, sortCandidates } from './internal/selection'
 import { registerLLMHubExtensions } from './extensions'
-import { parseModelList, resolveModelListUrl } from './models'
+import { fetchModelList } from './models'
 
 const hasOwn = (obj: object, key: PropertyKey) => Object.prototype.hasOwnProperty.call(obj, key)
 
@@ -86,47 +93,33 @@ export class LLMHub extends LLM {
 				const input = body as Record<string, unknown>
 
 				const profileId = typeof input.profileId === 'string' ? input.profileId.trim() : ''
-				const modelListPath =
+				let modelListPath =
 					typeof input.modelListPath === 'string' ? input.modelListPath : input.modelListPath === null ? null : undefined
 
 				let baseURL = typeof input.baseURL === 'string' ? input.baseURL.trim() : ''
 				let apiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : ''
 
-				if (!baseURL && profileId) {
-					const profile = this.profiles.findOne({ id: profileId })
-					baseURL = typeof profile?.baseURL === 'string' ? profile.baseURL.trim() : ''
-				}
+					if (!baseURL && profileId) {
+						const profile = this.profiles.findOne({ id: profileId })
+						baseURL = typeof profile?.baseURL === 'string' ? profile.baseURL.trim() : ''
+						if (modelListPath === undefined) {
+							const raw = profile?.modelListPath
+							modelListPath = typeof raw === 'string' ? raw : raw === null ? null : undefined
+						}
+					}
 
 				if (!apiKey && profileId) {
 					const res = await this.readApiKeyResult(profileId)
 					if (res.ok) apiKey = res.val
 				}
 
-				const url = resolveModelListUrl(baseURL, modelListPath)
-				if (!url) return c.json({ ok: false, error: 'models endpoint unavailable' }, 400)
-				if (!/^https?:\/\//i.test(url)) return c.json({ ok: false, error: 'models url invalid' }, 400)
-
 				try {
-					const headers: Record<string, string> = { Accept: 'application/json' }
-					if (apiKey) {
-						headers.Authorization = `Bearer ${apiKey}`
-						headers['X-API-Key'] = apiKey
-					}
-
-					const res = await fetch(url, { headers })
-					if (!res.ok) {
-						const text = await res.text().catch(() => '')
-						const msg = text ? ` ${text.slice(0, 200)}` : ''
-						return c.json({ ok: false, error: `upstream ${res.status}${msg}`.trim() }, 502)
-					}
-
-					const payload = await res.json().catch(() => null)
-					const models = parseModelList(payload)
-					if (!models.length) return c.json({ ok: false, error: 'models list empty or unrecognized' }, 502)
-
+					const models = await fetchModelList({ baseURL, apiKey, modelListPath })
 					return c.json({ ok: true, models })
 				} catch (error) {
-					return c.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 502)
+					const msg = error instanceof Error ? error.message : String(error)
+					if (msg.includes('unavailable') || msg.includes('invalid')) return c.json({ ok: false, error: msg }, 400)
+					return c.json({ ok: false, error: msg }, 502)
 				}
 			})
 		})
@@ -278,6 +271,7 @@ export class LLMHub extends LLM {
 			provider: doc.provider,
 			model: doc.model,
 			baseURL: doc.baseURL,
+			modelListPath: doc.modelListPath,
 			config: doc.config ?? {},
 			options: doc.options ?? {},
 		}
@@ -422,6 +416,7 @@ export class LLMHub extends LLM {
 			const provider = normalizeRequiredString('provider', input.provider)
 			const model = normalizeOptionalString(input.model)
 			const baseURL = normalizeOptionalString(input.baseURL)
+			const modelListPath = normalizeOptionalStringOrNull(input.modelListPath)
 			const title = normalizeOptionalString(input.title)
 			const priority = normalizePriority(input.priority)
 			const config = normalizeObject('config', input.config)
@@ -444,6 +439,7 @@ export class LLMHub extends LLM {
 				provider,
 				...(model ? { model } : {}),
 				...(baseURL ? { baseURL } : {}),
+				...(modelListPath !== undefined ? { modelListPath } : {}),
 				config,
 				options,
 				...(circuit ? { circuit } : {}),
@@ -484,6 +480,7 @@ export class LLMHub extends LLM {
 			if (hasOwn(input, 'provider')) next.provider = normalizeRequiredString('provider', input.provider)
 			if (hasOwn(input, 'model')) next.model = normalizeOptionalString(input.model)
 			if (hasOwn(input, 'baseURL')) next.baseURL = normalizeOptionalString(input.baseURL)
+			if (hasOwn(input, 'modelListPath')) next.modelListPath = normalizeOptionalStringOrNull(input.modelListPath)
 			if (hasOwn(input, 'config')) next.config = normalizeObject('config', input.config)
 			if (hasOwn(input, 'options')) next.options = normalizeObject('options', input.options)
 

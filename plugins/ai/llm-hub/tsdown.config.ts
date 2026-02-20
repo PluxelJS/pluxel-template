@@ -4,7 +4,9 @@ export default defineConfig({
 	entry: {
 		index: './src/index.ts',
 		aisdk: './src/aisdk.ts',
+		models: './src/models.ts',
 		'adapters/ax': './src/adapters/ax.ts',
+		'adapters/ax-ai-sdk-provider': './src/adapters/ax-ai-sdk-provider.ts',
 	},
 	dts: {
 		sourcemap: true,

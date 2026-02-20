@@ -13,6 +13,7 @@ export type CreateProfileInput = {
 	provider: string
 	model?: string
 	baseURL?: string
+	modelListPath?: string | null
 	config?: Record<string, unknown>
 	options?: Record<string, unknown>
 	apiKey?: string

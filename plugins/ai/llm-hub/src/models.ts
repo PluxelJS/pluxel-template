@@ -32,3 +32,48 @@ export function parseModelList(payload: unknown): string[] {
 
 	return []
 }
+
+export async function fetchModelList(input: {
+	baseURL: string
+	apiKey?: string
+	modelListPath?: string | null
+	fetch?: typeof globalThis.fetch
+}): Promise<string[]> {
+	const url = resolveModelListUrl(input.baseURL, input.modelListPath)
+	if (!url) throw new Error('models endpoint unavailable')
+	if (!/^https?:\/\//i.test(url)) throw new Error('models url invalid')
+
+	const baseFetch = input.fetch ?? globalThis.fetch
+	if (typeof baseFetch !== 'function') throw new Error('global fetch() is not available')
+
+	const headers: Record<string, string> = { Accept: 'application/json' }
+	const apiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : ''
+	if (apiKey) {
+		headers.Authorization = `Bearer ${apiKey}`
+		headers['X-API-Key'] = apiKey
+	}
+
+	const res = await baseFetch(url, { headers })
+	if (!res?.ok) {
+		const status = typeof (res as any)?.status === 'number' ? (res as any).status : 0
+		let text = ''
+		try {
+			text = typeof (res as any)?.text === 'function' ? await (res as any).text() : ''
+		} catch {
+			// ignore
+		}
+		const msg = typeof text === 'string' && text ? ` ${text.slice(0, 200)}` : ''
+		throw new Error(`upstream ${status}${msg}`.trim())
+	}
+
+	let payload: unknown = null
+	try {
+		payload = typeof (res as any)?.json === 'function' ? await (res as any).json() : null
+	} catch {
+		payload = null
+	}
+	const models = parseModelList(payload)
+	if (!models.length) throw new Error('models list empty or unrecognized')
+
+	return [...new Set(models)].sort((a, b) => a.localeCompare(b))
+}

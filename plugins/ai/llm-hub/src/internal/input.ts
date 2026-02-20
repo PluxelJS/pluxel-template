@@ -12,6 +12,11 @@ export function normalizeOptionalString(raw: unknown): string | undefined {
 	return s || undefined
 }
 
+export function normalizeOptionalStringOrNull(raw: unknown): string | null | undefined {
+	if (raw === null) return null
+	return normalizeOptionalString(raw)
+}
+
 export function normalizeObject(field: string, raw: unknown): Record<string, unknown> {
 	if (!raw) return {}
 	if (typeof raw !== 'object' || Array.isArray(raw)) throw llmError('E_INVALID_INPUT', `${field} must be an object`)
@@ -38,4 +43,3 @@ export function normalizeCircuitConfig(input?: Partial<LLMCircuitConfig>): Parti
 	}
 	return Object.keys(next).length ? next : undefined
 }
-
