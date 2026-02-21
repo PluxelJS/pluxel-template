@@ -228,7 +228,7 @@ const deriveInputModel = (schema: Schema): InputModel => {
 			...(aliases.length ? { aliases } : {}),
 			...(shortCandidate ? { short: shortCandidate } : {}),
 			...(tt.type === 'boolean' ? { negate: true } : {}),
-			...(required.has(inputKey) ? { required: true } : {}),
+			...(required.has(inputKey) && propSchema.default === undefined ? { required: true } : {}),
 			...(description ? { description } : {}),
 			...(propSchema.default !== undefined ? { default: propSchema.default } : {}),
 		}
@@ -655,6 +655,8 @@ export const compileTextPlan = (id: string, inputSchema: Schema, cfg: TextConfig
 
 	const tokenize = defaultTokenizer
 	const model = deriveInputModel(inputSchema)
+	const hasRootDefault = (inputSchema as any).default !== undefined
+	const rootDefault = (inputSchema as any).default
 
 	let paramsMeta: ParamSpec[] | undefined
 	if (model.kind === 'object') {
@@ -689,10 +691,14 @@ export const compileTextPlan = (id: string, inputSchema: Schema, cfg: TextConfig
 				return {}
 			}
 			if (model.kind === 'string') {
+				if (argsTokens.length === 0 && hasRootDefault) return rootDefault
 				return argsTokens.map((t) => t.value).join(' ')
 			}
 			if (model.kind === 'number') {
-				if (argsTokens.length === 0) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Missing number' })
+				if (argsTokens.length === 0) {
+					if (hasRootDefault) return rootDefault
+					throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Missing number' })
+				}
 				if (argsTokens.length > 1) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Too many arguments' })
 				const n = Number(argsTokens[0]!.value)
 				if (!Number.isFinite(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Invalid number' })
@@ -700,7 +706,10 @@ export const compileTextPlan = (id: string, inputSchema: Schema, cfg: TextConfig
 				return n
 			}
 			if (model.kind === 'boolean') {
-				if (argsTokens.length === 0) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Missing boolean' })
+				if (argsTokens.length === 0) {
+					if (hasRootDefault) return rootDefault
+					throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Missing boolean' })
+				}
 				if (argsTokens.length > 1) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Too many arguments' })
 				const b = parseBoolean(argsTokens[0]!.value)
 				if (b === null) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Invalid boolean' })

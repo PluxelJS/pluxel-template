@@ -58,6 +58,38 @@ describe('cmdkit: text()', () => {
 		await expect(exec.execText!('bool --no-enabled')).resolves.toEqual({ ok: true, val: false, err: null })
 	})
 
+	it('injects TypeBox defaults for primitive text commands when args are omitted', async () => {
+		const s = cmd('s')
+			.input(Type.String({ default: 'hi' }))
+			.text()
+			.handle((i) => i)
+			.build()
+		await expect(s.execText!('s')).resolves.toEqual({ ok: true, val: 'hi', err: null })
+
+		const n = cmd('n')
+			.input(Type.Number({ default: 3 }))
+			.text()
+			.handle((i) => i)
+			.build()
+		await expect(n.execText!('n')).resolves.toEqual({ ok: true, val: 3, err: null })
+
+		const b = cmd('b')
+			.input(Type.Boolean({ default: true }))
+			.text()
+			.handle((i) => i)
+			.build()
+		await expect(b.execText!('b')).resolves.toEqual({ ok: true, val: true, err: null })
+	})
+
+	it('keeps the legacy empty-string behavior when no default is provided', async () => {
+		const exec = cmd('echo')
+			.input(Type.String())
+			.text()
+			.handle((i) => i)
+			.build()
+		await expect(exec.execText!('echo')).resolves.toEqual({ ok: true, val: '', err: null })
+	})
+
 	it('reports invalid JSON values as E_TEXT_PARSE', async () => {
 		const exec = cmd('x')
 			.input(obj({ data: Type.Object({}, { additionalProperties: true }) }))

@@ -21,16 +21,21 @@ async function withStubFetch<T>(run: (cap: FetchCapture) => Promise<T>): Promise
 	const prevFetch = globalThis.fetch
 	const cap: FetchCapture = { url: null, headers: null, init: undefined }
 
-	const stubFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-		cap.url = toUrlString(input)
-		cap.init = init
-		cap.headers = init?.headers ? Object.fromEntries(new Headers(init.headers).entries()) : null
+	const stubFetch = Object.assign(
+		async (input: RequestInfo | URL, init?: RequestInit) => {
+			cap.url = toUrlString(input)
+			cap.init = init
+			cap.headers = init?.headers ? Object.fromEntries(new Headers(init.headers).entries()) : null
 
-		return new Response(JSON.stringify({ ok: true }), {
-			status: 200,
-			headers: { 'content-type': 'application/json' },
-		})
-	}) satisfies typeof fetch
+			return new Response(JSON.stringify({ ok: true }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			})
+		},
+		{
+			preconnect: () => {},
+		},
+	) satisfies typeof fetch
 
 	globalThis.fetch = stubFetch
 	try {

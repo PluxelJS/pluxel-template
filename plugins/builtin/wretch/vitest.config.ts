@@ -1,5 +1,5 @@
-import { createRequire } from 'node:module'
+import { definePluxelVitestConfig } from '@pluxel/test/vitest'
 
-const require = createRequire(import.meta.url)
-
-export default require('@pluxel/test/vitest').default
+// This package lives outside the core monorepo's default `packages/**` globs.
+// Enable Pluxel toolchain extraction for local `src/**` so `configs.use(...)` is injected in tests.
+export default definePluxelVitestConfig({}, { include: ['src/**/*.ts'] })

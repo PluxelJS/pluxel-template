@@ -8,6 +8,7 @@
 Notes:
 - Object schemas are treated as **strict** by default (unknown keys rejected) when `additionalProperties` is omitted. To allow unknown keys, set `additionalProperties: true` explicitly or use `openObj(...)`.
 - `@pluxel/cmd` re-exports TypeBox as `Type` (common) and `TypeBox` (full namespace).
+- TypeBox `default` is applied automatically during input/output validation (so omitted fields can be defaulted without extra `??` in handlers).
 
 This document is about **how to use** the API. For design rationale, see `./DESIGN.md`.
 

@@ -98,7 +98,7 @@ export class GraphQLPlugin extends BasePlugin {
 	}
 
 	private applyConfig(cfg: GraphQLPluginConfigShape) {
-		const codegen = cfg.codegen ?? DEFAULT_CODEGEN_CONFIG
+		const codegen = cfg.codegen
 		const destination = codegen.destination?.trim() ? codegen.destination.trim() : undefined
 		const endpoint = codegen.endpoint?.trim() ? codegen.endpoint.trim() : undefined
 
@@ -107,7 +107,7 @@ export class GraphQLPlugin extends BasePlugin {
 			destination,
 			endpoint,
 			react: cfg.react,
-			scalarTypes: cfg.scalarTypes ?? {},
+			scalarTypes: cfg.scalarTypes,
 		})
 	}
 

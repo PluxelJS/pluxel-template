@@ -1,7 +1,7 @@
 import { ForkablePlugin, Plugin } from '@pluxel/hmr'
 
 import { buildClientEntry, type ClientEntry, type WretchClient } from './client'
-import { normalizeWretchConfig, parseWretchConfig } from './config'
+import { normalizeWretchConfig } from './config'
 import { WretchConfig } from './schema'
 
 export type HttpClient = WretchClient
@@ -26,8 +26,7 @@ export class WretchPlugin extends ForkablePlugin {
 	private readonly clients = new Map<string, ClientEntry>()
 
 	override init(): void {
-		const cfg = parseWretchConfig(this.wretch, this.ctx.logger)
-		const normalized = normalizeWretchConfig(cfg)
+		const normalized = normalizeWretchConfig(this.wretch)
 
 		this.clients.clear()
 		this.defaultClientName = normalized.defaultClientName
@@ -35,15 +34,6 @@ export class WretchPlugin extends ForkablePlugin {
 		for (const [name, clientCfg] of Object.entries(normalized.clients)) {
 			this.clients.set(name, buildClientEntry(clientCfg))
 		}
-
-		// Normalize: ensure at least one safe fallback exists.
-		if (!this.clients.has('default')) {
-			this.clients.set(
-				'default',
-				buildClientEntry({ headers: Object.create(null) as Record<string, string> }),
-			)
-		}
-		if (!this.clients.has(this.defaultClientName)) this.defaultClientName = 'default'
 	}
 
 	/**
