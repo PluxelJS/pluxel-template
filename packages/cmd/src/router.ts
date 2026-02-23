@@ -19,6 +19,8 @@ export interface RouterHelpCommandResult {
 	triggers: string[]
 	params?: ParamSpec[]
 	tail?: true
+	/** Present when the command uses `text({ tailTo })`. */
+	tailTo?: string
 	doc?: CmdDocSource
 }
 
@@ -436,12 +438,13 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 			if (!raw) return undefined
 
 			const byId = entries.get(raw)
-			if (byId) {
+				if (byId) {
 					return {
 						id: byId.exec.id as string,
 						triggers: byId.triggers.slice(),
 						...(Array.isArray((byId.exec as any)?.meta?.params) ? { params: (byId.exec as any).meta.params as ParamSpec[] } : {}),
 						...((byId.exec as any)?.meta?.tail ? { tail: true } : {}),
+						...(typeof (byId.exec as any)?.meta?.tailTo === 'string' ? { tailTo: (byId.exec as any).meta.tailTo as string } : {}),
 						...((byId.exec as any).doc ? { doc: (byId.exec as any).doc as CmdDocSource } : {}),
 					}
 				}
@@ -455,6 +458,7 @@ export function createRouter<Ctx extends ExecCtx = ExecCtx>(cfg?: { caseInsensit
 				triggers: byTrigger.triggers.slice(),
 				...(Array.isArray((byTrigger.exec as any)?.meta?.params) ? { params: (byTrigger.exec as any).meta.params as ParamSpec[] } : {}),
 				...((byTrigger.exec as any)?.meta?.tail ? { tail: true } : {}),
+				...(typeof (byTrigger.exec as any)?.meta?.tailTo === 'string' ? { tailTo: (byTrigger.exec as any).meta.tailTo as string } : {}),
 				...((byTrigger.exec as any).doc ? { doc: (byTrigger.exec as any).doc as CmdDocSource } : {}),
 			}
 		},

@@ -1,443 +1,206 @@
-# @pluxel/cmd（内部代号：cmdkit）：TypeBox(JSON Schema)-first 命令执行内核 + 文本路由 + phase 拦截器
-
-说明：本文用 “cmdkit” 指代 `@pluxel/cmd` 这套内核与 API（只是内部代号，避免和 `cmd()` builder 混淆）。
-
-## 1. 目标与边界
-
-**目标**：提供可独立复用的 command/op 执行内核，支持 schema-first 校验与文本路由（schema 派生参数 + 固定语法解析）；强调**优雅、可推理、热路径高效**，允许上层通过文档/lint 约束用法。
-
-**提供**：`cmd(id)` builder、schema-first（input/output）、phase-based interceptor、结构化错误、可选观测钩子（emit/span）、tokenize+match+dispatch、schema-derived 文本语法（text）。  
-**不提供**：平台/富文本/前缀解析、权限/限流存储、DI/HMR/插件生命周期、日志/追踪实现、核心内建 timer/timeout 生产。
-
----
-
-## 2. 核心原则（少且硬）
-
-1) **取消与超时统一由上层提供**：核心只消费 `AbortSignal` / `deadlineMs`（不创建 timer）。  
-原因：核心更纯、更快；上层可实现“请求级一次超时”，避免“每命令一个 timer”。
-
-2) **扩展点使用 phase-based interceptor，不用 `next()`**。  
-原因：固定生命周期点易推理，且可编译成紧凑循环，热路径分配少。
-
-3) **unwind（退出）阶段逆序执行**：`afterOutput`/`onError`/`finally` 逆序；`before`/`afterInput` 正序。  
-原因：获得栈语义（先进入后退出），清理与观测更稳定。
-
-4) **每个 interceptor 具备私有 state 通道**（由 `before` 产生，后续阶段复用）。  
-原因：避免把状态塞进共享 ctx，减少耦合与运行期开销。
-
-5) **各阶段能力边界写死**（短路/变换/恢复均受限）。  
-原因：保持可推理性，避免“隐式控制流”滑回 middleware 复杂度。
-
----
-
-## 3. 执行生命周期与阶段契约
-
-命令执行自然生命周期：`candidate (unknown) -> input (validated) -> output (validated)`。
-
-### 3.1 阶段定义（固定且少）
-- `before(candidate)`：可拒绝、可改写 candidate、可短路直接返回 outputCandidate。
-- `afterInput(input)`：观测（不允许改写 input；如需改写请放在 schema/handler 或 `before`）。
-- `afterOutput(output)`：允许轻量变换 outputCandidate（如脱敏/envelope），**逆序执行**。
-- `onError(err)`：默认只观测，**逆序执行**；是否允许恢复必须显式声明。
-- `finally(summary)`：只清理与观测，**逆序执行**；禁止改写结果。
-
-### 3.2 返回协议（最小且强约束）
-- `before` 可返回：
-  - `continue`（可带 `candidate` 替换 + `state`）
-  - `shortCircuit(outputCandidate)`（跳过 handler，仍做 output validate + afterOutput + finally）
-- `afterOutput` 可返回：
-  - `transform(outputCandidate)` 或 `void`
-- `onError`：
-  - 默认 `void`
-  - 若 interceptor 声明 `canRecover=true`，允许 `recover(outputCandidate)`（恢复后走 output validate + afterOutput + finally）
-- `finally`：`void`
+# @pluxel/cmd（内部代号：cmdkit）
 
----
+cmdkit 是 `@pluxel/cmd` 这套内核与 API 的内部代号，用来强调它是“可复用的执行内核”，避免和 `cmd()` 这个 builder 名字混淆。
 
-## 4. API（公开面尽量小）
-
-### 4.1 `cmd(id)`：唯一 Builder（类型状态机约束误用）
-- 不设置 `.input(...)`：默认 strict empty object（只接受 `{}`）。
-- 必须设置 `.handle(...)` 才能 `.build()`（编译期约束）。
-- 未启用 `.text(...)`：产物没有 `execText`。
+本文描述的是 **真实实现的边界与不变量**（schema/exec/text/router/mcp），尽量避免复制粘贴类型签名（那会漂移）。
 
-```ts
-import type { Static, TSchema } from '@sinclair/typebox';
+## 1. 目标与非目标
 
-export type CmdErrorCode =
-  | "E_CMD_NOT_FOUND"
-  | "E_TEXT_PARSE"
-  | "E_INPUT_VALIDATION"
-  | "E_OUTPUT_VALIDATION"
-  | "E_FORBIDDEN"
-  | "E_RATE_LIMITED"
-  | "E_ABORTED"
-  | "E_TIMEOUT"
-  | "E_DEPENDENCY"
-  | "E_INTERNAL";
+**目标**
+- 提供可独立复用的 command/op 执行内核：`candidate → input → output`。
+- schema-first：以 TypeBox(JSON Schema) 做输入/输出校验与（可选）text grammar 派生。
+- text：从 input schema 派生一套稳定、可推理的 flags 语法（而不是手写 argv parser）。
+- 拦截器：phase-based lifecycle，热路径低分配、控制流可推理。
+- 可观测：`ctx.emit` / `ctx.span`，由上层决定如何渲染/转发。
 
-export type CmdErrorKind = "expected" | "fault";
+**非目标**
+- 不提供平台层能力：权限/限流/存储/DI/HMR/插件生命周期/日志系统实现。
+- 不内建 timer：取消/超时由上层提供（`AbortSignal` / `deadlineMs`）。
+- 不做富文本/前缀解析/复杂 positionals：text 语法只围绕 schema 派生的 keyed params + 可选 tail。
 
-export class CmdError extends Error {
-  code: CmdErrorCode;
-  kind: CmdErrorKind;
-  publicMessage: string;
-  details?: Record<string, unknown>;
-  cause?: unknown;
-}
+## 1.1 分层（core / kit / downstream）
 
-export type ValidationIssue = {
-  path?: (string | number)[];
-  message: string;
-  code?: string;
-  meta?: Record<string, unknown>;
-};
+为了让上层（例如 bot-suite）只做“增量而不是另起一套体系”，`@pluxel/cmd` 按层拆分：
 
-export interface ExecCtx {
-  signal?: AbortSignal;
-  deadlineMs?: number; // 可选：用于更好分类/观测；不要求核心创建 timer
-  emit?(type: string, payload: Record<string, unknown>): void;
-  span?<T>(name: string, attrs: Record<string, unknown>, fn: () => T | Promise<T>): Promise<T>;
-  classifyError?: (e: unknown) => CmdError | undefined;
-  onFault?: (payload: { id: string; err: CmdError; durationMs: number; recovered: boolean }) => void | Promise<void>;
-}
+- **core（内核）**：schema/exec/text/mcp/router，不包含任何平台策略。
+  - core 的 builder/router 属于“可复用内核”，不作为 public API 暴露（避免上游出现两套用法）。
+- **kit（组合层 / public）**：`Cmd.createSpace()` + `space.scope(scopeKey)`（唯一推荐入口），内部包含：
+  - `command/op/defs/group/when` DSL
+  - `CommandRegistry + router`（共享空间）
+  - `tail.*`（ParseBox tail 辅助）
+  - 默认 **MCP-first**：非 `doc.internal` 的命令/工具默认暴露 MCP tool（可用 `.mcp(false)` 关闭）。
+  - spec 的 `ext` 扩展袋：下游在 install 阶段读取（权限/限流/产品埋点等），不需要 fork cmd 体系。
+- **downstream（产品层）**：只实现自己的 `decorate()`（拦截器/声明/列表字段补全），并通过 `.ext({...})` 携带产品元数据。
 
-export type Result<T, E = CmdError> =
-  | { ok: true; val: T; err: null }
-  | { ok: false; val: null; err: E };
+## 2. 核心不变量（少且硬）
 
-export interface Executable<I, O> {
-  readonly id: string;
-  exec(value: unknown, ctx?: ExecCtx): Promise<Result<O, CmdError>>;
-  execText?: (text: string, ctx?: ExecCtx) => Promise<Result<O, CmdError>>; // 仅 text 启用时存在
-  meta?: {
-    triggers: string[];
-    params?: Array<{ name: string; type: "string" | "number" | "boolean" | "json" | "string[]" | "number[]" | "boolean[]" | "json[]"; description?: string; required?: boolean; negate?: boolean; short?: string }>;
-  };
-}
+1) **取消与超时由上层提供**：核心只消费 `ctx.signal` / `ctx.deadlineMs`（不创建 timer）。
 
-export type Schema = TSchema;
-export type Infer<S extends Schema> = Static<S>;
+2) **扩展点用 phase-based interceptor，不用 `next()` middleware**：固定生命周期点更可推理，也更容易做低分配实现。
 
-export type PhaseResult<S> =
-  | { kind: "continue"; state?: S; candidate?: unknown }
-  | { kind: "shortCircuit"; state?: S; outputCandidate: unknown };
+3) **unwind 阶段逆序执行**：`afterOutput/onError/finally` 逆序；`before/afterInput` 正序。获得“栈语义”（先进入后退出）。
 
-export type AfterOutputResult =
-  | { kind: "transform"; outputCandidate: unknown }
-  | void;
-
-export type OnErrorResult =
-  | { kind: "recover"; outputCandidate: unknown }
-  | void;
-
-export interface Interceptor<S = unknown> {
-  /** 声明是否允许 recover；默认 false（保持可推理） */
-  canRecover?: boolean;
-
-  before?(ctx: ExecCtx, candidate: unknown): PhaseResult<S> | void | Promise<PhaseResult<S> | void>;
-
-  afterInput?(ctx: ExecCtx, input: unknown, state: S): void | Promise<void>;
-
-  /** 逆序执行；用于脱敏/envelope 等轻量变换 */
-  afterOutput?(ctx: ExecCtx, output: unknown, state: S): AfterOutputResult | Promise<AfterOutputResult>;
-
-  /** 逆序执行；仅当 canRecover=true 才允许返回 recover */
-  onError?(ctx: ExecCtx, err: unknown, state: S): OnErrorResult | Promise<OnErrorResult>;
-
-  /** 逆序执行；只清理/观测，不得改写结果 */
-  finally?(ctx: ExecCtx, summary: { ok: boolean; durationMs: number; err?: CmdError }, state: S): void | Promise<void>;
-}
-
-type State = { hasHandle: boolean; hasText: boolean };
-
-export interface CmdBuilder<I, O, S extends State> {
-  input<T extends Schema>(schema: T): CmdBuilder<Infer<T>, O, S>;
-  output<T extends Schema>(schema: T): CmdBuilder<I, Infer<T>, S>;
-  validateInput(...fns: Array<(input: I, ctx: ExecCtx) => void | ValidationIssue | ValidationIssue[] | Promise<void | ValidationIssue | ValidationIssue[]>>): CmdBuilder<I, O, S>;
-  validateOutput(...fns: Array<(output: O, ctx: ExecCtx) => void | ValidationIssue | ValidationIssue[] | Promise<void | ValidationIssue | ValidationIssue[]>>): CmdBuilder<I, O, S>;
-
-  intercept<TState>(itc: Interceptor<TState>): CmdBuilder<I, O, S>;
-
-  handle(fn: (input: I, ctx: ExecCtx) => O | Promise<O>): CmdBuilder<I, O, { hasHandle: true; hasText: S["hasText"] }>;
-
-  text(cfg?: TextConfig): CmdBuilder<I, O, { hasHandle: S["hasHandle"]; hasText: true }>;
-
-  build(this: CmdBuilder<I, O, { hasHandle: true; hasText: S["hasText"] }>): Executable<I, O>;
-}
-
-export function cmd(id: string): CmdBuilder<{}, unknown, { hasHandle: false; hasText: false }>;
-```
-
-### 4.1.1 流式（Streaming）/ 可观测（Observability）
-
-cmdkit 不引入 Observable/事件协议：只提供 `ctx.emit(type, payload)`，上层自定义事件名与 payload，并决定如何渲染/转发（CLI 实时输出、MCP notification、日志/trace）。
-
-**最适合场景**：长耗时批处理/搜索/索引——边处理边产出进度与部分结果，同时 `exec()` 仍返回最终汇总。
-
-```ts
-import { cmd } from '@pluxel/cmd'
-
-const EVT = {
-  PROGRESS: 'index.progress',
-  CHUNK: 'index.chunk',
-} as const
-
-const index = cmd('index')
-  .handle(async (_input, ctx) => {
-    const items = ['a', 'b', 'c']
-    for (let i = 0; i < items.length; i++) {
-      ctx.emit?.(EVT.PROGRESS, { id: 'index', current: i + 1, total: items.length })
-      ctx.emit?.(EVT.CHUNK, { id: 'index', chunk: { item: items[i] } })
-    }
-    return { indexed: items.length }
-  })
-  .build()
-
-await index.exec({}, {
-  emit: (type, payload) => {
-    if (type === EVT.PROGRESS) console.error(payload)
-    if (type === EVT.CHUNK) console.log((payload as any).chunk)
-  },
-})
-```
-
-建议（保持精炼 + 可组合）：
-- 事件名由上层定义成常量（避免散落字符串），并尽量做“模块级 namespace”（例如 `index.progress`）。
-- payload 保持 JSON 友好、短小；总是带 `id`，进度用 `{ current, total? }`，分片用 `{ chunk }`，日志用 `{ level?, message }`。
-- `emit` 回调应当不抛异常（上层吞掉/降级），避免影响命令主流程。
-
-### 4.2 Text 能力：`text()` 是唯一入口
-
-原因：避免多入口（例如旧式 `.argv()`/`.command()`）导致的误用与语义分叉；text 相关能力全部收敛在 `text(cfg?)`。
-
-```ts
-// Enable text execution for a command.
-// - cfg.triggers omitted => defaults to [id]
-cmd('echo').text()
-cmd('echo').text({ triggers: ['e', 'say'] })
-```
-
-解析规则（唯一且固定）：
-- 触发词匹配：按 triggers（空格分词）做最长匹配。
-- 解析输入：从 input JSON Schema（TypeBox schema 的 JSON 视图）派生参数表，并支持：
-  - `--key value` / `--key=value`
-  - `--key` 的常见别名：同一参数默认接受 kebab/camel/snake 风格（例如 `--user-id` / `--userId` / `--user_id`）。
-  - `key:value` / `key=value`
-  - short flags：默认从参数名自动派生（冲突则全部不生成），并支持：
-    - `-c value` / `-c=value` / `-cVALUE`
-    - `-abc`（仅 boolean bundling）
-  - boolean 的 `--no-key`
-- ParseBox tail（text-only）：
-  - `text({ tail })` 仅影响 text 执行域：cmdkit 会把剩余文本交给 ParseBox 解析，并要求其返回“对象 patch”，再合并进真实 input（因此不会污染 MCP 的 input schema）。
-  - cmdkit 会在 tail 文本末尾追加一个 `\\n`（把“行结束”当成换行终止符），因此 `Runtime.Until(['\\n'], ...)` 可用作 “read until end-of-line”。
-  - tail 的起点：遇到 `--`（end-of-options sentinel）后立即开始；否则在第一个“非选项 token”处开始。
-  - 为避免把 `--xxx` 误当成 flag：如果你的 tail 需要以 `--` 开头，必须显式写 `--` sentinel，例如 `echo -- --literal`.
-
-### 4.2.1 文档字段：`doc()`（不占用 TextConfig）
-
-cmdkit 的 doc 仅用于 **MCP/tool 与上游渲染的原材料**，本身不负责最终 help 文本渲染。
-
-**核心建议**：
-- 绝大多数情况只写 `description` +（可选）`details` 就够了；需要更友好的 help 时再补 `usage/examples`。
-- `details`（Markdown）可以作为 **text + MCP** 共用的“唯一文档语言”。
-
-```ts
-export interface CmdDoc {
-  description?: string;
-  details?: string;
-  usage?: string;
-  examples?: string[];
-}
-
-cmd('ping')
-  .doc({ description: 'Health check', usage: 'ping', examples: ['ping'] })
-  .text()
-  .handle(() => 'pong')
-  .build()
-```
-
-### 4.2.2 MCP/tool：显式 opt-in（`.mcp(...)` / `.mcp()`），与 cmd 共用 schema+handler
-
-cmdkit 的“核心执行器”本质上就是 op：同一份 `input schema + handler` 可以同时用于：
-- Text 指令：`.text(...)` + router
-- MCP/tool calling：用 JSON Schema 暴露给模型（运行时仍走 cmdkit schema 校验）
-
-推荐写法：把 schema 定义成常量，然后两边复用。
-
-```ts
-import { obj, Type } from '@pluxel/cmd'
-import { cmd } from '@pluxel/cmd'
-
-const EchoInput = obj({ msg: Type.String() })
-
-const echo = cmd('echo')
-  .input(EchoInput)
-  // `.mcp({ title })` defaults description from `doc.description` when omitted.
-  // `.mcp()` defaults title to `id` and description from `doc.description`.
-  .mcp({ title: 'Echo' })
-  .doc({
-    details: [
-      'Text:',
-      '- echo "hello world"',
-      '',
-      'Tool:',
-      '- call `echo` with `{ "msg": "hello world" }`',
-    ].join('\\n'),
-  })
-  .text()
-  .handle(({ msg }) => msg)
-  .build()
-
-// MCP tool definition (name/description/inputSchema) is data-only and built-time derived.
-// Registering/exporting the tool is up to upstream.
-const meta = echo.mcp!
-const tool = {
-  name: meta.name,
-  description: typeof meta.description === 'function' ? meta.description({ locale: 'en-US' }) : meta.description,
-  inputSchema: meta.inputSchema,
-  ...(meta.outputSchema ? { outputSchema: meta.outputSchema } : {}),
-}
-```
-
-`.mcp(...)` / `.mcp()` 是**显式声明**：只有你明确 opt-in 的 op 才会暴露 `exec.mcp` 元数据。
-这让“可被 MCP 调用”变得更确定（不会有隐式推断/桥接行为）。
-
-若你需要对外暴露的 JSON Schema 与内部 schema 不同，可在 `.mcp({ inputSchema: ... })` 中手动提供 `inputSchema` 覆盖。
-若你希望在支持 Structured Outputs 的 MCP SDK/Registry 中暴露输出结构，可：
-- 在 `.mcp({ outputSchema: ... })` 中手动提供输出 JSON Schema（可选，最明确）
-- 或使用 `.mcp({ deriveOutputSchema: true })` 让 cmdkit 从 `.output(schema)` 派生 `meta.outputSchema`（可选；仍然需要你显式声明 `.output(...)`）
-
-#### 4.2.2.1 从 mcp-lite 这类 minimal MCP server 的设计取向借鉴的几个“桥接”要点
-
-由于当前环境限制无法直接拉取 `fiberplane/mcp-lite` 源码逐行对照，这里总结的是“mcp-lite 这类 minimal MCP server 常见的设计取向”：
-**data-only 的 tool 定义 + transport/middleware 在上层**，适合拿来约束我们在 cmdkit 之上的 MCP 适配层边界。
-
-- **tool 定义纯数据**：cmdkit 只产出 `name/description/inputSchema/outputSchema?`；至于“把它注册到哪个 server / 用什么 transport”，完全由 upstream 决定。
-- **Structured Outputs 优先**：当 `outputSchema` 存在时，把 cmdkit 的返回值作为“结构化输出”传给 MCP SDK（具体字段名以 SDK 为准），避免把 JSON 塞进字符串里。
-- **取消/超时从 transport 贯穿**：把 MCP request 的取消信号映射到 `ExecCtx.signal`，把 request deadline 映射到 `ExecCtx.deadlineMs`；cmdkit 不创建 timer，但能做一致分类/观测。
-- **middleware ≈ interceptor 组装**：像 mcp-lite 那样在 server 层做 middleware（鉴权/限流/日志/trace），在 cmdkit 层用 interceptor 做命令级语义（输入/输出 envelope、脱敏、recover）。
-
-> mcp-lite 的 server 注册形态大致是 `server.tool(name, desc, { inputSchema, outputSchema }, handler)`。
-> cmdkit 的 `exec.mcp` 刚好就是这份 `{ inputSchema, outputSchema? }` 的来源。
-
-### 4.2.3 doc 可选 + i18n：允许函数
-
-`doc()` 可完全不写；同时为了 i18n，允许传入函数形式：
-
-```ts
-const echo = cmd('echo')
-  .input(EchoInput)
-  .doc((ctx) => ({
-    description: ctx.locale === 'zh-CN' ? '复读消息' : 'Echo a message',
-  }))
-  .mcp({
-    title: (ctx) => (ctx.locale === 'zh-CN' ? '复读' : 'Echo'),
-    description: (ctx) => (ctx.locale === 'zh-CN' ? '复读一段消息' : 'Echo a message'),
-  })
-  .handle(({ msg }) => msg)
-  .build()
-
-// export-time 选择语言（由 upstream 决定如何注册/渲染）
-const meta = echo.mcp!
-const tool = {
-  name: meta.name,
-  description: typeof meta.description === 'function' ? meta.description({ locale: 'zh-CN' }) : meta.description,
-  inputSchema: meta.inputSchema,
-  ...(meta.outputSchema ? { outputSchema: meta.outputSchema } : {}),
-}
-```
-
-### 4.3 Router：精确匹配 + 轻量 help（数据生成）
-
-原因：可预测与高性能；不引入 fuzzy 编辑距离。
-
-```ts
-export interface Router {
-  add(exec: Executable<any, any>, opts?: { triggers: string[] }): void;
-  set(exec: Executable<any, any>, opts?: { triggers: string[] }): void; // upsert by id
-  remove(id: string): void;
-  tokenize(text: string): Array<{ value: string; raw: string; start: number; end: number }>;
-  dispatch(text: string, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
-  dispatchTokens(tokens: Array<{ value: string; raw: string; start: number; end: number }>, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
-  match(text: string): { id: string; trigger: string; consumed: number; tokens: Array<{ value: string; raw: string; start: number; end: number }>; restTokens: Array<{ value: string; raw: string; start: number; end: number }> } | null;
-  dispatchMatch(match: { id: string; trigger: string; consumed: number; tokens: Array<{ value: string; raw: string; start: number; end: number }>; restTokens: Array<{ value: string; raw: string; start: number; end: number }> }, ctx?: ExecCtx): Promise<Result<unknown, CmdError>>;
-  list(): Array<{ id: string; triggers: string[] }>;
-  check(exec: { id: string; meta?: { triggers: string[] } }, opts?: { triggers: string[] }, ignoreId?: string): { ok: true } | { ok: false; issues: Array<{ kind: string }> };
-  // debug/introspection only (rendering belongs to upstream)
-  helpIndex(): { list: Array<{ id: string; trigger: string }> };
-  helpCommand(name: string): { id: string; triggers: string[]; params?: Array<{ name: string; type: string }>; tail?: true; doc?: unknown } | undefined;
-}
-
-export function createRouter(cfg?: {
-  caseInsensitive?: boolean;
-}): Router;
-```
-
----
-
-## 5. Schema 派生的文本参数（build-time 一次性）
-
-* 核心只要求 TypeBox schema（JSON Schema）：用于 input/output validate。
-* `text()` 会在 build-time 从 input JSON Schema 派生参数表（用于解析与 help 输出）：
-  * `type: object` 的 `properties` 中，派生 `params`（保留字段 `_` 禁止使用）。
-  * boolean 自动支持 `--no-<name>`。
-  * tail（ParseBox）是 text-only：`text({ tail })` 要求 ParseBox 返回对象 patch，并合并进真实 input。
-  * tail 的起点由 `--` sentinel 或第一个“非选项 token”决定；为了把 `--xxx` 作为 tail 传入，必须写 `--` sentinel。
-
----
-
-## 6. 执行器语义（可实现且高效）
-
-### 6.1 exec(value, ctx) 热路径（无 next，紧凑循环）
-
-1. 读取 `ctx.signal`/`ctx.deadlineMs`（仅用于检查/分类，不创建 timer）
-2. `before` 正序：收集 `states[]`，可改写 candidate 或短路
-3. input validate：失败收敛为 `err(E_INPUT_VALIDATION)`
-4. `afterInput` 正序
-5. handler
-6. `afterOutput` 逆序（允许 transform）
-7. output validate（对最终 outputCandidate）：失败收敛为 `err(E_OUTPUT_VALIDATION)`
-8. `finally` 逆序
-
-错误路径（对外统一返回 Result，不抛出异常）：
-
-* 捕获 err（内部仍可用异常表达控制流与早退，边界处收敛为 Result）
-* `onError` 逆序：若遇 recover（且允许），转入 afterOutput + output validate + finally，最终返回 `ok`
-* 未 recover：最终返回 `err(CmdError)`，仍执行 `finally` 逆序
-
-原因：逆序 unwind + state 通道，获得栈语义与可靠收尾；数组循环实现可 JIT 友好。
-
-### 6.2 取消/超时分类（不生产 timeout）
-
-* 若 `ctx.signal?.aborted`：优先 `E_ABORTED`，若可从 reason/deadline 推断为超时则 `E_TIMEOUT`。
-* 若 `ctx.deadlineMs` 存在且 `now > deadlineMs`：可直接 `E_TIMEOUT`（即使 signal 未 abort）。
-  原因：核心不管“何时触发”，但可做一致分类/观测。
-
----
-
-## 7. 观测（可选，零依赖）
-
-* `ctx.emit(type, payload)`：可选；payload 小而扁平。
-* `ctx.span(name, attrs, fn)`：可选；用于包裹关键阶段。
-  原因：不绑实现；不在热路径制造大对象。
-
-推荐事件（实现内常量即可）：
-
-* `cmd.exec.start/end/error/recovered`
-  * `cmd.exec.end` 建议只发一次（finally 内），并携带 `{ ok, durationMs, code? }`（`code` 仅在失败时存在）
-* `cmd.exec.fault`（仅当 `err.kind === "fault"`；用于告警/堆栈采集）
-* `cmd.schema.input.ok/fail`
-* `cmd.schema.output.ok/fail`（包括 recover 分支中的 output validate）
-* （Text 参数解析事件可由上层自行定义；cmdkit 不强制内置）
-
----
-
-## 8. 设计取舍（简要）
-
-* 不提供 `.timeout(ms)`：避免核心建 timer；上层用 `AbortSignal.timeout(ms)`/请求级 controller 实现更高效。
-* 不提供 `.guard()` sugar：统一机制更优雅；策略通过 interceptor 工厂实现。
-* 不导出“中间 IR”：build-time 派生参数表并编译解析器；运行期最短路径。
-* 不做 fuzzy match：维护与性能更稳；建议由上层做更重的 UX。
-
-以上定义了一个小而硬、可推理、易编译优化的命令内核：阶段少、语义点明确、unwind 逆序、state 私有通道、取消统一为 signal/deadline，既保持优雅也能把热路径压到最短。
+4) **interceptor 私有 state 通道**：`before` 产出的 state 仅供同一个 interceptor 后续阶段使用，避免把状态塞进共享 ctx。
+
+5) **严格的阶段能力边界**：哪些阶段允许短路/变换/恢复都写死，避免控制流滑回“隐式 middleware 地狱”。
+
+## 3. 执行模型（candidate → input → output）
+
+命令自然生命周期：
+- `candidate (unknown)`：来自上游（JSON 调用 / text 解析）。
+- `input (validated)`：通过 input schema + 自定义校验后得到的强类型输入。
+- `output (validated)`：handler 产出结果，按需经过 output schema + 自定义校验。
+
+拦截器阶段（固定且少）：
+- `before(candidate)`：可拒绝、可改写 candidate、可 short-circuit 直接给出 outputCandidate。
+- `afterInput(input)`：只观测；不允许改写 input（要改写请在 schema/handler 或 `before`）。
+- `afterOutput(output)`：允许轻量变换 outputCandidate（脱敏/envelope），逆序执行。
+- `onError(err)`：默认只观测，逆序执行；只有声明 `canRecover=true` 的 interceptor 才允许恢复为 outputCandidate。
+- `finally(summary)`：只清理/观测，逆序执行；不得改写结果。
+
+## 4. Schema：TypeBox + strict-by-default + default 注入
+
+### 4.1 TypeBox 是“唯一 schema 语言”
+
+cmdkit 的 `Schema` 直接使用 TypeBox 的 `TSchema`；同时会在必要时把 schema 序列化为 JSON Schema 视图：
+- 校验：TypeCompiler 编译的 validator。
+- text 派生：从 JSON Schema（对象 properties）派生 params 表。
+- MCP：输出 data-only 的 tool definition（name/description/inputSchema/outputSchema?）。
+
+### 4.2 strict object 的默认策略
+
+TypeBox 对 object 的 `additionalProperties` 默认是 `true`。在 cmdkit 里，object 很常见地被用作“参数包”，因此：
+- **当 object schema 省略 `additionalProperties` 时，cmdkit 会把它规范化成 `additionalProperties: false`（严格模式）**。
+- 这个规范化是 **深度** 的：嵌套对象同样遵循 strict-by-default。
+- 若要允许未知 key：显式设置 `additionalProperties: true`，或使用 `openObj(...)`。
+
+### 4.3 default 注入
+
+输入/输出校验时会应用 TypeBox 的 `default`：
+- 对于缺省字段，会在校验阶段被填充默认值（避免 handler 里充斥 `??`）。
+- 实现上会 clone value 并运行 TypeBox `Value.Default(...)`，避免污染上游对象引用。
+
+## 5. Text：schema 派生 flags + 可选 tail
+
+`text()` 是唯一入口：启用后产物会有 `execText(text)`，并携带用于路由/帮助的 `meta`（triggers/params/tail）。
+
+Builder 的少量语法糖（仅为减少样板代码，不改变语义）：
+- `.inputObj(props, opts?)` / `.outputObj(props, opts?)`：等价于 `input(obj(props, opts))` / `output(obj(...))`
+- `.inputOpenObj(props, opts?)` / `.outputOpenObj(...)`：等价于 `openObj(...)`
+
+类型层面：`Executable.execText` 在基础接口上是 optional（因为不是所有命令都启用 text），但对 `.text().build()` 的返回值会被收窄为“必有 execText”的交叉类型；如果上层把它宽化成 `Op/Executable`，那访问时就会看到 optional，需要通过 `TextOp` 或 `isTextExecutable(...)` 重新收窄。
+
+`meta.params`（`ParamSpec[]`）除了 canonical `name/type/...` 外，还会携带 `inputKey`（schema 的原始字段名），方便上层把 help/表单映射回真实 input。
+
+### 5.1 triggers 匹配
+
+- `text({ triggers })` 省略时默认 `[id]`。
+- trigger 支持空格分词；匹配时采用“最长匹配”。
+
+### 5.2 参数派生（object input）
+
+当 input schema 是 object 时，cmdkit 从 JSON Schema 派生 params：
+- canonical name：从 input key 生成 kebab-case（例如 `userId → user-id`）。
+- long alias：默认接受 kebab/camel/snake 等常见变体（只在不冲突时生效）。
+- short：默认从参数名自动派生（冲突则不生成）。
+- boolean：支持 `--no-<name>` negation。
+- 数组：repeat / comma / JSON array。
+- json：`JSON.parse(...)`（object-typed，即 JSON Schema `type: "object"`）。
+
+保留字：
+- input schema 的 property key `_` 被保留（避免和 tail 的概念混淆）；出现会在 build-time 抛错。
+
+补充：cmdkit **不会强制所有 input 都是 object**。
+- 对于一些“单值输入”的命令（例如 `echo <text...>` / `sleep <ms>`），用 `Type.String()` / `Type.Number()` / `Type.Boolean()` 能得到更小的 schema、也更贴近 MCP/tool calling 的数据形态。
+- 在 text 模式下，primitive input 不支持 flags；只会把剩余 token 作为一个值（join/parse）传入 handler。
+- `tail` / `tailTo` 只对 object input 有意义，因此仅在 object input schema 下允许启用。
+
+### 5.3 显式覆盖（schema extension keys）
+
+为了让复杂命令更可控，cmdkit 支持在 property schema 上附加扩展字段（JSON Schema extension keys）：
+
+- `x-cmd-aliases: string[]`  
+  额外 long aliases（不带 `--` 前缀）。这类 alias 是 **hard** 的：
+  - 与任何 canonical/alias 冲突都会在 build-time 抛错（避免解析歧义）。
+
+- `x-cmd-short: string | null | false`  
+  显式 short（单个字母），或禁用自动 short：
+  - 显式 short vs 自动 short：**显式优先**，自动会被丢弃。
+  - 显式 short 冲突（多个参数声明同一个 short）：build-time 抛错。
+
+### 5.4 语法（object input）
+
+支持的 keyed 语法：
+- `--key value` / `--key=value`
+- `key:value` / `key=value`
+- `--no-key`（boolean）
+- short：`-c value` / `-c=value` / `-cVALUE`（附着值）
+- short bundling：`-abc`（仅 boolean）
+- short boolean value：`-f false`
+
+错误策略：
+- unknown params 不会被忽略（报 `E_TEXT_PARSE`），并在多数情况下给出“did you mean …”建议（canonical 名称）。
+
+### 5.5 Tail（可选）：`tailTo` 或 ParseBox `tail`
+
+tail 的目标是“让 DSL/剩余文本存在”，但仍保持 schema-first 的主语义：
+- keyed params 仍然来自 schema 派生；
+- tail 是 text-only（不会污染 MCP 的 input schema）。
+
+cmdkit 提供两种 tail：
+
+1) **raw tail**：`text({ tailTo: '<inputKey>' })`  
+把“剩余文本”（trim 后）直接写入某个 input 字段，零依赖、适合“expr/filter”这类简单场景。
+
+2) **ParseBox tail**：`text({ tail })`  
+把“剩余文本”交给 ParseBox 解析，要求它返回 **object patch**，合并进真实 input。
+
+共同规则（不引入歧义）：
+- `--` sentinel 明确开始 tail：`cmd -- <tail...>`
+- 否则，tail 从第一个“非选项 token”开始
+- implicit tail 模式下：若 tail 内出现“看起来像已知 keyed param”的 token，会报错，要求用 `--` 显式开始 tail
+- tail 不允许覆盖已通过 keyed params 提供的字段（避免两个输入源同时写同一个 key）
+
+ParseBox 细节：
+- 调用 ParseBox 时会在 tail 文本末尾追加一个 `\n`，因此 `Runtime.Until(['\n'], ...)` 可作为“读到行尾”。
+
+## 6. MCP：MCP-first（可关闭）的 data-only 元数据
+
+cmdkit 的 MCP 元数据是 **data-only**（不携带实现），用于把同一份 schema/doc 复用到 tool calling 层。
+
+默认策略（MCP-first）：
+- 对于 `doc.internal !== true` 的 command/op：默认会暴露 MCP tool（等价于 `.mcp({})`）。
+- 对于 `doc.internal === true`：默认不暴露（等价于 `.mcp(false)`）。
+
+覆盖方式：
+- `.mcp(false)`：显式关闭 MCP tool 暴露。
+- `.mcp({ ... })`：自定义 `name/title/description/...` 等字段。
+
+设计要点：
+- `exec.mcp` 是 data-only：`name/title/description/inputSchema/outputSchema?`。
+- `title/description` 省略时可从 `doc.title` / `doc.description` 默认填充（更利于复用同一份 doc）。
+- 输出 schema：
+  - 你可以手动提供 `outputSchema`；
+  - 或在 `.output(schema)` 存在时使用 `deriveOutputSchema: true` 派生。
+
+## 7. Router：tokenize + match + dispatch
+
+router 是 text-first 路由实现（由 `CommandRegistry` 内部持有，并经由 `Cmd.createSpace()` 暴露 `dispatch()` 能力）：
+- 匹配：基于 triggers 的 token 前缀树，最长匹配。
+- dispatch：支持 `dispatch(text)` 和 `dispatchTokens(tokens)`；后者可复用既有 tokenization。
+- help：`helpIndex()` / `helpCommand(name)` 只返回“渲染原材料”（渲染由上层决定）。
+
+配置：
+- `caseInsensitive`：仅影响 trigger 匹配（不是 long flags）。
+- `maxTextLength`：tokenize 前的安全上限（默认 16 KiB）。
+
+## 8. 性能与可维护性
+
+实现层面的关键点：
+- validator 编译缓存（TypeCompiler）与 input model 派生缓存（WeakMap）。
+- text 计划在 `.build()` 时编译（热路径只做 tokenize/match/parse + 执行计划）。
+- 不创建 timer；取消/超时检查是纯函数 + 分支（由上层决定是否启用）。
+
+关于“为什么不是 `.handle(...)` 之后自动 build”：
+- `build()` 是一个显式的“配置结束点”，会触发 text 计划编译、MCP 元数据编译等 build-time 工作。
+- 保持显式结束点能减少隐式副作用（例如链式里某一步骤突然变成“编译产物”），也更利于代码检索与约束（lint/代码规范）。

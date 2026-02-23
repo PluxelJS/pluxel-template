@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { cmd, createRouter } from '../src'
+import { cmd } from '../src/cmd'
+import { createRouter } from '../src/router'
 
 describe('cmdkit: router', () => {
 	it('prefers longest match', async () => {

@@ -3,7 +3,7 @@ import { CmdError, STRICT_EMPTY_OBJECT_SCHEMA, createValidationSpec, normalizeEr
 import { CMDKIT_TEXT_RUNNER, type TextInvocation } from './text-runner'
 
 import type { CmdDocSource } from './doc'
-import { mergeDocSources, resolveDoc } from './doc'
+import { mergeDocSources, resolveDoc, resolveText } from './doc'
 import type { McpConfig, McpMeta } from './mcp'
 import { compileMcpMeta } from './mcp'
 import type { ExecutableMeta, TextConfig } from './text'
@@ -11,6 +11,8 @@ import { compileTextPlan } from './text'
 import { compileInterceptors, execPlanResult, type ExecSpec } from './exec'
 import type { Result } from './result'
 import { createErr } from './result'
+import type { ObjectOptions, TProperties, TObject } from '@sinclair/typebox'
+import { obj, openObj } from './typebox'
 
 export { CmdError } from './core'
 export type { CmdErrorCode } from './core'
@@ -101,18 +103,26 @@ function makeExecutable<I, O>(spec: BuilderSpec): Executable<I, O> {
 		if (!spec.mcp) return undefined
 
 		const cfg = spec.mcp ?? {}
-		if (cfg.description !== undefined) {
-			return compileMcpMeta(spec.id, spec.input.schema, spec.output?.schema, cfg)
-		}
+		if (!spec.doc) return compileMcpMeta(spec.id, spec.input.schema, spec.output?.schema, cfg)
 
-		if (!spec.doc) {
-			return compileMcpMeta(spec.id, spec.input.schema, spec.output?.schema, cfg)
-		}
-
-		return compileMcpMeta(spec.id, spec.input.schema, spec.output?.schema, {
+		const seeded: McpConfig = {
 			...cfg,
-			description: (ctx) => resolveDoc(spec.doc, ctx)?.description ?? spec.id,
-		} satisfies McpConfig)
+			...(cfg.title !== undefined
+				? {}
+				: {
+						title: (ctx) => resolveDoc(spec.doc, ctx)?.title ?? spec.id,
+					}),
+			...(cfg.description !== undefined
+				? {}
+				: {
+						description: (ctx) => {
+							const d = resolveDoc(spec.doc, ctx)
+							return d?.description ?? d?.title ?? spec.id
+						},
+					}),
+		}
+
+		return compileMcpMeta(spec.id, spec.input.schema, spec.output?.schema, seeded)
 	}
 
 	const mcp = compileMcp()
@@ -164,7 +174,18 @@ function makeExecutable<I, O>(spec: BuilderSpec): Executable<I, O> {
 
 export interface CmdBuilder<I, O, S extends State> {
 	input<T extends Schema>(schema: T): CmdBuilder<Infer<T>, O, S>
+	inputObj<P extends TProperties>(
+		properties: P,
+		options?: Omit<ObjectOptions, 'additionalProperties'> & { additionalProperties?: boolean },
+	): CmdBuilder<Infer<TObject<P>>, O, S>
+	inputOpenObj<P extends TProperties>(properties: P, options?: Omit<ObjectOptions, 'additionalProperties'>): CmdBuilder<Infer<TObject<P>>, O, S>
+
 	output<T extends Schema>(schema: T): CmdBuilder<I, Infer<T>, S>
+	outputObj<P extends TProperties>(
+		properties: P,
+		options?: Omit<ObjectOptions, 'additionalProperties'> & { additionalProperties?: boolean },
+	): CmdBuilder<I, Infer<TObject<P>>, S>
+	outputOpenObj<P extends TProperties>(properties: P, options?: Omit<ObjectOptions, 'additionalProperties'>): CmdBuilder<I, Infer<TObject<P>>, S>
 
 	/**
 	 * Extra input validation beyond JSON Schema (server-only constraints, cross-field checks, etc).
@@ -180,6 +201,27 @@ export interface CmdBuilder<I, O, S extends State> {
 	 */
 	validateOutput(...fns: Array<CustomValidator<O>>): CmdBuilder<I, O, S>
 
+	/**
+	 * Sugar: set `doc.title`.
+	 *
+	 * For locale-aware titles, use `doc((ctx) => ({ title: ... }))`.
+	 */
+	title(title: string): CmdBuilder<I, O, S>
+	/**
+	 * Sugar: set `doc.description`.
+	 *
+	 * For locale-aware descriptions, use `doc((ctx) => ({ description: ... }))`.
+	 */
+	describe(description: string): CmdBuilder<I, O, S>
+	/** Sugar: set `doc.details`. */
+	details(details: string): CmdBuilder<I, O, S>
+	/** Sugar: set `doc.usage`. */
+	usage(usage: string): CmdBuilder<I, O, S>
+	/** Sugar: set `doc.examples`. */
+	examples(...examples: string[]): CmdBuilder<I, O, S>
+	/** Sugar: set `doc.internal`. */
+	internal(internal?: boolean): CmdBuilder<I, O, S>
+
 	doc(doc: CmdDocSource): CmdBuilder<I, O, S>
 	/** Explicitly opt-in to exposing this executable as an MCP tool. */
 	mcp(cfg?: McpConfig): CmdBuilder<I, O, { hasHandle: S['hasHandle']; hasText: S['hasText']; hasMcp: true }>
@@ -193,7 +235,7 @@ export interface CmdBuilder<I, O, S extends State> {
 	 *
 	 * If `cfg.triggers` is omitted, defaults to `[id]`.
 	 */
-	text(cfg?: TextConfig): CmdBuilder<I, O, { hasHandle: S['hasHandle']; hasText: true; hasMcp: S['hasMcp'] }>
+	text<TInput = I>(cfg?: TextConfig<TInput>): CmdBuilder<I, O, { hasHandle: S['hasHandle']; hasText: true; hasMcp: S['hasMcp'] }>
 
 	build(this: CmdBuilder<I, O, { hasHandle: true; hasText: S['hasText']; hasMcp: S['hasMcp'] }>): Executable<I, O> &
 		(S['hasText'] extends true ? { execText: (text: string, ctx?: ExecCtx) => Promise<Result<O, CmdError>>; meta: ExecutableMeta } : {}) &
@@ -208,11 +250,23 @@ function builder<I, O, S extends State>(spec: BuilderSpec): CmdBuilder<I, O, S> 
 			next.custom = inputCustom.slice()
 			return builder<any, O, S>({ ...spec, input: next })
 		},
+		inputObj(properties: any, options?: any) {
+			return (api as any).input(obj(properties, options))
+		},
+		inputOpenObj(properties: any, options?: any) {
+			return (api as any).input(openObj(properties, options))
+		},
 		output(schema: any) {
 			const outputCustom = (spec.outputCustom ?? []) as Array<CustomValidator<any>>
 			const next = createValidationSpec(schema as Schema) as ValidationSpec<any>
 			next.custom = outputCustom.slice()
 			return builder<I, any, S>({ ...spec, output: next })
+		},
+		outputObj(properties: any, options?: any) {
+			return (api as any).output(obj(properties, options))
+		},
+		outputOpenObj(properties: any, options?: any) {
+			return (api as any).output(openObj(properties, options))
 		},
 		validateInput(...fns: any[]) {
 			if (!fns.length) return builder<I, O, S>(spec)
@@ -226,11 +280,45 @@ function builder<I, O, S extends State>(spec: BuilderSpec): CmdBuilder<I, O, S> 
 			const output = spec.output ? { ...spec.output, custom: outputCustom.slice() } : spec.output
 			return builder<I, O, S>({ ...spec, outputCustom, ...(output ? { output } : {}) })
 		},
+		title(title: string) {
+			return (api as any).doc({ title: String(title ?? '').trim() })
+		},
+		describe(description: string) {
+			return (api as any).doc({ description: String(description ?? '').trim() })
+		},
+		details(details: string) {
+			return (api as any).doc({ details: String(details ?? '').trim() })
+		},
+		usage(usage: string) {
+			return (api as any).doc({ usage: String(usage ?? '').trim() })
+		},
+		examples(...examples: string[]) {
+			const list = examples.map((x) => String(x ?? '').trim()).filter(Boolean)
+			return list.length ? (api as any).doc({ examples: list }) : builder<I, O, S>(spec)
+		},
+		internal(internal?: boolean) {
+			return (api as any).doc({ internal: internal === undefined ? true : Boolean(internal) })
+		},
 		doc(doc: CmdDocSource) {
 			return builder<I, O, S>({ ...spec, doc: mergeDocSources(spec.doc, doc) })
 		},
 		mcp(cfg?: McpConfig) {
-			return builder<I, O, any>({ ...spec, mcp: cfg ?? {} })
+			const nextMcp = cfg ?? {}
+			const seededDoc: CmdDocSource | undefined =
+				spec.doc
+					? undefined
+					: nextMcp.title !== undefined || nextMcp.description !== undefined
+						? (ctx) => ({
+								...(nextMcp.title !== undefined ? { title: resolveText(nextMcp.title, ctx) } : {}),
+								...(nextMcp.description !== undefined ? { description: resolveText(nextMcp.description, ctx) } : {}),
+							})
+						: undefined
+
+			return builder<I, O, any>({
+				...spec,
+				mcp: nextMcp,
+				...(seededDoc ? { doc: mergeDocSources(spec.doc, seededDoc) } : {}),
+			})
 		},
 		intercept(itc: any) {
 			return builder<I, O, S>({ ...spec, interceptors: [...spec.interceptors, itc] })
@@ -241,7 +329,11 @@ function builder<I, O, S extends State>(spec: BuilderSpec): CmdBuilder<I, O, S> 
 		text(cfg?: TextConfig) {
 			const triggers = Array.isArray(cfg?.triggers) ? cfg!.triggers.slice() : undefined
 			const tail = cfg?.tail
-			return builder<I, O, any>({ ...spec, text: { ...(triggers ? { triggers } : {}), ...(tail ? { tail } : {}) } })
+			const tailTo = typeof cfg?.tailTo === 'string' ? cfg!.tailTo : undefined
+			return builder<I, O, any>({
+				...spec,
+				text: { ...(triggers ? { triggers } : {}), ...(tail ? { tail } : {}), ...(tailTo ? { tailTo } : {}) },
+			})
 		},
 		build() {
 			return makeExecutable<I, O>(spec) as any
@@ -261,4 +353,16 @@ export function cmd(id: string): CmdBuilder<StrictEmptyObject, unknown, { hasHan
 		interceptors: [],
 	}
 	return builder<any, any, any>(spec) as any
+}
+
+/**
+ * MCP-first convenience: create a cmd builder with MCP enabled.
+ *
+ * This is sugar for `cmd(id).mcp(cfg)`.
+ */
+export function tool(
+	id: string,
+	cfg?: McpConfig,
+): CmdBuilder<StrictEmptyObject, unknown, { hasHandle: false; hasText: false; hasMcp: true }> {
+	return cmd(id).mcp(cfg) as any
 }

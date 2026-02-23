@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { Runtime } from '@sinclair/parsebox'
 
-import { cmd, textTail } from '../src'
+import { cmd } from '../src/cmd'
+import { textTail } from '../src/tail'
 import { obj, Type } from '../src'
 
 describe('cmdkit: text()', () => {
@@ -123,6 +124,32 @@ describe('cmdkit: text()', () => {
 		await expect(exec.execText!('echo hi')).resolves.toEqual({ ok: true, val: 'hi', err: null })
 		await expect(exec.execText!('echo --foo')).resolves.toMatchObject({ ok: false, val: null, err: { code: 'E_TEXT_PARSE' } })
 		await expect(exec.execText!('echo -- --foo')).resolves.toEqual({ ok: true, val: '--foo', err: null })
+	})
+
+	it('maps raw tail into a single input field via tailTo', async () => {
+		const exec = cmd('where')
+			.input(obj({ user: Type.String(), expr: Type.String() }))
+			.text({ tailTo: 'expr' })
+			.handle((i) => i.expr)
+			.build()
+
+		await expect(exec.execText!('where --user u1 x:"y z" and k=1')).resolves.toEqual({
+			ok: true,
+			val: 'x:"y z" and k=1',
+			err: null,
+		})
+		await expect(exec.execText!('where --user u1 -- --force')).resolves.toEqual({
+			ok: true,
+			val: '--force',
+			err: null,
+		})
+
+		// Tail must not override keyed params.
+		await expect(exec.execText!('where --user u1 --expr a b')).resolves.toMatchObject({
+			ok: false,
+			val: null,
+			err: { code: 'E_TEXT_PARSE' },
+		})
 	})
 
 		it('tokenizes quotes and escapes in flag values (default tokenizer)', async () => {

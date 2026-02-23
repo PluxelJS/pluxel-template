@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { cmd, isExecutable } from '../src'
+import { cmd, isExecutable } from '../src/cmd'
 
 describe('cmdkit: introspection', () => {
 	it('isExecutable() filters unknown values', () => {
@@ -15,4 +15,3 @@ describe('cmdkit: introspection', () => {
 		expect(isExecutable(exec)).toBe(true)
 	})
 })
-

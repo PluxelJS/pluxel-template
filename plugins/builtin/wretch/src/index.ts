@@ -11,11 +11,6 @@ export interface ClientOverrides {
 	baseUrl?: string
 	prefixUrl?: string
 	headers?: Record<string, string>
-	/**
-	 * Kept for backward compatibility with older template runtimes.
-	 * Wretch itself already provides primitives for HTTP error handling.
-	 */
-	throwHttpErrors?: boolean
 }
 
 @Plugin({ name: 'Wretch' })
@@ -43,27 +38,27 @@ export class WretchPlugin extends ForkablePlugin {
 	 * - no extra "fetch wrapper" APIs;
 	 * - you decide how to build chains, addons, catchers, etc.
 	 */
-	client(name?: string): WretchClient {
-		return this.getClientEntry(name).client
-	}
+	client(nameOrOverrides?: string | ClientOverrides, overrides?: ClientOverrides): WretchClient {
+		let name: string | undefined
+		let applied: ClientOverrides | undefined
+		if (typeof nameOrOverrides === 'string' || nameOrOverrides == null) {
+			name = nameOrOverrides ?? undefined
+			applied = overrides
+		} else {
+			applied = nameOrOverrides
+		}
 
-	/**
-	 * Backward-compatible alias for template runtimes.
-	 *
-	 * Prefer `client(name?)` for the upstream API.
-	 */
-	createClient(overrides: ClientOverrides = {}): WretchClient {
-		let client = this.client()
+		let client = this.getClientEntry(name).client
 
-		if (overrides.baseUrl) {
+		if (applied?.baseUrl) {
 			// `replace=true` resets current url chain.
-			client = (client as any).url(overrides.baseUrl, true)
+			client = (client as any).url(applied.baseUrl, true)
 		}
-		if (overrides.prefixUrl) {
-			client = (client as any).url(overrides.prefixUrl)
+		if (applied?.prefixUrl) {
+			client = (client as any).url(applied.prefixUrl)
 		}
-		if (overrides.headers && Object.keys(overrides.headers).length > 0) {
-			client = client.headers(overrides.headers)
+		if (applied?.headers && Object.keys(applied.headers).length > 0) {
+			client = client.headers(applied.headers)
 		}
 
 		return client

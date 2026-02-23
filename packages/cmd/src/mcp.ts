@@ -16,7 +16,7 @@ export type McpConfig = {
 	 * Human-friendly title (supports i18n via function).
 	 * Some MCP registries/UI can display it; core treats it as metadata.
 	 *
-	 * Default: `id`.
+	 * Default: `doc.title` (when available), otherwise `id`.
 	 */
 	title?: DocTextSource
 
@@ -24,7 +24,7 @@ export type McpConfig = {
 	 * One-line summary (supports i18n via function).
 	 * This is the canonical MCP tool `description`.
 	 *
-	 * Default (when omitted): `doc.description` if available, otherwise `title`/`id`.
+	 * Default (when omitted): `doc.description` if available, otherwise `doc.title`/`id`.
 	 */
 	description?: DocTextSource
 

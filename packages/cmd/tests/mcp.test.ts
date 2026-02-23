@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { CmdError, cmd, obj, resolveMcpToolDef, Type } from '../src'
+import { CmdError, obj, Type } from '../src'
+import { cmd, resolveMcpToolDef } from '../src/cmd'
 
 describe('cmdkit: mcp()', () => {
 	it('is opt-in (missing .mcp() => exec.mcp is undefined)', () => {

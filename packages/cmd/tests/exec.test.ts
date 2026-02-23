@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { obj, Type } from '../src'
 
-import { CmdError, cmd } from '../src'
+import { CmdError } from '../src'
+import { cmd } from '../src/cmd'
 
 describe('cmdkit: exec', () => {
 	it('run() validates input and output', async () => {

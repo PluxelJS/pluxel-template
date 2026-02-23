@@ -1,10 +1,26 @@
 export type CmdDoc = {
 	/**
+	 * Optional human-friendly title, suitable for UIs.
+	 *
+	 * Notes:
+	 * - For MCP/tool metadata, prefer `mcp({ title })` when you need i18n.
+	 * - For locale-aware titles, use a `DocProvider` (`doc((ctx) => ({ title: ... }))`).
+	 */
+	title?: string
+
+	/**
 	 * One-line summary, suitable for:
 	 * - human help list
 	 * - MCP/tool description
 	 */
 	description?: string
+
+	/**
+	 * Optional hint for upstream UIs to hide this command by default.
+	 *
+	 * This is metadata only; @pluxel/cmd does not enforce any behavior.
+	 */
+	internal?: boolean
 
 	/**
 	 * Optional long-form doc (Markdown recommended).

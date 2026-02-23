@@ -8,9 +8,12 @@ export type { Static, TSchema, TAnySchema, TProperties } from '@sinclair/typebox
 /**
  * Convenience helper for "strict" objects.
  *
- * TypeBox defaults `additionalProperties` to `true` unless specified.
- * In @pluxel/cmd, object inputs are typically used as parameter bags; keeping them
- * strict avoids accidental acceptance of unknown keys.
+ * Notes:
+ * - TypeBox treats omitted `additionalProperties` as "allow unknown keys".
+ * - @pluxel/cmd additionally normalizes object schemas to strict-by-default at validation time
+ *   (when `additionalProperties` is omitted), including nested objects.
+ *
+ * This helper is primarily for intent + ergonomics when authoring schemas.
  */
 export const obj = <P extends TProperties>(
 	properties: P,

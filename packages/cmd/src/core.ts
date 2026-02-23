@@ -38,7 +38,18 @@ export const issue = (
 
 export type CmdErrorDetailsByCode = {
 	E_CMD_NOT_FOUND?: { text?: string; tokens?: string[] }
-	E_TEXT_PARSE?: { reason?: string }
+	E_TEXT_PARSE?: {
+		/** A short machine-readable reason string (stable within cmdkit). */
+		reason?: string
+		/** Best-effort human message for diagnostics (optional). */
+		message?: string
+		/** Optional param name (canonical long name, without leading `--`). */
+		param?: string
+		/** Optional suggestion (canonical long name, without leading `--`). */
+		suggestion?: string
+		/** Optional token diagnostics (0-based char range in the original text). */
+		at?: { start?: number; end?: number; raw?: string }
+	}
 	E_INPUT_VALIDATION?: { issues: ValidationIssue[] }
 	E_OUTPUT_VALIDATION?: { issues: ValidationIssue[] }
 	E_FORBIDDEN?: { node?: string; reason?: string }

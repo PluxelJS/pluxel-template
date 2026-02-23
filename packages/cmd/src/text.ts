@@ -3,9 +3,9 @@ import { CmdError, toJsonSchema } from './core'
 import { defaultTokenizer, type TextToken, type TextTokenizer } from './tokenize'
 import { splitSpace, uniqueStrings } from './internal/strings'
 import type { TextInvocation } from './text-runner'
-import type { TextTail } from './text-tail'
+import type { TextTail } from './tail'
 
-export type TextConfig = {
+export type TextConfig<TInput = any> = {
 	/** Text triggers (command names). Default: `[id]`. */
 	triggers?: string[]
 
@@ -22,13 +22,34 @@ export type TextConfig = {
 	 * - Patch keys MUST exist in the input schema
 	 * - Patch MUST NOT override values already provided by keyed params
 	 */
-	tail?: TextTail
+	tail?: TextTail<any, any, Partial<TInput>>
+
+	/**
+	 * Convenience "raw tail": map the remaining text into a single input field.
+	 *
+	 * Compared to `tail` (ParseBox), this is a zero-dependency option that keeps the same
+	 * tail start rules (`--` sentinel or first non-option token), but simply assigns the
+	 * rest of the text (trimmed) into the given input key.
+	 *
+	 * Rules:
+	 * - Only supported for object input schemas
+	 * - `tail` and `tailTo` are mutually exclusive
+	 * - `tailTo` MUST exist in the input schema
+	 * - `tailTo` MUST NOT override values already provided by keyed params
+	 */
+	tailTo?: Extract<keyof TInput, string>
 }
 
 export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'string[]' | 'number[]' | 'boolean[]' | 'json[]'
 
 export type ParamSpec = {
 	name: string
+	/**
+	 * Original input key in the schema (before canonicalization to kebab-case).
+	 *
+	 * Useful for mapping help/meta back to the actual validated input shape.
+	 */
+	inputKey?: string
 	type: ParamType
 	description?: string
 	required?: boolean
@@ -50,6 +71,8 @@ export type ExecutableMeta = {
 	params?: ParamSpec[]
 	/** Presence indicates the command accepts a ParseBox tail (text-only). */
 	tail?: true
+	/** When present, indicates a raw tail target key (`text({ tailTo })`). */
+	tailTo?: string
 }
 
 export type CompiledText = {
@@ -78,7 +101,9 @@ type DerivedParam = {
 	type: ParamType
 	integer?: boolean
 	aliases?: string[]
+	aliasesExplicit?: string[]
 	short?: string
+	shortKind?: 'auto' | 'explicit'
 	negate?: boolean
 	required?: boolean
 	description?: string
@@ -88,6 +113,64 @@ type DerivedParam = {
 const INPUT_MODEL_CACHE = new WeakMap<object, InputModel>()
 
 const isSafeName = (s: string) => /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(s)
+
+const X_CMD_ALIASES = 'x-cmd-aliases'
+const X_CMD_SHORT = 'x-cmd-short'
+
+const SAFE_NAME_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/
+
+const normalizeExplicitAliases = (schema: Record<string, unknown>, ctx: { param: string }) => {
+	const raw = schema[X_CMD_ALIASES]
+	if (raw === undefined) return undefined
+
+	const list =
+		typeof raw === 'string'
+			? [raw]
+			: Array.isArray(raw)
+				? raw
+				: (() => {
+						throw new CmdError('E_INTERNAL', 'Internal error', {
+							message: `text(): ${ctx.param} has invalid ${X_CMD_ALIASES}; expected string[] | string`,
+						})
+					})()
+
+	const out: string[] = []
+	for (const v of list) {
+		if (typeof v !== 'string') {
+			throw new CmdError('E_INTERNAL', 'Internal error', {
+				message: `text(): ${ctx.param} has invalid ${X_CMD_ALIASES}; expected string[] | string`,
+			})
+		}
+		const s = v.trim()
+		if (!s) continue
+		if (!isSafeName(s)) {
+			throw new CmdError('E_INTERNAL', 'Internal error', {
+				message: `text(): ${ctx.param} has invalid alias "${s}" (must match ${SAFE_NAME_RE})`,
+			})
+		}
+		if (!out.includes(s)) out.push(s)
+	}
+	return out.length ? out : undefined
+}
+
+const normalizeExplicitShort = (schema: Record<string, unknown>, ctx: { param: string }) => {
+	const raw = schema[X_CMD_SHORT]
+	if (raw === undefined) return { kind: 'auto' as const }
+	if (raw === null || raw === false) return { kind: 'disabled' as const }
+	if (typeof raw !== 'string') {
+		throw new CmdError('E_INTERNAL', 'Internal error', {
+			message: `text(): ${ctx.param} has invalid ${X_CMD_SHORT}; expected string | null | false`,
+		})
+	}
+	const s = raw.trim()
+	if (!s) return { kind: 'auto' as const }
+	if (!/^[a-zA-Z]$/.test(s)) {
+		throw new CmdError('E_INTERNAL', 'Internal error', {
+			message: `text(): ${ctx.param} has invalid short "${s}" (expected a single letter)`,
+		})
+	}
+	return { kind: 'explicit' as const, short: s.toLowerCase() }
+}
 
 const sanitizeName = (key: string) =>
 	key
@@ -196,6 +279,8 @@ const deriveInputModel = (schema: Schema): InputModel => {
 			throw new CmdError('E_INTERNAL', 'Internal error', { message: `text(): derived param name collision "${name}"` })
 		}
 
+		const explicitAliases = normalizeExplicitAliases(propSchema, { param: `"${inputKey}"` })
+
 		const aliases = (() => {
 			const out: string[] = []
 			const push = (v: string) => {
@@ -211,14 +296,21 @@ const deriveInputModel = (schema: Schema): InputModel => {
 			push(toSnakeCase(base))
 			// Also accept non-kebab original key when safe.
 			if (isSafeName(inputKey)) push(inputKey)
+			for (const a of explicitAliases ?? []) push(a)
 			return out
 		})()
 
-		const shortCandidate = (() => {
-			if (inputKey.length === 1 && isSafeName(inputKey)) return inputKey.toLowerCase()
-			const c = name[0]
-			return typeof c === 'string' && /^[a-zA-Z]$/.test(c) ? c.toLowerCase() : undefined
-		})()
+		const shortCfg = normalizeExplicitShort(propSchema, { param: `"${inputKey}"` })
+		const shortCandidate =
+			shortCfg.kind === 'explicit'
+				? shortCfg.short
+				: shortCfg.kind === 'disabled'
+					? undefined
+					: (() => {
+							if (inputKey.length === 1 && isSafeName(inputKey)) return inputKey.toLowerCase()
+							const c = name[0]
+							return typeof c === 'string' && /^[a-zA-Z]$/.test(c) ? c.toLowerCase() : undefined
+						})()
 
 		const derived: DerivedParam = {
 			name,
@@ -226,7 +318,11 @@ const deriveInputModel = (schema: Schema): InputModel => {
 			type: tt.type,
 			...(tt.type === 'number' || tt.type === 'number[]' ? { integer: tt.integer } : {}),
 			...(aliases.length ? { aliases } : {}),
+			...(explicitAliases?.length ? { aliasesExplicit: explicitAliases.slice() } : {}),
 			...(shortCandidate ? { short: shortCandidate } : {}),
+			...(shortCandidate
+				? { shortKind: shortCfg.kind === 'explicit' ? ('explicit' as const) : ('auto' as const) }
+				: {}),
 			...(tt.type === 'boolean' ? { negate: true } : {}),
 			...(required.has(inputKey) && propSchema.default === undefined ? { required: true } : {}),
 			...(description ? { description } : {}),
@@ -240,16 +336,38 @@ const deriveInputModel = (schema: Schema): InputModel => {
 	const paramByAlias: Record<string, DerivedParam> = {}
 	for (const p of params) paramByAlias[p.name] = p
 
-	// Add extra aliases only when unique (no collisions).
-	const aliasCounts: Record<string, number> = {}
+	// Explicit aliases are "hard": collisions are configuration errors (build-time).
+	const explicitAliasOwner: Record<string, DerivedParam> = {}
+	for (const p of params) {
+		for (const a of p.aliasesExplicit ?? []) {
+			if (paramByAlias[a] && paramByAlias[a] !== p) {
+				throw new CmdError('E_INTERNAL', 'Internal error', {
+					message: `text(): explicit alias "${a}" conflicts with param "${paramByAlias[a]!.name}"`,
+				})
+			}
+			if (explicitAliasOwner[a] && explicitAliasOwner[a] !== p) {
+				throw new CmdError('E_INTERNAL', 'Internal error', {
+					message: `text(): explicit alias "${a}" is declared by both "${explicitAliasOwner[a]!.name}" and "${p.name}"`,
+				})
+			}
+			explicitAliasOwner[a] = p
+		}
+	}
+	for (const [a, p] of Object.entries(explicitAliasOwner)) paramByAlias[a] = p
+
+	// Auto aliases are "soft": only accept unique ones (collisions => drop).
+	const autoAliasCounts: Record<string, number> = {}
 	for (const p of params) {
 		for (const a of p.aliases ?? []) {
-			aliasCounts[a] = (aliasCounts[a] ?? 0) + 1
+			if (p.aliasesExplicit?.includes(a)) continue
+			if (paramByAlias[a] && paramByAlias[a] !== p) continue
+			autoAliasCounts[a] = (autoAliasCounts[a] ?? 0) + 1
 		}
 	}
 	for (const p of params) {
 		for (const a of p.aliases ?? []) {
-			if ((aliasCounts[a] ?? 0) !== 1) continue
+			if (p.aliasesExplicit?.includes(a)) continue
+			if ((autoAliasCounts[a] ?? 0) !== 1) continue
 			if (paramByAlias[a] && paramByAlias[a] !== p) continue
 			paramByAlias[a] = p
 		}
@@ -263,19 +381,41 @@ const deriveInputModel = (schema: Schema): InputModel => {
 		else delete p.aliases
 	}
 
-	// Short flags: keep only unique candidates (conflicts => no short).
-	const shortCounts: Record<string, number> = {}
+	// Short flags:
+	// - explicit short wins against auto short
+	// - explicit-explicit conflicts are errors (build-time)
+	// - auto-auto conflicts => drop all
+	const shortOwners: Record<string, DerivedParam[]> = {}
 	for (const p of params) {
 		if (!p.short) continue
-		shortCounts[p.short] = (shortCounts[p.short] ?? 0) + 1
+		;(shortOwners[p.short] ??= []).push(p)
 	}
+	for (const [short, owners] of Object.entries(shortOwners)) {
+		if (owners.length <= 1) continue
+		const explicit = owners.filter((o) => o.shortKind === 'explicit')
+		if (explicit.length > 1) {
+			throw new CmdError('E_INTERNAL', 'Internal error', {
+				message: `text(): short "-${short}" is declared by multiple params: ${explicit.map((p) => `"${p.name}"`).join(', ')}`,
+			})
+		}
+		if (explicit.length === 1) {
+			for (const o of owners) {
+				if (o !== explicit[0]) {
+					delete o.short
+					delete o.shortKind
+				}
+			}
+		} else {
+			for (const o of owners) {
+				delete o.short
+				delete o.shortKind
+			}
+		}
+	}
+
 	const paramByShort: Record<string, DerivedParam> = {}
 	for (const p of params) {
 		if (!p.short) continue
-		if ((shortCounts[p.short] ?? 0) !== 1) {
-			delete p.short
-			continue
-		}
 		paramByShort[p.short] = p
 	}
 
@@ -301,27 +441,95 @@ const parseJson = (raw: string, paramName: string): unknown => {
 	try {
 		return JSON.parse(raw)
 	} catch (e) {
-		throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid JSON for "${paramName}"`, cause: e })
+		textParse({ reason: 'INVALID_JSON', message: `Invalid JSON for "${paramName}"`, param: paramName, cause: e })
 	}
+}
+
+const editDistanceCutoff = (aRaw: string, bRaw: string, cutoff: number): number | null => {
+	const a = aRaw.toLowerCase()
+	const b = bRaw.toLowerCase()
+	if (a === b) return 0
+	const al = a.length
+	const bl = b.length
+	if (Math.abs(al - bl) > cutoff) return null
+
+	const prev: number[] = new Array(bl + 1)
+	const cur: number[] = new Array(bl + 1)
+	for (let j = 0; j <= bl; j++) prev[j] = j
+
+	for (let i = 1; i <= al; i++) {
+		cur[0] = i
+		let bestInRow = cur[0]!
+		const ai = a.charCodeAt(i - 1)
+		for (let j = 1; j <= bl; j++) {
+			const cost = ai === b.charCodeAt(j - 1) ? 0 : 1
+			const del = prev[j]! + 1
+			const ins = cur[j - 1]! + 1
+			const sub = prev[j - 1]! + cost
+			const v = del < ins ? (del < sub ? del : sub) : ins < sub ? ins : sub
+			cur[j] = v
+			if (v < bestInRow) bestInRow = v
+		}
+		if (bestInRow > cutoff) return null
+		for (let j = 0; j <= bl; j++) prev[j] = cur[j]!
+	}
+	return prev[bl]! <= cutoff ? prev[bl]! : null
+}
+
+const suggestLongParam = (name: string, params: ReadonlyArray<DerivedParam>): string | null => {
+	const s = String(name ?? '').trim()
+	if (!s) return null
+	if (s.length > 64) return null
+
+	// Prefer canonical names for suggestions (stable + help text friendly).
+	const candidates = params.map((p) => p.name)
+	let best: { name: string; d: number } | undefined
+	for (const c of candidates) {
+		const d = editDistanceCutoff(s, c, 3)
+		if (d === null) continue
+		if (!best || d < best.d) best = { name: c, d }
+	}
+	return best ? best.name : null
+}
+
+const textParse: (opts: {
+	reason: string
+	message: string
+	param?: string
+	suggestion?: string
+	at?: { start?: number; end?: number; raw?: string }
+	cause?: unknown
+}) => never = (opts) => {
+	throw new CmdError('E_TEXT_PARSE', 'Invalid text', {
+		message: opts.message,
+		details: {
+			reason: opts.reason,
+			message: opts.message,
+			...(opts.param ? { param: opts.param } : {}),
+			...(opts.suggestion ? { suggestion: opts.suggestion } : {}),
+			...(opts.at ? { at: opts.at } : {}),
+		},
+		...(opts.cause !== undefined ? { cause: opts.cause } : {}),
+	})
 }
 
 const parseValue = (param: DerivedParam, raw: string): unknown => {
 	if (param.type === 'string') return String(raw)
 	if (param.type === 'boolean') {
 		const b = parseBoolean(raw)
-		if (b === null) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid boolean for "${param.name}": ${raw}` })
+		if (b === null) textParse({ reason: 'INVALID_BOOLEAN', message: `Invalid boolean for "${param.name}": ${raw}`, param: param.name })
 		return b
 	}
 	if (param.type === 'number') {
 		const n = Number(raw)
-		if (!Number.isFinite(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid number for "${param.name}": ${raw}` })
-		if (param.integer && !Number.isInteger(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected integer for "${param.name}"` })
+		if (!Number.isFinite(n)) textParse({ reason: 'INVALID_NUMBER', message: `Invalid number for "${param.name}": ${raw}`, param: param.name })
+		if (param.integer && !Number.isInteger(n)) textParse({ reason: 'EXPECTED_INTEGER', message: `Expected integer for "${param.name}"`, param: param.name })
 		return n
 	}
 	if (param.type === 'string[]') {
 		if (raw.trim().startsWith('[')) {
 			const v = parseJson(raw, param.name)
-			if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
+			if (!Array.isArray(v)) textParse({ reason: 'EXPECTED_ARRAY', message: `Expected array for "${param.name}"`, param: param.name })
 			return v.map((x) => String(x))
 		}
 		return raw
@@ -333,14 +541,14 @@ const parseValue = (param: DerivedParam, raw: string): unknown => {
 		const parts = raw.trim().startsWith('[')
 			? (() => {
 					const v = parseJson(raw, param.name)
-					if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
+					if (!Array.isArray(v)) textParse({ reason: 'EXPECTED_ARRAY', message: `Expected array for "${param.name}"`, param: param.name })
 					return v.map((x) => String(x))
 				})()
 			: raw.split(',').map((x) => x.trim()).filter((x) => x.length > 0)
 		return parts.map((p) => {
 			const n = Number(p)
-			if (!Number.isFinite(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid number in "${param.name}": ${p}` })
-			if (param.integer && !Number.isInteger(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected integer in "${param.name}": ${p}` })
+			if (!Number.isFinite(n)) textParse({ reason: 'INVALID_NUMBER', message: `Invalid number in "${param.name}": ${p}`, param: param.name })
+			if (param.integer && !Number.isInteger(n)) textParse({ reason: 'EXPECTED_INTEGER', message: `Expected integer in "${param.name}": ${p}`, param: param.name })
 			return n
 		})
 	}
@@ -348,19 +556,19 @@ const parseValue = (param: DerivedParam, raw: string): unknown => {
 		const parts = raw.trim().startsWith('[')
 			? (() => {
 					const v = parseJson(raw, param.name)
-					if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
+					if (!Array.isArray(v)) textParse({ reason: 'EXPECTED_ARRAY', message: `Expected array for "${param.name}"`, param: param.name })
 					return v.map((x) => String(x))
 				})()
 			: raw.split(',').map((x) => x.trim()).filter((x) => x.length > 0)
 		return parts.map((p) => {
 			const b = parseBoolean(p)
-			if (b === null) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid boolean in "${param.name}": ${p}` })
+			if (b === null) textParse({ reason: 'INVALID_BOOLEAN', message: `Invalid boolean in "${param.name}": ${p}`, param: param.name })
 			return b
 		})
 	}
 	if (param.type === 'json[]') {
 		const v = parseJson(raw, param.name)
-		if (!Array.isArray(v)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Expected array for "${param.name}"` })
+		if (!Array.isArray(v)) textParse({ reason: 'EXPECTED_ARRAY', message: `Expected array for "${param.name}"`, param: param.name })
 		return v
 	}
 	// json
@@ -371,16 +579,18 @@ const parseObjectArgs = (
 	model: Extract<InputModel, { kind: 'object' }>,
 	inv: TextInvocation,
 	tail: TextTail | undefined,
+	tailTo: string | undefined,
 ): Record<string, unknown> => {
 	const argsTokens = inv.tokens.slice(inv.consumed)
 	const out: Record<string, unknown> = {}
-	const allowTail = !!tail
+	const allowTail = !!tail || (typeof tailTo === 'string' && tailTo.trim().length > 0)
 
 	const setValue = (param: DerivedParam, value: unknown) => {
 		if (param.type.endsWith('[]')) {
-			const arr = (out[param.inputKey] ?? []) as unknown[]
-			const next = Array.isArray(value) ? value : [value]
-			out[param.inputKey] = [...arr, ...next]
+			let arr = out[param.inputKey] as unknown[] | undefined
+			if (!arr) out[param.inputKey] = arr = []
+			if (Array.isArray(value)) arr.push(...value)
+			else arr.push(value)
 			return
 		}
 		out[param.inputKey] = value as any
@@ -424,7 +634,9 @@ const parseObjectArgs = (
 
 		// Explicit end-of-options sentinel: everything after this becomes tail.
 		if (v === '--') {
-			if (!allowTail) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Unexpected "--": this command has no tail' })
+			if (!allowTail) {
+				textParse({ reason: 'UNEXPECTED_SENTINEL', message: 'Unexpected "--": this command has no tail', at: { start: t.start, end: t.end, raw: t.raw } })
+			}
 			tailMode = 'explicit'
 			tailTokens = argsTokens.slice(i + 1)
 			break
@@ -435,9 +647,16 @@ const parseObjectArgs = (
 			const name = v.slice('--no-'.length)
 			const param = paramsByLong[name]
 			if (!param) {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Unknown param: ${name}` })
+				const suggested = suggestLongParam(name, model.params)
+				textParse({
+					reason: 'UNKNOWN_PARAM',
+					message: `Unknown param: ${name}${suggested ? ` (did you mean --${suggested}?)` : ''}`,
+					param: name,
+					...(suggested ? { suggestion: suggested } : {}),
+					at: { start: t.start, end: t.end, raw: t.raw },
+				})
 			}
-			if (!param.negate) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Param "${name}" does not support negation` })
+			if (!param.negate) textParse({ reason: 'NEGATION_NOT_SUPPORTED', message: `Param "${name}" does not support negation`, param: name })
 			setValue(param, false)
 			continue
 		}
@@ -449,7 +668,14 @@ const parseObjectArgs = (
 			const name = eq >= 0 ? body.slice(0, eq) : body
 			const param = paramsByLong[name]
 			if (!param) {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Unknown param: ${name}` })
+				const suggested = suggestLongParam(name, model.params)
+				textParse({
+					reason: 'UNKNOWN_PARAM',
+					message: `Unknown param: ${name}${suggested ? ` (did you mean --${suggested}?)` : ''}`,
+					param: name,
+					...(suggested ? { suggestion: suggested } : {}),
+					at: { start: t.start, end: t.end, raw: t.raw },
+				})
 			}
 
 			if (param.type === 'boolean') {
@@ -473,13 +699,13 @@ const parseObjectArgs = (
 			let rawVal: string | undefined
 			if (eq >= 0) {
 				rawVal = body.slice(eq + 1)
-			} else {
-				const next = argsTokens[i + 1]
-				if (!next) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Missing value for --${name}` })
-				i++
-				rawVal = next.value
-			}
-			setValue(param, parseValue(param, rawVal))
+				} else {
+					const next = argsTokens[i + 1]
+					if (!next) textParse({ reason: 'MISSING_VALUE', message: `Missing value for --${name}`, param: name })
+					i++
+					rawVal = next.value
+				}
+				setValue(param, parseValue(param, rawVal))
 			continue
 		}
 
@@ -501,14 +727,14 @@ const parseObjectArgs = (
 					continue
 				}
 				const next = argsTokens[i + 1]
-				if (!next) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Missing value for -${c}` })
+				if (!next) textParse({ reason: 'MISSING_VALUE', message: `Missing value for -${c}`, param: c })
 				i++
 				setValue(param, parseValue(param, next.value))
 				continue
 			}
 			// Unknown short flag; allow negative numbers (e.g. -1) to fall through.
 			if (/^[a-zA-Z]$/.test(c)) {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Unknown param: -${c}` })
+				textParse({ reason: 'UNKNOWN_PARAM', message: `Unknown param: -${c}`, param: c, at: { start: t.start, end: t.end, raw: t.raw } })
 			}
 		}
 		// -abc short bundling (boolean only)
@@ -522,9 +748,9 @@ const parseObjectArgs = (
 
 			const c0 = chars[0]!
 			const p0 = paramsByShort[c0]
-			if (!p0) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Unknown param: -${c0}` })
+			if (!p0) textParse({ reason: 'UNKNOWN_PARAM', message: `Unknown param: -${c0}`, param: c0, at: { start: t.start, end: t.end, raw: t.raw } })
 			if (p0.type === 'boolean') {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Invalid short flags: ${v}` })
+				textParse({ reason: 'INVALID_SHORT_BUNDLE', message: `Invalid short flags: ${v}`, at: { start: t.start, end: t.end, raw: t.raw } })
 			}
 			setValue(p0, parseValue(p0, v.slice(2)))
 			continue
@@ -534,7 +760,7 @@ const parseObjectArgs = (
 			const c = v[1]!.toLowerCase()
 			const rawVal = v.slice(3)
 			const param = paramsByShort[c]
-			if (!param) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Unknown param: -${c}` })
+			if (!param) textParse({ reason: 'UNKNOWN_PARAM', message: `Unknown param: -${c}`, param: c, at: { start: t.start, end: t.end, raw: t.raw } })
 			setValue(param, parseValue(param, rawVal))
 			continue
 		}
@@ -542,9 +768,9 @@ const parseObjectArgs = (
 		if (/^-[a-zA-Z].+/.test(v) && !v.startsWith('--')) {
 			const c = v[1]!.toLowerCase()
 			const param = paramsByShort[c]
-			if (!param) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Unknown param: -${c}` })
+			if (!param) textParse({ reason: 'UNKNOWN_PARAM', message: `Unknown param: -${c}`, param: c, at: { start: t.start, end: t.end, raw: t.raw } })
 			if (param.type === 'boolean') {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Boolean short flag cannot take an attached value: -${c}` })
+				textParse({ reason: 'BOOLEAN_SHORT_ATTACHED_VALUE', message: `Boolean short flag cannot take an attached value: -${c}`, param: c })
 			}
 			setValue(param, parseValue(param, v.slice(2)))
 			continue
@@ -566,11 +792,23 @@ const parseObjectArgs = (
 				setValue(param, parseValue(param, rawVal))
 				continue
 			}
+			// If tail is disabled, treat `key:value` / `key=value` as a keyed param attempt.
+			// With tail enabled it might be intentional DSL, so we let it fall through to tail mode.
+			if (!allowTail && isSafeName(name)) {
+				const suggested = suggestLongParam(name, model.params)
+				textParse({
+					reason: 'UNKNOWN_PARAM',
+					message: `Unknown param: ${name}${suggested ? ` (did you mean --${suggested}?)` : ''}`,
+					param: name,
+					...(suggested ? { suggestion: suggested } : {}),
+					at: { start: t.start, end: t.end, raw: t.raw },
+				})
+			}
 		}
 
 		// Start ParseBox tail at the first non-option token.
 		if (!allowTail) {
-			throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Unexpected arguments' })
+			textParse({ reason: 'UNEXPECTED_ARGUMENTS', message: 'Unexpected arguments', at: { start: t.start, end: t.end, raw: t.raw } })
 		}
 		tailMode = 'implicit'
 		tailTokens = argsTokens.slice(i)
@@ -578,12 +816,9 @@ const parseObjectArgs = (
 	}
 
 	if (tailMode) {
-		if (!tail) {
-			throw new CmdError('E_INTERNAL', 'Internal error', { message: 'text(): missing tail parser' })
-		}
-
 		if (tailMode === 'implicit' && tailTokens && tailTokens.some((tok) => isKnownKeyedToken(tok.value))) {
-			throw new CmdError('E_TEXT_PARSE', 'Invalid text', {
+			textParse({
+				reason: 'KEYED_PARAMS_IN_IMPLICIT_TAIL',
 				message: 'Keyed params must appear before tail (use `--` to start tail explicitly)',
 			})
 		}
@@ -595,29 +830,44 @@ const parseObjectArgs = (
 					: tailTokens.map((t) => t.raw).join(' ')
 				: ''
 
-		// ParseBox "Until" parsers intentionally fail if the end token is not present.
-		// For CLI-style "tail" parsing we treat end-of-input like a newline terminator.
-		const parseboxInput = tailText.endsWith('\n') ? tailText : `${tailText}\n`
-		const parsed = tail.module.Parse(tail.entry as any, parseboxInput) as unknown as [] | [unknown, string]
-		if (!Array.isArray(parsed) || parsed.length !== 2) {
-			throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Failed to parse tail' })
-		}
-		const [value, rest] = parsed
-		if (typeof rest === 'string' && rest.trim().length > 0) {
-			throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Unexpected trailing input in tail' })
-		}
+		// ParseBox tail: parse and merge an object patch.
+		if (tail) {
+			// ParseBox "Until" parsers intentionally fail if the end token is not present.
+			// For CLI-style "tail" parsing we treat end-of-input like a newline terminator.
+			const parseboxInput = tailText.endsWith('\n') ? tailText : `${tailText}\n`
+			const parsed = tail.module.Parse(tail.entry as any, parseboxInput) as unknown as [] | [unknown, string]
+			if (!Array.isArray(parsed) || parsed.length !== 2) {
+				textParse({ reason: 'TAIL_PARSE_FAILED', message: 'Failed to parse tail' })
+			}
+			const [value, rest] = parsed
+			if (typeof rest === 'string' && rest.trim().length > 0) {
+				textParse({ reason: 'TAIL_TRAILING_INPUT', message: 'Unexpected trailing input in tail' })
+			}
 
-		if (!value || typeof value !== 'object' || Array.isArray(value)) {
-			throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Tail parser must return an object patch' })
-		}
-		for (const [k, v2] of Object.entries(value as Record<string, unknown>)) {
-			if (!model.propertyKeys.has(k)) {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Tail produced unknown key: ${k}` })
+			if (!value || typeof value !== 'object' || Array.isArray(value)) {
+				textParse({ reason: 'TAIL_INVALID_PATCH', message: 'Tail parser must return an object patch' })
 			}
-			if (Object.prototype.hasOwnProperty.call(out, k)) {
-				throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: `Tail cannot override param: ${k}` })
+			for (const [k, v2] of Object.entries(value as Record<string, unknown>)) {
+				if (!model.propertyKeys.has(k)) {
+					textParse({ reason: 'TAIL_UNKNOWN_KEY', message: `Tail produced unknown key: ${k}`, param: k })
+				}
+				if (Object.prototype.hasOwnProperty.call(out, k)) {
+					textParse({ reason: 'TAIL_OVERRIDE', message: `Tail cannot override param: ${k}`, param: k })
+				}
+				out[k] = v2
 			}
-			out[k] = v2
+		} else if (typeof tailTo === 'string' && tailTo.trim().length > 0) {
+			// Raw tail: assign the remaining text into a single input key.
+			const key = tailTo.trim()
+			if (!model.propertyKeys.has(key)) {
+				throw new CmdError('E_INTERNAL', 'Internal error', { message: `text({ tailTo }): unknown input key "${key}"` })
+			}
+			if (Object.prototype.hasOwnProperty.call(out, key)) {
+				textParse({ reason: 'TAIL_OVERRIDE', message: `Tail cannot override param: ${key}`, param: key })
+			}
+			out[key] = tailText.trim()
+		} else {
+			throw new CmdError('E_INTERNAL', 'Internal error', { message: 'text(): missing tail configuration' })
 		}
 	}
 
@@ -657,27 +907,38 @@ export const compileTextPlan = (id: string, inputSchema: Schema, cfg: TextConfig
 	const model = deriveInputModel(inputSchema)
 	const hasRootDefault = (inputSchema as any).default !== undefined
 	const rootDefault = (inputSchema as any).default
+	const tailTo = typeof cfg.tailTo === 'string' ? cfg.tailTo.trim() : ''
+	const tail = cfg.tail
+
+	if (tail && tailTo) {
+		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'text(): tail and tailTo are mutually exclusive' })
+	}
 
 	let paramsMeta: ParamSpec[] | undefined
 	if (model.kind === 'object') {
-		paramsMeta = model.params.map((p) => ({
-			name: p.name,
-			type: p.type,
-			...(p.description ? { description: p.description } : {}),
-			...(p.required ? { required: true } : {}),
-			...(p.default !== undefined ? { default: p.default } : {}),
-			...(p.aliases?.length ? { aliases: p.aliases.slice() } : {}),
+		if (tailTo && !model.propertyKeys.has(tailTo)) {
+			throw new CmdError('E_INTERNAL', 'Internal error', { message: `text({ tailTo }): unknown input key "${tailTo}"` })
+		}
+			paramsMeta = model.params.map((p) => ({
+				name: p.name,
+				inputKey: p.inputKey,
+				type: p.type,
+				...(p.description ? { description: p.description } : {}),
+				...(p.required ? { required: true } : {}),
+				...(p.default !== undefined ? { default: p.default } : {}),
+				...(p.aliases?.length ? { aliases: p.aliases.slice() } : {}),
 			...(p.short ? { short: p.short } : {}),
 			...(p.negate ? { negate: true } : {}),
 		}))
-	} else if (cfg.tail) {
-		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'text({ tail }): only supported for object input schemas' })
+	} else if (tail || tailTo) {
+		throw new CmdError('E_INTERNAL', 'Internal error', { message: 'text({ tail/tailTo }): only supported for object input schemas' })
 	}
 
 	const meta: ExecutableMeta = {
 		triggers,
 		...(paramsMeta && paramsMeta.length ? { params: paramsMeta } : {}),
-		...(cfg.tail ? { tail: true } : {}),
+		...(tail || tailTo ? { tail: true } : {}),
+		...(tailTo ? { tailTo } : {}),
 	}
 
 	return {
@@ -686,36 +947,36 @@ export const compileTextPlan = (id: string, inputSchema: Schema, cfg: TextConfig
 		match: (tokens) => matchAnyName(tokenizedNames, tokens),
 		parseCandidate: (inv) => {
 			const argsTokens = inv.tokens.slice(inv.consumed)
-			if (model.kind === 'emptyObject') {
-				if (argsTokens.length > 0) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'This command takes no arguments' })
-				return {}
-			}
+		if (model.kind === 'emptyObject') {
+			if (argsTokens.length > 0) textParse({ reason: 'NO_ARGUMENTS', message: 'This command takes no arguments' })
+			return {}
+		}
 			if (model.kind === 'string') {
 				if (argsTokens.length === 0 && hasRootDefault) return rootDefault
 				return argsTokens.map((t) => t.value).join(' ')
 			}
-			if (model.kind === 'number') {
-				if (argsTokens.length === 0) {
-					if (hasRootDefault) return rootDefault
-					throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Missing number' })
-				}
-				if (argsTokens.length > 1) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Too many arguments' })
-				const n = Number(argsTokens[0]!.value)
-				if (!Number.isFinite(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Invalid number' })
-				if (model.integer && !Number.isInteger(n)) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Expected integer' })
-				return n
+		if (model.kind === 'number') {
+			if (argsTokens.length === 0) {
+				if (hasRootDefault) return rootDefault
+				textParse({ reason: 'MISSING_ARGUMENT', message: 'Missing number' })
 			}
-			if (model.kind === 'boolean') {
-				if (argsTokens.length === 0) {
-					if (hasRootDefault) return rootDefault
-					throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Missing boolean' })
-				}
-				if (argsTokens.length > 1) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Too many arguments' })
-				const b = parseBoolean(argsTokens[0]!.value)
-				if (b === null) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Invalid boolean' })
-				return b
+			if (argsTokens.length > 1) textParse({ reason: 'TOO_MANY_ARGUMENTS', message: 'Too many arguments' })
+			const n = Number(argsTokens[0]!.value)
+			if (!Number.isFinite(n)) textParse({ reason: 'INVALID_NUMBER', message: 'Invalid number' })
+			if (model.integer && !Number.isInteger(n)) textParse({ reason: 'EXPECTED_INTEGER', message: 'Expected integer' })
+			return n
+		}
+		if (model.kind === 'boolean') {
+			if (argsTokens.length === 0) {
+				if (hasRootDefault) return rootDefault
+				textParse({ reason: 'MISSING_ARGUMENT', message: 'Missing boolean' })
 			}
-			return parseObjectArgs(model, inv, cfg.tail)
+			if (argsTokens.length > 1) textParse({ reason: 'TOO_MANY_ARGUMENTS', message: 'Too many arguments' })
+			const b = parseBoolean(argsTokens[0]!.value)
+			if (b === null) textParse({ reason: 'INVALID_BOOLEAN', message: 'Invalid boolean' })
+			return b
+		}
+			return parseObjectArgs(model, inv, tail, tailTo || undefined)
 		},
 	}
 }

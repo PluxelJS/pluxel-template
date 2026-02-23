@@ -45,7 +45,12 @@ export const defaultTokenizer: TextTokenizer = (input) => {
 		if (quote) {
 			if (ch === '\\') {
 				// Escape: include the escaped char in value, keep raw in span.
-				if (i >= input.length) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Dangling escape' })
+				if (i >= input.length) {
+					throw new CmdError('E_TEXT_PARSE', 'Invalid text', {
+						message: 'Dangling escape',
+						details: { reason: 'DANGLING_ESCAPE', message: 'Dangling escape', at: { start: i - 1, end: i, raw: '\\' } },
+					})
+				}
 				cur += input[i++]
 				tokenEnd = i
 				continue
@@ -75,7 +80,12 @@ export const defaultTokenizer: TextTokenizer = (input) => {
 
 		if (ch === '\\') {
 			if (tokenStart < 0) tokenStart = i - 1
-			if (i >= input.length) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Dangling escape' })
+			if (i >= input.length) {
+				throw new CmdError('E_TEXT_PARSE', 'Invalid text', {
+					message: 'Dangling escape',
+					details: { reason: 'DANGLING_ESCAPE', message: 'Dangling escape', at: { start: i - 1, end: i, raw: '\\' } },
+				})
+			}
 			cur += input[i++]
 			tokenEnd = i
 			continue
@@ -86,7 +96,13 @@ export const defaultTokenizer: TextTokenizer = (input) => {
 		tokenEnd = i
 	}
 
-	if (quote) throw new CmdError('E_TEXT_PARSE', 'Invalid text', { message: 'Unterminated quote' })
+	if (quote) {
+		const start = tokenStart >= 0 ? tokenStart : Math.max(0, input.length - 1)
+		throw new CmdError('E_TEXT_PARSE', 'Invalid text', {
+			message: 'Unterminated quote',
+			details: { reason: 'UNTERMINATED_QUOTE', message: 'Unterminated quote', at: { start, end: input.length, raw: input.slice(start) } },
+		})
+	}
 	flush()
 	return out
 }
